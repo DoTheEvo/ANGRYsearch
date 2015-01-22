@@ -7,7 +7,6 @@ import subprocess
 import sqlite3
 from PySide.QtCore import *
 from PySide.QtGui import *
-import tempfile
 from datetime import datetime
 
 
@@ -158,20 +157,22 @@ class GUI_MainWindow(QMainWindow):
         p1.wait()
         print('UPDATEDB DONE')
 
+        filename = '/tmp/angry_{}.txt'.format(os.getpid())
+        print(filename)
         cmd = ['sudo', '-S', 'locate', '.']
-        with open("aaaaa.txt", 'w') as f:
+        with open(filename, 'w+') as txt:
             p2 = subprocess.Popen(cmd, stderr=subprocess.PIPE,
-                                  stdin=subprocess.PIPE, stdout=f)
+                                  stdin=subprocess.PIPE, stdout=txt)
             p2.stdin.write(bytes(sudo_passwd+'\n', 'ASCII'))
             p2.stdin.flush()
             p2.wait()
-
+            self.database_from_a_file(txt)
+        os.remove(filename)
         print('EXPORT TO A TXT FILE')
 
-        self.database_from_a_file()
         self.initialisation()
 
-    def database_from_a_file(self):
+    def database_from_a_file(self, txt):
 
         # DELETE PREVIOUS DATABASE DATA
         cur = con.cursor()
@@ -187,10 +188,10 @@ class GUI_MainWindow(QMainWindow):
 
         # NEW DATABASE
         cur.execute('CREATE TABLE locate_data(file_path TEXT)')
-        with open("aaaaa.txt") as txt:
-            for x in txt:
-                line = x.strip()
-                cur.execute('INSERT INTO locate_data VALUES (?)', (line,))
+        txt.seek(0)
+        for x in txt:
+            line = x.strip()
+            cur.execute('INSERT INTO locate_data VALUES (?)', (line,))
 
         print('done creating of the database')
         con.execute('CREATE VIRTUAL TABLE vt_locate_data '
