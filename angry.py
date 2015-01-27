@@ -11,6 +11,8 @@ from PySide.QtGui import *
 from datetime import datetime
 
 
+# QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
+# RETURNS FIRST 500 RESULTS MATCHING THE QUERY
 class thread_db_query(QThread):
     db_query_signal = Signal(list)
 
@@ -21,12 +23,15 @@ class thread_db_query(QThread):
 
     def run(self):
         cur = con.cursor()
-        cur.execute('SELECT file_path FROM vt_locate_data WHERE\
-                     file_path MATCH ? LIMIT 500', ('%'+self.db_query+'%',))
+        cur.execute('SELECT file_path_col FROM vt_locate_data_table WHERE '
+                    'file_path_col MATCH ? LIMIT 500',
+                    ('%'+self.db_query+'%',))
         result = cur.fetchall()
         self.db_query_signal.emit([i[0] for i in result])
 
 
+# QTHREAD FOR UPDATING THE DATABASE
+# PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS AS IT GOES
 class thread_database_update(QThread):
     db_update_signal = Signal(str)
 
@@ -36,34 +41,44 @@ class thread_database_update(QThread):
         self.exiting = False
 
     def run(self):
-        # SUDO UPDATEDB
-        self.db_update_signal.emit('label_1')
+        the_temp_file = '/tmp/angry_{}'.format(os.getpid())
+        with open(the_temp_file, 'w+', encoding="latin-1") as self.temp_file:
+
+            self.db_update_signal.emit('label_1')
+            self.sudo_updatedb()
+
+            self.db_update_signal.emit('label_2')
+            self.locate_to_file()
+
+            self.db_update_signal.emit('label_3')
+            self.delete_old_tables()
+
+            self.db_update_signal.emit('label_4')
+            self.new_database()
+
+            self.db_update_signal.emit('label_5')
+            self.indexing_new_database()
+
+        os.remove(the_temp_file)
+        self.db_update_signal.emit('the_end_of_the_update')
+
+    def sudo_updatedb(self):
         cmd = ['sudo', '-S', 'updatedb']
         p1 = subprocess.Popen(cmd, stderr=subprocess.PIPE,
                               stdin=subprocess.PIPE)
         p1.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
         p1.stdin.flush()
         p1.wait()
-        self.db_update_signal.emit('label_1')
 
-        # SUDO LOCATE . > TEMPFILE
-        self.db_update_signal.emit('label_2')
-        the_temp_file = '/tmp/angry_{}'.format(os.getpid())
+    def locate_to_file(self):
         cmd = ['sudo', '-S', 'locate', '.']
-        with open(the_temp_file, 'w+', encoding="latin-1") as temp_file:
-            p2 = subprocess.Popen(cmd, stderr=subprocess.PIPE,
-                                  stdin=subprocess.PIPE, stdout=temp_file)
-            p2.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
-            p2.stdin.flush()
-            p2.wait()
-            self.db_update_signal.emit('label_2')
-            self.new_database(temp_file)
-        os.remove(the_temp_file)
-        self.db_update_signal.emit('the_end_of_the_update')
+        p2 = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+                              stdin=subprocess.PIPE, stdout=self.temp_file)
+        p2.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
+        p2.stdin.flush()
+        p2.wait()
 
-    def new_database(self, temp_file):
-        # DELETE PREVIOUS DATABASE
-        self.db_update_signal.emit('label_3')
+    def delete_old_tables(self):
         cur = con.cursor()
         cur.execute('PRAGMA writable_schema = 1')
         cur.execute('DELETE FROM SQLITE_MASTER WHERE TYPE IN '
@@ -72,26 +87,24 @@ class thread_database_update(QThread):
         cur.execute('VACUUM')
         cur.execute('PRAGMA INTEGRITY_CHECK')
         # print(cur.fetchone()[0])
-        self.db_update_signal.emit('label_3')
 
-        # NEW DATABASE
-        self.db_update_signal.emit('label_4')
-        cur.execute('CREATE TABLE locate_data(file_path TEXT)')
-        temp_file.seek(0)
-        for text_line in temp_file:
+    def new_database(self):
+        cur = con.cursor()
+        cur.execute('CREATE TABLE locate_data_table(file_path_col TEXT)')
+        self.temp_file.seek(0)
+        for text_line in self.temp_file:
             line = text_line.strip()
-            cur.execute('INSERT INTO locate_data VALUES (?)', (line,))
-        self.db_update_signal.emit('label_4')
+            cur.execute('INSERT INTO locate_data_table VALUES (?)', (line,))
 
-        # INDEXING OF THE NEW DATABASE
-        self.db_update_signal.emit('label_5')
-        con.execute('CREATE VIRTUAL TABLE vt_locate_data '
-                    'USING fts4(file_path TEXT)')
-        con.execute('INSERT INTO vt_locate_data SELECT * FROM locate_data')
+    def indexing_new_database(self):
+        con.execute('CREATE VIRTUAL TABLE vt_locate_data_table '
+                    'USING fts4(file_path_col TEXT)')
+        con.execute('INSERT INTO vt_locate_data_table '
+                    'SELECT * FROM locate_data_table')
         con.commit()
-        self.db_update_signal.emit('label_5')
 
 
+# THE PRIMARY GUI
 class center_widget(QWidget):
     def __init__(self):
         super(center_widget, self).__init__()
@@ -112,6 +125,7 @@ class center_widget(QWidget):
         self.setLayout(grid)
 
 
+# THE MAIN APPLICATION WINDOW WITH STATUS BAR AND LOGIC
 class GUI_MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
@@ -136,32 +150,39 @@ class GUI_MainWindow(QMainWindow):
         self.center.main_list.doubleClicked.connect(self.double_click)
         self.center.main_list.clicked.connect(self.list_item_selected)
 
-        self.center.search_input.textChanged[str].connect(self.on_text_change)
-        self.center.upd_button.clicked.connect(self.button_updatedb)
+        self.center.search_input.textChanged[str].connect(self.on_input_change)
+        self.center.upd_button.clicked.connect(self.clicked_button_updatedb)
 
         self.show()
         self.initialisation()
 
-    # CALLED AFTER DATABASE QUERY IS COMPLETED
-    # CHECKS IF THE QUERY WAS THE LAST ONE BEFORE SHOWING DATA
-    def update_GUI(self, db_query_result):
-        print(str(datetime.now() - self.tstart)[6:])
-        if self.threads[-1].isRunning():
+    def on_input_change(self, input):
+        if input == '':
+            self.initialisation()
             return
-        self.update_list(db_query_result)
+        self.tstart = datetime.now()
+        search_terms = input.split(' ')
+        t = '*'
+        for x in search_terms:
+            t += x + '*'
+        self.new_thread_new_query(t)
 
-    def set_up_new_thread(self, input):
+    def new_thread_new_query(self, input):
         if len(self.threads) > 30:
             del self.threads[0:9]
         self.threads.append(thread_db_query(input))
         self.threads[-1].start()
-        self.threads[-1].db_query_signal.connect(self.update_GUI,
+        self.threads[-1].db_query_signal.connect(self.database_query_done,
                                                  Qt.QueuedConnection)
 
-    def update_list(self, data):
-        # FOR SOME REASON THIS FUNCTION IS CALLED AGAIN WITH NO DATA
-        if data is None:
+    # CHECKS IF THE QUERY IS THE LAST ONE BEFORE SHOWING DATA
+    def database_query_done(self, db_query_result):
+        print(str(datetime.now() - self.tstart)[6:])
+        if self.threads[-1].isRunning():
             return
+        self.update_file_list_results(db_query_result)
+
+    def update_file_list_results(self, data):
         model = QStringListModel(data)
         self.center.main_list.setModel(model)
         total = str(locale.format("%d", len(data), grouping=True))
@@ -171,33 +192,23 @@ class GUI_MainWindow(QMainWindow):
     def initialisation(self):
         cur = con.cursor()
         cur.execute('SELECT name FROM sqlite_master WHERE '
-                    'type="table" AND name="locate_data"')
-        z = cur.fetchone()
-        if z is None:
+                    'type="table" AND name="locate_data_table"')
+        if cur.fetchone() is None:
+            self.status_bar.showMessage('Update the database')
             return
-        cur.execute('SELECT file_path FROM locate_data LIMIT 500')
-        file_list = cur.fetchall()
-        cur.execute('SELECT Count() FROM locate_data')
-        rows_qu = cur.fetchone()[0]
 
-        l = self.list_from_tuples(file_list)
-        self.update_list(l)
-        total = str(locale.format("%d", rows_qu, grouping=True))
+        cur.execute('SELECT file_path_col FROM locate_data_table LIMIT 500')
+        file_list = cur.fetchall()
+        cur.execute('SELECT Count() FROM locate_data_table')
+        total_rows_numb = cur.fetchone()[0]
+
+        l = [i[0] for i in file_list]
+        self.update_file_list_results(l)
+        total = str(locale.format("%d", total_rows_numb, grouping=True))
         self.status_bar.showMessage(str(total))
         self.center.search_input.setFocus()
 
-    def on_text_change(self, input):
-        if input == '':
-            self.initialisation()
-            return
-        self.tstart = datetime.now()
-        search_terms = input.split(' ')
-        t = '*'
-        for x in search_terms:
-            t += x + '*'
-        self.set_up_new_thread(t)
-
-    # FOR KDE DOLPHIN CURRENTLY, CAUSE ITS BUGGY ON MY MACHINE WITH XDG-OPEN
+    # FOR KDE DOLPHIN CURRENTLY, CAUSE XDG-OPEN IS BUGGY ON MY MACHINE
     def double_click(self, QModelIndex):
         p = QModelIndex.data()
         if os.path.exists(p):
@@ -217,19 +228,17 @@ class GUI_MainWindow(QMainWindow):
         defautl_app = defautl_app.decode("utf-8").strip()
         self.status_bar.showMessage(str(mime))
 
-    def list_from_tuples(self, list):
-        return([i[0] for i in list])
-
-    def button_updatedb(self):
+    def clicked_button_updatedb(self):
         self.sud = sudo_dialog(self)
         self.sud.exec_()
         self.initialisation()
 
 
+# UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
 class sudo_dialog(QDialog):
     def __init__(self, parent):
         self.values = dict()
-        self.labels_checked = []
+        self.last_signal = ''
         super(sudo_dialog, self).__init__(parent)
         self.initUI()
 
@@ -242,7 +251,7 @@ class sudo_dialog(QDialog):
     def initUI(self):
         self.label_0 = QLabel('sudo password:')
         self.passwd_input = QLineEdit()
-        # self.passwd_input.echoMode()
+        self.passwd_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.label_1 = QLabel('• sudo updatedb')
         self.label_2 = QLabel('• sudo locate . > /tmp/tempfile')
         self.label_3 = QLabel('• empty old database')
@@ -258,8 +267,8 @@ class sudo_dialog(QDialog):
         self.label_4.setIndent(19)
         self.label_5.setIndent(19)
 
-        # TO MAKE BRACKET NOTATION WORK LATER ON
-        # ALSO REASON FOR CUSTOM __getitem__ & __setitem__
+        # TO MAKE SQUARE BRACKETS NOTATION WORK LATER ON
+        # ALSO THE REASON FOR CUSTOM __getitem__ & __setitem__
         self['label_1'] = self.label_1
         self['label_2'] = self.label_2
         self['label_3'] = self.label_3
@@ -294,24 +303,24 @@ class sudo_dialog(QDialog):
         sudo_passwd = self.passwd_input.text()
         self.thread_updating = thread_database_update(sudo_passwd)
         self.thread_updating.start()
-        self.thread_updating.db_update_signal.connect(self.receive_signal,
-                                                      Qt.QueuedConnection)
+        self.thread_updating.db_update_signal.connect(
+            self.sudo_dialog_receive_signal, Qt.QueuedConnection)
 
-    def receive_signal(self, message):
+    def sudo_dialog_receive_signal(self, message):
         if message == 'the_end_of_the_update':
             self.accept()
             return
 
         label = self[message]
-        text = label.text()
-        altered = ''
-        if message in self.labels_checked:
-            altered = '✔' + text[1:]
-        else:
-            altered = '➔' + text[1:]
+        label_alt = '➔' + label.text()[1:]
+        label.setText(label_alt)
 
-        label.setText(altered)
-        self.labels_checked.append(message)
+        if self.last_signal:
+            prev_label = self[self.last_signal]
+            prev_label_alt = '✔' + label.text()[1:]
+            prev_label.setText(prev_label_alt)
+
+        self.last_signal = message
 
 
 if __name__ == "__main__":
