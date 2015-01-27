@@ -42,7 +42,7 @@ class thread_database_update(QThread):
 
     def run(self):
         the_temp_file = '/tmp/angry_{}'.format(os.getpid())
-        with open(the_temp_file, 'w+', encoding="latin-1") as self.temp_file:
+        with open(the_temp_file, 'w+', encoding="utf-8") as self.temp_file:
 
             self.db_update_signal.emit('label_1')
             self.sudo_updatedb()
@@ -71,7 +71,7 @@ class thread_database_update(QThread):
         p1.wait()
 
     def locate_to_file(self):
-        cmd = ['sudo', '-S', 'locate', '.']
+        cmd = ['sudo', '-S', 'locate', '*']
         p2 = subprocess.Popen(cmd, stderr=subprocess.PIPE,
                               stdin=subprocess.PIPE, stdout=self.temp_file)
         p2.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
@@ -249,11 +249,12 @@ class sudo_dialog(QDialog):
         return None if k not in self.values else self.values[k]
 
     def initUI(self):
+        self.setWindowTitle('Database Update')
         self.label_0 = QLabel('sudo password:')
         self.passwd_input = QLineEdit()
         self.passwd_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.label_1 = QLabel('• sudo updatedb')
-        self.label_2 = QLabel('• sudo locate . > /tmp/tempfile')
+        self.label_2 = QLabel('• sudo locate * > /tmp/tempfile')
         self.label_3 = QLabel('• empty old database')
         self.label_4 = QLabel('• new database from the tempfile')
         self.label_5 = QLabel('• indexing the databse')
