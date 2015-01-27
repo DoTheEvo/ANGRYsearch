@@ -318,7 +318,7 @@ class sudo_dialog(QDialog):
 
         if self.last_signal:
             prev_label = self[self.last_signal]
-            prev_label_alt = '✔' + label.text()[1:]
+            prev_label_alt = '✔' + prev_label.text()[1:]
             prev_label.setText(prev_label_alt)
 
         self.last_signal = message
