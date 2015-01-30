@@ -9,6 +9,7 @@ import subprocess
 from PySide.QtCore import *
 from PySide.QtGui import *
 from datetime import datetime
+import base64
 
 
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
@@ -36,6 +37,8 @@ class thread_database_update(QThread):
     db_update_signal = Signal(str)
 
     def __init__(self, sudo_passwd, parent=None):
+        self.db_path = '/var/lib/angrysearch/angry_database.db'
+        self.temp_db_path = '/tmp/angry_database.db'
         super(thread_database_update, self).__init__(parent)
         self.sudo_passwd = sudo_passwd
         self.exiting = False
@@ -51,44 +54,36 @@ class thread_database_update(QThread):
             self.locate_to_file()
 
             self.db_update_signal.emit('label_3')
-            self.delete_old_tables()
-
-            self.db_update_signal.emit('label_4')
             self.new_database()
 
-            self.db_update_signal.emit('label_5')
+            self.db_update_signal.emit('label_4')
             self.indexing_new_database()
+
+            self.db_update_signal.emit('label_5')
+            self.replace_old_db_with_new()
 
         os.remove(the_temp_file)
         self.db_update_signal.emit('the_end_of_the_update')
 
     def sudo_updatedb(self):
         cmd = ['sudo', '-S', 'updatedb']
-        p1 = subprocess.Popen(cmd, stderr=subprocess.PIPE,
-                              stdin=subprocess.PIPE)
-        p1.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
-        p1.stdin.flush()
-        p1.wait()
+        p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+                             stdin=subprocess.PIPE)
+        p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
+        p.stdin.flush()
+        p.wait()
 
     def locate_to_file(self):
         cmd = ['sudo', '-S', 'locate', '*']
-        p2 = subprocess.Popen(cmd, stderr=subprocess.PIPE,
-                              stdin=subprocess.PIPE, stdout=self.temp_file)
-        p2.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
-        p2.stdin.flush()
-        p2.wait()
-
-    def delete_old_tables(self):
-        cur = con.cursor()
-        cur.execute('PRAGMA writable_schema = 1')
-        cur.execute('DELETE FROM SQLITE_MASTER WHERE TYPE IN '
-                    '("table", "index", "trigger")')
-        cur.execute('PRAGMA writable_schema = 0')
-        cur.execute('VACUUM')
-        cur.execute('PRAGMA INTEGRITY_CHECK')
-        # print(cur.fetchone()[0])
+        p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+                             stdin=subprocess.PIPE, stdout=self.temp_file)
+        p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
+        p.stdin.flush()
+        p.wait()
 
     def new_database(self):
+        global con
+        con = sqlite3.connect(self.temp_db_path, check_same_thread=False)
         cur = con.cursor()
         cur.execute('CREATE TABLE locate_data_table(file_path_col TEXT)')
         self.temp_file.seek(0)
@@ -103,8 +98,29 @@ class thread_database_update(QThread):
                     'SELECT * FROM locate_data_table')
         con.commit()
 
+    def replace_old_db_with_new(self):
+        global con
 
-# THE PRIMARY GUI
+        if not os.path.exists(self.temp_db_path):
+            return
+        if not os.path.exists('/var/lib/angrysearch/'):
+            cmd = ['sudo', 'mkdir', '/var/lib/angrysearch/']
+            p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+                                 stdin=subprocess.PIPE)
+            p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
+            p.stdin.flush()
+            p.wait()
+
+        cmd = ['sudo', 'mv', '-f', self.temp_db_path, self.db_path]
+        p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+                             stdin=subprocess.PIPE)
+        p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
+        p.stdin.flush()
+        p.wait()
+        con = sqlite3.connect(self.db_path, check_same_thread=False)
+
+
+# THE PRIMARY GUI WIDGET WITHIN THE MAINWINDOW
 class center_widget(QWidget):
     def __init__(self):
         super(center_widget, self).__init__()
@@ -132,9 +148,15 @@ class GUI_MainWindow(QMainWindow):
         super(GUI_MainWindow, self).__init__(parent)
         self.init_GUI()
 
+    def closeEvent(self, event):
+            event.ignore()
+            self.hide()
+
     def init_GUI(self):
         self.locale_current = locale.getdefaultlocale()
+        self.icon = self.get_icon()
         self.setGeometry(650, 150, 600, 500)
+        self.setWindowIcon(self.icon)
 
         self.threads = []
         self.file_list = []
@@ -142,7 +164,7 @@ class GUI_MainWindow(QMainWindow):
         self.center = center_widget()
         self.setCentralWidget(self.center)
 
-        self.setWindowTitle('AngrySEARCH')
+        self.setWindowTitle('ANGRYsearch')
         self.status_bar = QStatusBar(self)
         self.setStatusBar(self.status_bar)
 
@@ -155,6 +177,39 @@ class GUI_MainWindow(QMainWindow):
 
         self.show()
         self.initialisation()
+        self.make_sys_tray()
+
+    def make_sys_tray(self):
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            menu = QMenu()
+            exitAction = menu.addAction("exit")
+            exitAction.triggered.connect(sys.exit)
+
+            self.tray_icon = QSystemTrayIcon()
+            self.tray_icon.setIcon(self.icon)
+            self.tray_icon.setContextMenu(menu)
+            self.tray_icon.show()
+            self.tray_icon.setToolTip("ANGRYsearch")
+            self.tray_icon.activated.connect(self.sys_tray_clicking)
+
+    def sys_tray_clicking(self, reason):
+        if (reason == QSystemTrayIcon.DoubleClick or
+                reason == QSystemTrayIcon.Trigger):
+            self.show()
+        elif (reason == QSystemTrayIcon.MiddleClick):
+            QCoreApplication.instance().quit()
+
+    def get_icon(self):
+        base64_data = 'iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHNCS\
+                        VQICAgIfAhkiAAAAFNJREFUOI1jZGBg+M9AA8BEC0NHDR41eCAN\
+                        Xs/AwPAPSqMDfHLYACMDUs77hySA7hV8cgRdvBGqcSMWhfjkCLq\
+                        YmmCIpwqaGTya3EaTGwMDAwMDAPQ4IBc6mP6IAAAAAElFTkSuQmCC'
+
+        pm = QPixmap()
+        pm.loadFromData(base64.b64decode(base64_data))
+        i = QIcon()
+        i.addPixmap(pm)
+        return(i)
 
     def on_input_change(self, input):
         if input == '':
@@ -255,9 +310,10 @@ class sudo_dialog(QDialog):
         self.passwd_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.label_1 = QLabel('• sudo updatedb')
         self.label_2 = QLabel('• sudo locate * > /tmp/tempfile')
-        self.label_3 = QLabel('• empty old database')
-        self.label_4 = QLabel('• new database from the tempfile')
-        self.label_5 = QLabel('• indexing the databse')
+        self.label_3 = QLabel('• new database from the tempfile')
+        self.label_4 = QLabel('• indexing the new databse')
+        self.label_5 = QLabel('• replacing  the old database\n  '
+                              'with the new one')
         self.OK_button = QPushButton('OK')
         self.OK_button.setEnabled(False)
         self.cancel_button = QPushButton('Cancel')
@@ -324,8 +380,19 @@ class sudo_dialog(QDialog):
         self.last_signal = message
 
 
+def open_database():
+    path = '/var/lib/angrysearch/angry_database.db'
+    temp = '/tmp/angry_database.db'
+    if os.path.exists(path):
+        return sqlite3.connect(path, check_same_thread=False)
+    else:
+        if os.path.exists(temp):
+            os.remove(temp)
+        return sqlite3.connect(temp, check_same_thread=False)
+
+
 if __name__ == "__main__":
-    con = sqlite3.connect('angry_database.db', check_same_thread=False)
+    con = open_database()
     with con:
         app = QApplication(sys.argv)
         ui = GUI_MainWindow()
