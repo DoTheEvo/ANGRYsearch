@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=ANGRYsearch
+Comment=Instant file search
+Categories=GNOME;Utility;
+Exec=python /usr/share/angrysearch/angrysearch.py
+Icon=angrysearch
+Terminal=false
+Type=Application

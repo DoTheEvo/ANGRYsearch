@@ -9,7 +9,7 @@ Done in python, using PySide for GUI
 
 How it works:
 
-* source for the data are [locate](http://linux.die.net/man/1/locate) command and [updatedb](http://linux.die.net/man/1/updatedb) commands
+* source for the data are [locate](http://linux.die.net/man/1/locate) and [updatedb](http://linux.die.net/man/1/updatedb) commands
 * program exports all locate data in to a temp file 'locate * > /tmp/tempfile'
 * from the tempfile a database is build and indexed
 * then its available for querys, returning 500 results per search
