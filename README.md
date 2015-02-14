@@ -1,11 +1,12 @@
 # ANGRYsearch
 Linux file search, instant results as you type
 
-Attempt at making Linux version of Everything Search Engine, or MasterSeeker, or Hddb File Search, because no one else bothered and seem to be content with alternatives not quite comparable to these searches.
+Attempt at making Linux version of Everything Search Engine, or MasterSeeker, or Hddb File Search, because no one else bothered.
+Everyone seems to be damn content with linux file searches which are slow, populating results as they go, cli based only, heavily integrated with a file manager, limited to home directory, or are trying to be everything with full-text content search.
 
 ![alt tag](http://i.imgur.com/TyH60mq.gif)
 
-Done in python, using PySide for GUI
+Done in python, using PyQt5 for GUI
 
 How it works:
 

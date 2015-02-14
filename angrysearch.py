@@ -6,8 +6,9 @@ import sys
 import locale
 import sqlite3
 import subprocess
-from PySide.QtCore import *
-from PySide.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
 from datetime import datetime
 import base64
 
@@ -15,7 +16,7 @@ import base64
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500 RESULTS MATCHING THE QUERY
 class thread_db_query(QThread):
-    db_query_signal = Signal(list)
+    db_query_signal = pyqtSignal(list)
 
     def __init__(self, db_query, parent=None):
         super(thread_db_query, self).__init__(parent)
@@ -34,7 +35,7 @@ class thread_db_query(QThread):
 # QTHREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS AS IT GOES
 class thread_database_update(QThread):
-    db_update_signal = Signal(str)
+    db_update_signal = pyqtSignal(str)
 
     def __init__(self, sudo_passwd, parent=None):
         self.db_path = '/var/lib/angrysearch/angry_database.db'
@@ -42,6 +43,7 @@ class thread_database_update(QThread):
         super(thread_database_update, self).__init__(parent)
         self.sudo_passwd = sudo_passwd
         self.exiting = False
+        self.file_manager = False
 
     def run(self):
         the_temp_file = '/tmp/angry_{}'.format(os.getpid())
@@ -171,7 +173,7 @@ class GUI_MainWindow(QMainWindow):
 
         self.center.main_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.center.main_list.doubleClicked.connect(self.double_click)
-        self.center.main_list.clicked.connect(self.list_item_selected)
+        self.center.main_list.clicked.connect(self.single_click)
 
         self.center.search_input.textChanged[str].connect(self.on_input_change)
         self.center.upd_button.clicked.connect(self.clicked_button_updatedb)
@@ -179,6 +181,7 @@ class GUI_MainWindow(QMainWindow):
         self.show()
         self.initialisation()
         self.make_sys_tray()
+        self.detect_file_manager()
 
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -269,25 +272,41 @@ class GUI_MainWindow(QMainWindow):
         self.status_bar.showMessage(str(total))
         self.center.search_input.setFocus()
 
-    # FOR KDE DOLPHIN CURRENTLY, CAUSE XDG-OPEN IS BUGGY ON MY MACHINE
-    def double_click(self, QModelIndex):
-        p = QModelIndex.data()
-        if os.path.exists(p):
-            if os.path.isdir(p):
-                subprocess.Popen(['dolphin', p])
-            else:
-                subprocess.Popen(['dolphin', '--select', p])
-        # p = os.path.abspath(os.path.join(p, os.pardir))
+    def single_click(self, QModelIndex):
+        path = QModelIndex.data()
+        if not os.path.exists(path):
+            self.status_bar.showMessage('not found - update database')
+            return
 
-    def list_item_selected(self, QModelIndex):
-        self.status_bar.showMessage('')
-        p = QModelIndex.data()
-        mime = subprocess.check_output(['xdg-mime', 'query', 'filetype', p])
+        mime = subprocess.check_output(['xdg-mime', 'query', 'filetype', path])
         mime = mime.decode("latin-1").strip()
-        defautl_app = subprocess.check_output(['xdg-mime', 'query',
-                                              'default', mime])
-        defautl_app = defautl_app.decode("utf-8").strip()
         self.status_bar.showMessage(str(mime))
+
+    def double_click(self, QModelIndex):
+        print(self.file_manager)
+        path = QModelIndex.data()
+        if not os.path.exists(path):
+            self.status_bar.showMessage('not found - update database')
+            return
+
+        if os.path.isdir(path):
+            subprocess.Popen(['xdg-open', path])
+        else:
+            if self.file_manager == 'Dolphin.desktop':
+                cmd = ['dolphin', '--select', path]
+            elif self.file_manager == 'Nautilus.desktop':
+                cmd = ['nautilus', path]
+            elif self.file_manager == 'Nemo.desktop':
+                cmd = ['Nemo', path]
+            else:
+                parent_dir = os.path.abspath(os.path.join(path, os.pardir))
+                cmd = ['xdg-open', parent_dir]
+            subprocess.Popen(cmd)
+
+    def detect_file_manager(self):
+        fm = subprocess.check_output(['xdg-mime', 'query',
+                                      'default', 'inode/directory'])
+        self.file_manager = fm.decode("utf-8").strip()
 
     def clicked_button_updatedb(self):
         self.sud = sudo_dialog(self)
@@ -313,7 +332,7 @@ class sudo_dialog(QDialog):
         self.setWindowTitle('Database Update')
         self.label_0 = QLabel('sudo password:')
         self.passwd_input = QLineEdit()
-        self.passwd_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.passwd_input.setEchoMode(QLineEdit.Password)
         self.label_1 = QLabel('• sudo updatedb')
         self.label_2 = QLabel('• sudo locate * > /tmp/tempfile')
         self.label_3 = QLabel('• new database from the tempfile')
