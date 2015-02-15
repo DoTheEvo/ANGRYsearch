@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import sys
 import locale
 import sqlite3
@@ -9,7 +10,6 @@ import subprocess
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-from datetime import datetime
 import base64
 
 
@@ -224,7 +224,6 @@ class GUI_MainWindow(QMainWindow):
         if input == '':
             self.initialisation()
             return
-        self.tstart = datetime.now()
         search_terms = input.split(' ')
         t = '*'
         for x in search_terms:
@@ -241,7 +240,6 @@ class GUI_MainWindow(QMainWindow):
 
     # CHECKS IF THE QUERY IS THE LAST ONE BEFORE SHOWING DATA
     def database_query_done(self, db_query_result):
-        print(str(datetime.now() - self.tstart)[6:])
         if self.threads[-1].isRunning():
             return
         self.update_file_list_results(db_query_result)
@@ -289,15 +287,19 @@ class GUI_MainWindow(QMainWindow):
             self.status_bar.showMessage('not found - update database')
             return
 
+        dolphin = re.compile("^.*dolphin.*$", re.IGNORECASE)
+        nemo = re.compile("^.*nemo.*$", re.IGNORECASE)
+        nautilus = re.compile("^.*nautilus.*$", re.IGNORECASE)
+
         if os.path.isdir(path):
             subprocess.Popen(['xdg-open', path])
         else:
-            if self.file_manager == 'Dolphin.desktop':
+            if dolphin.match(self.file_manager):
                 cmd = ['dolphin', '--select', path]
-            elif self.file_manager == 'Nautilus.desktop':
+            elif nemo.match(self.file_manager):
+                cmd = ['nemo', path]
+            elif nautilus.match(self.file_manager):
                 cmd = ['nautilus', path]
-            elif self.file_manager == 'Nemo.desktop':
-                cmd = ['Nemo', path]
             else:
                 parent_dir = os.path.abspath(os.path.join(path, os.pardir))
                 cmd = ['xdg-open', parent_dir]
