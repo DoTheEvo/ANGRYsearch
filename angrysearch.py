@@ -186,7 +186,9 @@ class GUI_MainWindow(QMainWindow):
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
             menu = QMenu()
-            exitAction = menu.addAction("exit")
+            info = menu.addAction("v1.0.0")
+            sep = menu.addSeparator()
+            exitAction = menu.addAction("Quit")
             exitAction.triggered.connect(sys.exit)
 
             self.tray_icon = QSystemTrayIcon()
@@ -279,9 +281,9 @@ class GUI_MainWindow(QMainWindow):
         mime = subprocess.check_output(['xdg-mime', 'query', 'filetype', path])
         mime = mime.decode("latin-1").strip()
         self.status_bar.showMessage(str(mime))
+        print(self.file_manager)
 
     def double_click(self, QModelIndex):
-        print(self.file_manager)
         path = QModelIndex.data()
         if not os.path.exists(path):
             self.status_bar.showMessage('not found - update database')
