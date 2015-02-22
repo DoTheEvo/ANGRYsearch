@@ -16,7 +16,7 @@ import base64
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500 RESULTS MATCHING THE QUERY
 class thread_db_query(QThread):
-    db_query_signal = pyqtSignal(list)
+    db_query_signal = pyqtSignal(dict)
 
     def __init__(self, db_query, parent=None):
         super(thread_db_query, self).__init__(parent)
@@ -29,7 +29,9 @@ class thread_db_query(QThread):
                     'file_path_col MATCH ? LIMIT 500',
                     ('%'+self.db_query+'%',))
         result = cur.fetchall()
-        self.db_query_signal.emit([i[0] for i in result])
+        result = [i[0] for i in result]
+        signal_message = {'input': self.db_query, 'results': result}
+        self.db_query_signal.emit(signal_message)
 
 
 # QTHREAD FOR UPDATING THE DATABASE
@@ -150,10 +152,9 @@ class GUI_MainWindow(QMainWindow):
         super(GUI_MainWindow, self).__init__(parent)
         self.init_GUI()
 
-    def closeEvent(self, event):
-        pass
-        #event.ignore()
-        #self.hide()
+    #def closeEvent(self, event):
+    #    event.ignore()
+    #    self.hide()
 
     def init_GUI(self):
         self.locale_current = locale.getdefaultlocale()
@@ -186,8 +187,8 @@ class GUI_MainWindow(QMainWindow):
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
             menu = QMenu()
-            info = menu.addAction("v1.0.0")
-            sep = menu.addSeparator()
+            menu.addAction("v1.0.0")
+            menu.addSeparator()
             exitAction = menu.addAction("Quit")
             exitAction.triggered.connect(sys.exit)
 
@@ -235,16 +236,16 @@ class GUI_MainWindow(QMainWindow):
     def new_thread_new_query(self, input):
         if len(self.threads) > 30:
             del self.threads[0:9]
-        self.threads.append(thread_db_query(input))
-        self.threads[-1].start()
-        self.threads[-1].db_query_signal.connect(self.database_query_done,
-                                                 Qt.QueuedConnection)
+        self.threads.append({'input': input, 'thread': thread_db_query(input)})
+        self.threads[-1]['thread'].start()
+        self.threads[-1]['thread'].db_query_signal.connect(
+            self.database_query_done, Qt.QueuedConnection)
 
     # CHECKS IF THE QUERY IS THE LAST ONE BEFORE SHOWING DATA
     def database_query_done(self, db_query_result):
-        if self.threads[-1].isRunning():
+        if (db_query_result['input'] != self.threads[-1]['input']):
             return
-        self.update_file_list_results(db_query_result)
+        self.update_file_list_results(db_query_result['results'])
 
     def update_file_list_results(self, data):
         model = QStringListModel(data)
@@ -281,9 +282,10 @@ class GUI_MainWindow(QMainWindow):
         mime = subprocess.check_output(['xdg-mime', 'query', 'filetype', path])
         mime = mime.decode("latin-1").strip()
         self.status_bar.showMessage(str(mime))
-        print(self.file_manager)
 
     def double_click(self, QModelIndex):
+        if self.file_manager is False:
+            return
         path = QModelIndex.data()
         if not os.path.exists(path):
             self.status_bar.showMessage('not found - update database')
@@ -308,9 +310,14 @@ class GUI_MainWindow(QMainWindow):
             subprocess.Popen(cmd)
 
     def detect_file_manager(self):
-        fm = subprocess.check_output(['xdg-mime', 'query',
-                                      'default', 'inode/directory'])
-        self.file_manager = fm.decode("utf-8").strip()
+        try:
+            fm = subprocess.check_output(['xdg-mime', 'query',
+                                          'default', 'inode/directory'])
+            self.file_manager = fm.decode("utf-8").strip()
+            print(self.file_manager)
+        except Exception as err:
+            self.file_manager = False
+            print(err)
 
     def clicked_button_updatedb(self):
         self.sud = sudo_dialog(self)
