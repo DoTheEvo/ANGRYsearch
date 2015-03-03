@@ -150,16 +150,33 @@ class GUI_MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super(GUI_MainWindow, self).__init__(parent)
+        self.settings = QSettings("angrysearch", "angrysearch")
+        self.read_settings()
         self.init_GUI()
 
-    #def closeEvent(self, event):
-    #    event.ignore()
-    #    self.hide()
+    def closeEvent(self, event):
+        self.settings.setValue('geometry', self.saveGeometry())
+        self.settings.setValue("window_state", self.saveState())
+        event.accept()
+        #event.ignore()
+        #self.hide()
+
+    def read_settings(self):
+        if self.settings.value('geometry'):
+            self.restoreGeometry(self.settings.value("geometry"))
+        else:
+            self.resize(640, 480)
+            qr = self.frameGeometry()
+            cp = QDesktopWidget().availableGeometry().center()
+            qr.moveCenter(cp)
+            self.move(qr.topLeft())
+
+        if self.settings.value('window_state'):
+            self.restoreState(self.settings.value("window_state"))
 
     def init_GUI(self):
         self.locale_current = locale.getdefaultlocale()
         self.icon = self.get_icon()
-        self.setGeometry(650, 150, 600, 500)
         self.setWindowIcon(self.icon)
 
         self.threads = []
