@@ -14,6 +14,7 @@ import base64
 
 
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
+# CALLED ON EVERY KEYPRESS
 # RETURNS FIRST 500 RESULTS MATCHING THE QUERY
 class thread_db_query(QThread):
     db_query_signal = pyqtSignal(dict)
@@ -124,7 +125,7 @@ class thread_database_update(QThread):
         con = sqlite3.connect(self.db_path, check_same_thread=False)
 
 
-# THE PRIMARY GUI WIDGET WITHIN THE MAINWINDOW
+# THE PRIMARY GUI, WIDGET WITHIN THE MAINWINDOW
 class center_widget(QWidget):
     def __init__(self):
         super(center_widget, self).__init__()
@@ -134,7 +135,6 @@ class center_widget(QWidget):
         self.search_input = QLineEdit()
         self.main_list = QListView()
         self.upd_button = QPushButton('updatedb')
-        self.upd_button.setToolTip('run sudo updated & update local database')
 
         grid = QGridLayout()
         grid.setSpacing(10)
@@ -158,8 +158,6 @@ class GUI_MainWindow(QMainWindow):
         self.settings.setValue('geometry', self.saveGeometry())
         self.settings.setValue("window_state", self.saveState())
         event.accept()
-        #event.ignore()
-        #self.hide()
 
     def read_settings(self):
         if self.settings.value('geometry'):
@@ -197,14 +195,14 @@ class GUI_MainWindow(QMainWindow):
         self.center.upd_button.clicked.connect(self.clicked_button_updatedb)
 
         self.show()
-        self.initialisation()
+        self.show_first_500()
         self.make_sys_tray()
         self.detect_file_manager()
 
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
             menu = QMenu()
-            menu.addAction("v1.0.0")
+            menu.addAction("v0.9.0")
             menu.addSeparator()
             exitAction = menu.addAction("Quit")
             exitAction.triggered.connect(sys.exit)
@@ -242,15 +240,15 @@ class GUI_MainWindow(QMainWindow):
 
     def on_input_change(self, input):
         if input == '':
-            self.initialisation()
+            self.show_first_500()
             return
         search_terms = input.split(' ')
         t = '*'
         for x in search_terms:
             t += x + '*'
-        self.new_thread_new_query(t)
+        self.new_query_new_thread(t)
 
-    def new_thread_new_query(self, input):
+    def new_query_new_thread(self, input):
         if len(self.threads) > 30:
             del self.threads[0:9]
         self.threads.append({'input': input, 'thread': thread_db_query(input)})
@@ -258,7 +256,7 @@ class GUI_MainWindow(QMainWindow):
         self.threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qt.QueuedConnection)
 
-    # CHECKS IF THE QUERY IS THE LAST ONE BEFORE SHOWING DATA
+    # CHECK IF THE QUERY IS THE LAST ONE BEFORE SHOWING DATA
     def database_query_done(self, db_query_result):
         if (db_query_result['input'] != self.threads[-1]['input']):
             return
@@ -271,12 +269,14 @@ class GUI_MainWindow(QMainWindow):
         self.status_bar.showMessage(total)
 
     # RUNS ON START OR ON EMPTY INPUT
-    def initialisation(self):
+    def show_first_500(self):
         cur = con.cursor()
         cur.execute('SELECT name FROM sqlite_master WHERE '
                     'type="table" AND name="locate_data_table"')
         if cur.fetchone() is None:
-            self.status_bar.showMessage('Update the database')
+            self.status_bar.showMessage('0')
+            self.tutorial()
+            self.center.upd_button.setFocus()
             return
 
         cur.execute('SELECT file_path_col FROM locate_data_table LIMIT 500')
@@ -293,7 +293,7 @@ class GUI_MainWindow(QMainWindow):
     def single_click(self, QModelIndex):
         path = QModelIndex.data()
         if not os.path.exists(path):
-            self.status_bar.showMessage('not found - update database')
+            self.status_bar.showMessage('not found or access denied')
             return
 
         mime = subprocess.check_output(['xdg-mime', 'query', 'filetype', path])
@@ -305,7 +305,7 @@ class GUI_MainWindow(QMainWindow):
             return
         path = QModelIndex.data()
         if not os.path.exists(path):
-            self.status_bar.showMessage('not found - update database')
+            self.status_bar.showMessage('not found or access denied')
             return
 
         dolphin = re.compile("^.*dolphin.*$", re.IGNORECASE)
@@ -336,10 +336,27 @@ class GUI_MainWindow(QMainWindow):
             self.file_manager = False
             print(err)
 
+    def tutorial(self):
+        chat = ['', '  ANGRYsearch', '',
+                '   • uses "locate" command to create own database',
+                '   • locate uses "updatedb" command for its own database',
+                '   • configuration can be find in /etc/updatedb.conf',
+                '   • there you can exclude/include paths for searching',
+                '   • for btrfs users, you really want to exclude snapshots',
+                '   • add ".snapshots" to PRUNENAMES if you use snapper',
+                '   • learn more about locate on its manpage',
+                '   • learn more about updatedb on its manpage',
+                '   • ANGRYsearch database is in /var/lib/angrysearch/',
+                '',
+                '  time to press the updatedb button in the top right corner'
+                ]
+        model = QStringListModel(chat)
+        self.center.main_list.setModel(model)
+
     def clicked_button_updatedb(self):
         self.sud = sudo_dialog(self)
         self.sud.exec_()
-        self.initialisation()
+        self.show_first_500()
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
