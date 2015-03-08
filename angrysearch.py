@@ -46,11 +46,10 @@ class thread_database_update(QThread):
         super(thread_database_update, self).__init__(parent)
         self.sudo_passwd = sudo_passwd
         self.exiting = False
-        self.file_manager = False
 
     def run(self):
         the_temp_file = '/tmp/angry_{}'.format(os.getpid())
-        with open(the_temp_file, 'w+', encoding="utf-8") as self.temp_file:
+        with open(the_temp_file, 'w+', encoding='utf-8') as self.temp_file:
 
             self.db_update_signal.emit('label_1')
             self.sudo_updatedb()
@@ -150,18 +149,21 @@ class GUI_MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super(GUI_MainWindow, self).__init__(parent)
-        self.settings = QSettings("angrysearch", "angrysearch")
+        self.file_manager = ''
+        self.settings = QSettings('angrysearch', 'angrysearch')
         self.read_settings()
         self.init_GUI()
 
     def closeEvent(self, event):
-        self.settings.setValue('geometry', self.saveGeometry())
-        self.settings.setValue("window_state", self.saveState())
+        self.settings.setValue('last_run/geometry', self.saveGeometry())
+        self.settings.setValue('last_run/window_state', self.saveState())
+        if not self.settings.value('file_manager'):
+            self.settings.setValue('file_manager', '')
         event.accept()
 
     def read_settings(self):
-        if self.settings.value('geometry'):
-            self.restoreGeometry(self.settings.value("geometry"))
+        if self.settings.value('last_run/geometry'):
+            self.restoreGeometry(self.settings.value('last_run/geometry'))
         else:
             self.resize(640, 480)
             qr = self.frameGeometry()
@@ -169,8 +171,12 @@ class GUI_MainWindow(QMainWindow):
             qr.moveCenter(cp)
             self.move(qr.topLeft())
 
-        if self.settings.value('window_state'):
-            self.restoreState(self.settings.value("window_state"))
+        if self.settings.value('last_run/window_state'):
+            self.restoreState(self.settings.value('last_run/window_state'))
+
+        if self.settings.value('file_manager'):
+            if self.settings.value('file_manager') is not '':
+                self.file_manager = self.settings.value('file_manager')
 
     def init_GUI(self):
         self.locale_current = locale.getdefaultlocale()
@@ -202,16 +208,16 @@ class GUI_MainWindow(QMainWindow):
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
             menu = QMenu()
-            menu.addAction("v0.9.0")
+            menu.addAction('v0.9.0')
             menu.addSeparator()
-            exitAction = menu.addAction("Quit")
+            exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)
 
             self.tray_icon = QSystemTrayIcon()
             self.tray_icon.setIcon(self.icon)
             self.tray_icon.setContextMenu(menu)
             self.tray_icon.show()
-            self.tray_icon.setToolTip("ANGRYsearch")
+            self.tray_icon.setToolTip('ANGRYsearch')
             self.tray_icon.activated.connect(self.sys_tray_clicking)
 
     def sys_tray_clicking(self, reason):
@@ -265,7 +271,7 @@ class GUI_MainWindow(QMainWindow):
     def update_file_list_results(self, data):
         model = QStringListModel(data)
         self.center.main_list.setModel(model)
-        total = str(locale.format("%d", len(data), grouping=True))
+        total = str(locale.format('%d', len(data), grouping=True))
         self.status_bar.showMessage(total)
 
     # RUNS ON START OR ON EMPTY INPUT
@@ -286,7 +292,7 @@ class GUI_MainWindow(QMainWindow):
 
         l = [i[0] for i in file_list]
         self.update_file_list_results(l)
-        total = str(locale.format("%d", total_rows_numb, grouping=True))
+        total = str(locale.format('%d', total_rows_numb, grouping=True))
         self.status_bar.showMessage(str(total))
         self.center.search_input.setFocus()
 
@@ -297,7 +303,7 @@ class GUI_MainWindow(QMainWindow):
             return
 
         mime = subprocess.check_output(['xdg-mime', 'query', 'filetype', path])
-        mime = mime.decode("latin-1").strip()
+        mime = mime.decode('latin-1').strip()
         self.status_bar.showMessage(str(mime))
 
     def double_click(self, QModelIndex):
@@ -308,9 +314,9 @@ class GUI_MainWindow(QMainWindow):
             self.status_bar.showMessage('not found or access denied')
             return
 
-        dolphin = re.compile("^.*dolphin.*$", re.IGNORECASE)
-        nemo = re.compile("^.*nemo.*$", re.IGNORECASE)
-        nautilus = re.compile("^.*nautilus.*$", re.IGNORECASE)
+        dolphin = re.compile('^.*dolphin.*$', re.IGNORECASE)
+        nemo = re.compile('^.*nemo.*$', re.IGNORECASE)
+        nautilus = re.compile('^.*nautilus.*$', re.IGNORECASE)
 
         if os.path.isdir(path):
             subprocess.Popen(['xdg-open', path])
@@ -327,11 +333,14 @@ class GUI_MainWindow(QMainWindow):
             subprocess.Popen(cmd)
 
     def detect_file_manager(self):
+        if self.file_manager is not '':
+            return
+
         try:
             fm = subprocess.check_output(['xdg-mime', 'query',
                                           'default', 'inode/directory'])
-            self.file_manager = fm.decode("utf-8").strip()
-            print(self.file_manager)
+            self.file_manager = fm.decode('utf-8').strip()
+            print('Detected file manager:  ' + self.file_manager)
         except Exception as err:
             self.file_manager = False
             print(err)
@@ -461,7 +470,7 @@ def open_database():
         return sqlite3.connect(temp, check_same_thread=False)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     con = open_database()
     with con:
         app = QApplication(sys.argv)
