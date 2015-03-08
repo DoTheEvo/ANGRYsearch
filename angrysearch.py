@@ -149,17 +149,12 @@ class GUI_MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super(GUI_MainWindow, self).__init__(parent)
-        self.file_manager = ''
         self.settings = QSettings('angrysearch', 'angrysearch')
+        self.set = {'file_manager': '',
+                    'file_manager_from_config': False,
+                    'file_manager_receives_file_path': False}
         self.read_settings()
         self.init_GUI()
-
-    def closeEvent(self, event):
-        self.settings.setValue('last_run/geometry', self.saveGeometry())
-        self.settings.setValue('last_run/window_state', self.saveState())
-        if not self.settings.value('file_manager'):
-            self.settings.setValue('file_manager', '')
-        event.accept()
 
     def read_settings(self):
         if self.settings.value('last_run/geometry'):
@@ -175,8 +170,23 @@ class GUI_MainWindow(QMainWindow):
             self.restoreState(self.settings.value('last_run/window_state'))
 
         if self.settings.value('file_manager'):
-            if self.settings.value('file_manager') is not '':
-                self.file_manager = self.settings.value('file_manager')
+            if self.settings.value('file_manager') != '':
+                self.set['file_manager'] = self.settings.value('file_manager')
+                self.set['file_manager_from_config'] = True
+
+                if self.settings.value('file_manager_receives_file_path'):
+                    self.set['file_manager_receives_file_path'] = \
+                        self.string_to_boolean(self.settings.value(
+                            'file_manager_receives_file_path'))
+
+    def closeEvent(self, event):
+        self.settings.setValue('last_run/geometry', self.saveGeometry())
+        self.settings.setValue('last_run/window_state', self.saveState())
+        if not self.settings.value('file_manager'):
+            self.settings.setValue('file_manager', '')
+        if not self.settings.value('file_manager_receives_file_path'):
+            self.settings.setValue('file_manager_receives_file_path', 'false')
+        event.accept()
 
     def init_GUI(self):
         self.locale_current = locale.getdefaultlocale()
@@ -194,8 +204,8 @@ class GUI_MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
 
         self.center.main_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.center.main_list.doubleClicked.connect(self.double_click)
         self.center.main_list.clicked.connect(self.single_click)
+        self.center.main_list.activated.connect(self.double_click_enter)
 
         self.center.search_input.textChanged[str].connect(self.on_input_change)
         self.center.upd_button.clicked.connect(self.clicked_button_updatedb)
@@ -306,9 +316,10 @@ class GUI_MainWindow(QMainWindow):
         mime = mime.decode('latin-1').strip()
         self.status_bar.showMessage(str(mime))
 
-    def double_click(self, QModelIndex):
-        if self.file_manager is False:
+    def double_click_enter(self, QModelIndex):
+        if not self.set['file_manager']:
             return
+
         path = QModelIndex.data()
         if not os.path.exists(path):
             self.status_bar.showMessage('not found or access denied')
@@ -317,32 +328,42 @@ class GUI_MainWindow(QMainWindow):
         dolphin = re.compile('^.*dolphin.*$', re.IGNORECASE)
         nemo = re.compile('^.*nemo.*$', re.IGNORECASE)
         nautilus = re.compile('^.*nautilus.*$', re.IGNORECASE)
+        doublecmd = re.compile('^.*doublecmd.*$', re.IGNORECASE)
+
+        if self.set['file_manager_from_config']:
+            fm = self.set['file_manager']
+        else:
+            fm = 'xdg-open'
 
         if os.path.isdir(path):
-            subprocess.Popen(['xdg-open', path])
+            subprocess.Popen([fm, path])
         else:
-            if dolphin.match(self.file_manager):
+            if dolphin.match(self.set['file_manager']):
                 cmd = ['dolphin', '--select', path]
-            elif nemo.match(self.file_manager):
+            elif nemo.match(self.set['file_manager']):
                 cmd = ['nemo', path]
-            elif nautilus.match(self.file_manager):
+            elif nautilus.match(self.set['file_manager']):
                 cmd = ['nautilus', path]
+            elif doublecmd.match(self.set['file_manager']):
+                cmd = ['doublecmd', path]
             else:
-                parent_dir = os.path.abspath(os.path.join(path, os.pardir))
-                cmd = ['xdg-open', parent_dir]
+                if self.set['file_manager_receives_file_path']:
+                    cmd = [fm, path]
+                else:
+                    parent_dir = os.path.abspath(os.path.join(path, os.pardir))
+                    cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
 
     def detect_file_manager(self):
-        if self.file_manager is not '':
+        if self.set['file_manager_from_config']:
             return
-
         try:
             fm = subprocess.check_output(['xdg-mime', 'query',
                                           'default', 'inode/directory'])
-            self.file_manager = fm.decode('utf-8').strip()
-            print('Detected file manager:  ' + self.file_manager)
+            self.set['file_manager'] = fm.decode('utf-8').strip()
+            print('autodetected file manager: ' + self.set['file_manager'])
         except Exception as err:
-            self.file_manager = False
+            self.set['file_manager'] = False
             print(err)
 
     def tutorial(self):
@@ -356,6 +377,9 @@ class GUI_MainWindow(QMainWindow):
                 '   • learn more about locate on its manpage',
                 '   • learn more about updatedb on its manpage',
                 '   • ANGRYsearch database is in /var/lib/angrysearch/',
+                '   • config file is in ~/.config/angrysearch/',
+                '   • currently you can set file manager manually there',
+                '   • otherwise xdg-open is used which might have few hickups',
                 '',
                 '  time to press the updatedb button in the top right corner'
                 ]
@@ -366,6 +390,12 @@ class GUI_MainWindow(QMainWindow):
         self.sud = sudo_dialog(self)
         self.sud.exec_()
         self.show_first_500()
+
+    def string_to_boolean(self, str):
+        if str in ['true', 'True', 'yes', 'y', '1']:
+            return True
+        else:
+            return False
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
