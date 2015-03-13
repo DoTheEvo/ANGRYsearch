@@ -292,7 +292,6 @@ class GUI_MainWindow(QMainWindow):
         if cur.fetchone() is None:
             self.status_bar.showMessage('0')
             self.tutorial()
-            self.center.upd_button.setFocus()
             return
 
         cur.execute('SELECT file_path_col FROM locate_data_table LIMIT 500')
@@ -369,13 +368,13 @@ class GUI_MainWindow(QMainWindow):
     def tutorial(self):
         chat = ['', '  ANGRYsearch', '',
                 '   • uses "locate" command to create own database',
-                '   • locate uses "updatedb" command for its own database',
+                '   • locate uses "updatedb" to update its own database',
                 '   • configuration can be find in /etc/updatedb.conf',
-                '   • there you can exclude/include paths for searching',
+                '   • there you can exclude paths from being searched',
                 '   • for btrfs users, you really want to exclude snapshots',
-                '   • add ".snapshots" to PRUNENAMES if you use snapper',
+                '   • add ".snapshots" to PRUNENAMES if you use snapper', '',
                 '   • learn more about locate on its manpage',
-                '   • learn more about updatedb on its manpage',
+                '   • learn more about updatedb on its manpage', '',
                 '   • ANGRYsearch database is in /var/lib/angrysearch/',
                 '   • config file is in ~/.config/angrysearch/',
                 '   • currently you can set file manager manually there',
