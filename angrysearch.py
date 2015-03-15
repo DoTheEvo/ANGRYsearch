@@ -19,16 +19,17 @@ import base64
 class thread_db_query(QThread):
     db_query_signal = pyqtSignal(dict)
 
-    def __init__(self, db_query, parent=None):
+    def __init__(self, db_query, numb_results, parent=None):
         super(thread_db_query, self).__init__(parent)
         self.db_query = db_query
+        self.numb_results = numb_results
         self.exiting = False
 
     def run(self):
         cur = con.cursor()
         cur.execute('SELECT file_path_col FROM vt_locate_data_table WHERE '
-                    'file_path_col MATCH ? LIMIT 500',
-                    ('%'+self.db_query+'%',))
+                    'file_path_col MATCH ? LIMIT ?',
+                    (self.db_query, self.numb_results))
         result = cur.fetchall()
         result = [i[0] for i in result]
         signal_message = {'input': self.db_query, 'results': result}
@@ -150,15 +151,15 @@ class GUI_MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(GUI_MainWindow, self).__init__(parent)
         self.settings = QSettings('angrysearch', 'angrysearch')
-        self.set = {'file_manager': '',
-                    'file_manager_from_config': False,
-                    'file_manager_receives_file_path': False}
+        self.set = {'file_manager': 'xdg-open',
+                    'file_manager_receives_file_path': False,
+                    'number_of_results': '500'}
         self.read_settings()
         self.init_GUI()
 
     def read_settings(self):
-        if self.settings.value('last_run/geometry'):
-            self.restoreGeometry(self.settings.value('last_run/geometry'))
+        if self.settings.value('Last_Run/geometry'):
+            self.restoreGeometry(self.settings.value('Last_Run/geometry'))
         else:
             self.resize(640, 480)
             qr = self.frameGeometry()
@@ -166,26 +167,31 @@ class GUI_MainWindow(QMainWindow):
             qr.moveCenter(cp)
             self.move(qr.topLeft())
 
-        if self.settings.value('last_run/window_state'):
-            self.restoreState(self.settings.value('last_run/window_state'))
+        if self.settings.value('Last_Run/window_state'):
+            self.restoreState(self.settings.value('Last_Run/window_state'))
 
         if self.settings.value('file_manager'):
-            if self.settings.value('file_manager') != '':
+            if self.settings.value('file_manager') not in ['', 'xdg-open']:
                 self.set['file_manager'] = self.settings.value('file_manager')
-                self.set['file_manager_from_config'] = True
 
                 if self.settings.value('file_manager_receives_file_path'):
                     self.set['file_manager_receives_file_path'] = \
                         self.string_to_boolean(self.settings.value(
                             'file_manager_receives_file_path'))
+        if self.settings.value('number_of_results'):
+            if ((self.settings.value('number_of_results')).isdigit()):
+                self.set['number_of_results'] = \
+                    self.settings.value('number_of_results')
 
     def closeEvent(self, event):
-        self.settings.setValue('last_run/geometry', self.saveGeometry())
-        self.settings.setValue('last_run/window_state', self.saveState())
+        self.settings.setValue('Last_Run/geometry', self.saveGeometry())
+        self.settings.setValue('Last_Run/window_state', self.saveState())
         if not self.settings.value('file_manager'):
-            self.settings.setValue('file_manager', '')
+            self.settings.setValue('file_manager', 'xdg-open')
         if not self.settings.value('file_manager_receives_file_path'):
             self.settings.setValue('file_manager_receives_file_path', 'false')
+        if not self.settings.value('number_of_results'):
+            self.settings.setValue('number_of_results', '500')
         event.accept()
 
     def init_GUI(self):
@@ -213,7 +219,6 @@ class GUI_MainWindow(QMainWindow):
         self.show()
         self.show_first_500()
         self.make_sys_tray()
-        self.detect_file_manager()
 
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -265,9 +270,11 @@ class GUI_MainWindow(QMainWindow):
         self.new_query_new_thread(t)
 
     def new_query_new_thread(self, input):
+        n = self.set['number_of_results']
         if len(self.threads) > 30:
             del self.threads[0:9]
-        self.threads.append({'input': input, 'thread': thread_db_query(input)})
+        self.threads.append({'input': input,
+                            'thread': thread_db_query(input, n)})
         self.threads[-1]['thread'].start()
         self.threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qt.QueuedConnection)
@@ -308,42 +315,43 @@ class GUI_MainWindow(QMainWindow):
     def single_click(self, QModelIndex):
         path = QModelIndex.data()
         if not os.path.exists(path):
-            self.status_bar.showMessage('not found or access denied')
+            self.status_bar.showMessage('NOT FOUND')
             return
 
-        mime = subprocess.check_output(['xdg-mime', 'query', 'filetype', path])
-        mime = mime.decode('latin-1').strip()
-        self.status_bar.showMessage(str(mime))
+        mime = subprocess.Popen(['xdg-mime', 'query', 'filetype', path],
+                                stdout=subprocess.PIPE)
+        mime.wait()
+        if mime.returncode == 0:
+            mime_type = mime.communicate()[0].decode('latin-1').strip()
+            self.status_bar.showMessage(str(mime_type))
+        elif mime.returncode == 5:
+            self.status_bar.showMessage(str('NO PERMISSION'))
+        else:
+            self.status_bar.showMessage(str('NOPE'))
 
     def double_click_enter(self, QModelIndex):
-        if not self.set['file_manager']:
-            return
-
         path = QModelIndex.data()
         if not os.path.exists(path):
-            self.status_bar.showMessage('not found or access denied')
+            self.status_bar.showMessage('NOT FOUND')
             return
+
+        fm = self.set['file_manager']
 
         dolphin = re.compile('^.*dolphin.*$', re.IGNORECASE)
         nemo = re.compile('^.*nemo.*$', re.IGNORECASE)
         nautilus = re.compile('^.*nautilus.*$', re.IGNORECASE)
         doublecmd = re.compile('^.*doublecmd.*$', re.IGNORECASE)
 
-        if self.set['file_manager_from_config']:
-            fm = self.set['file_manager']
-        else:
-            fm = 'xdg-open'
-
         if os.path.isdir(path):
             subprocess.Popen([fm, path])
         else:
-            if dolphin.match(self.set['file_manager']):
+            if dolphin.match(fm):
                 cmd = ['dolphin', '--select', path]
-            elif nemo.match(self.set['file_manager']):
+            elif nemo.match(fm):
                 cmd = ['nemo', path]
-            elif nautilus.match(self.set['file_manager']):
+            elif nautilus.match(fm):
                 cmd = ['nautilus', path]
-            elif doublecmd.match(self.set['file_manager']):
+            elif doublecmd.match(fm):
                 cmd = ['doublecmd', path]
             else:
                 if self.set['file_manager_receives_file_path']:
@@ -353,25 +361,13 @@ class GUI_MainWindow(QMainWindow):
                     cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
 
-    def detect_file_manager(self):
-        if self.set['file_manager_from_config']:
-            return
-        try:
-            fm = subprocess.check_output(['xdg-mime', 'query',
-                                          'default', 'inode/directory'])
-            self.set['file_manager'] = fm.decode('utf-8').strip()
-            print('autodetected file manager: ' + self.set['file_manager'])
-        except Exception as err:
-            self.set['file_manager'] = False
-            print(err)
-
     def tutorial(self):
-        chat = ['', '  ANGRYsearch', '',
+        chat = ['  ANGRYsearch',
                 '   • uses "locate" command to create own database',
                 '   • locate uses "updatedb" to update its own database',
                 '   • configuration can be find in /etc/updatedb.conf',
                 '   • there you can exclude paths from being searched',
-                '   • for btrfs users, you really want to exclude snapshots',
+                '   • for Btrfs users, you really want to exclude snapshots',
                 '   • add ".snapshots" to PRUNENAMES if you use snapper', '',
                 '   • learn more about locate on its manpage',
                 '   • learn more about updatedb on its manpage', '',
