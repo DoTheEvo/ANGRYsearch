@@ -11,13 +11,13 @@ Done in python, using PyQt5 for GUI
 How it works:
 
 * source for the data are [locate](http://linux.die.net/man/1/locate) and [updatedb](http://linux.die.net/man/1/updatedb) commands
-* configuration for updatedb is in /etc/updatedb.conf' where paths can be excluded from indexing
-* if you use btrfs file system, you really want to exclude your snapshots there
+* configuration for updatedb is in `/etc/updatedb.conf` where paths can be excluded from indexing
+* if you use **Btrfs** file system, you really want to **exclude** your **snapshots**
 * if you for example use snapper to manage your snapshots you add [.snapshots to PRUNENAMES](http://i.imgur.com/I8Vq4go.png)
-* ANGRYsearch exports all locate data in to a temp file 'locate * > /tmp/tempfile'
+* ANGRYsearch exports all locate data in to a temp file `locate * > /tmp/tempfile`
 * from the tempfile a database is build and indexed
 * then its available for querys, returning 500 results per search
-* config file can be find in ~/.config/angrysearch
+* config file can be find in `~/.config/angrysearch`
 * [file manager](http://i.imgur.com/Vpi2csT.png) with which to open results can be set there
 * on double-click or enter the file_manager gets executed with path as parameter
 * if its a directory it gets path directly to that directory
