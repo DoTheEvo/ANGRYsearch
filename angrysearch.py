@@ -51,9 +51,10 @@ class thread_database_update(QThread):
 
     def run(self):
         the_temp_file = '/tmp/angry_{}'.format(os.getpid())
+
         with open(the_temp_file, 'w+', encoding='utf-8') as self.temp_file:
             self.db_update_signal.emit('label_1')
-            time.sleep(0.2)  # to maybe fix rare skip of the first ➔
+            time.sleep(1)  # to maybe fix occasional skip of the first ➔
             self.sudo_updatedb()
 
             self.db_update_signal.emit('label_2')
