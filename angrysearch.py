@@ -175,6 +175,11 @@ class GUI_MainWindow(QMainWindow):
                     self.set['file_manager_receives_file_path'] = \
                         self.string_to_boolean(self.settings.value(
                             'file_manager_receives_file_path'))
+            else:
+                self.detect_file_manager()
+        else:
+            self.detect_file_manager()
+
         if self.settings.value('number_of_results'):
             if ((self.settings.value('number_of_results')).isdigit()):
                 self.set['number_of_results'] = \
@@ -308,6 +313,16 @@ class GUI_MainWindow(QMainWindow):
         total = str(locale.format('%d', total_rows_numb, grouping=True))
         self.status_bar.showMessage(str(total))
         self.center.search_input.setFocus()
+
+    def detect_file_manager(self):
+        try:
+            fm = subprocess.check_output(['xdg-mime', 'query',
+                                          'default', 'inode/directory'])
+            self.set['file_manager'] = fm.decode('utf-8').strip()
+            print('autodetected file manager: ' + self.set['file_manager'])
+        except Exception as err:
+            self.set['file_manager'] = 'xdg-open'
+            print(err)
 
     def single_click(self, QModelIndex):
         path = QModelIndex.data()
