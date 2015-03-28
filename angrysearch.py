@@ -11,11 +11,12 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import base64
+import time
 
 
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
 # CALLED ON EVERY KEYPRESS
-# RETURNS FIRST 500 RESULTS MATCHING THE QUERY
+# RETURNS FIRST 500(numb_results) RESULTS MATCHING THE QUERY
 class thread_db_query(QThread):
     db_query_signal = pyqtSignal(dict)
 
@@ -37,7 +38,7 @@ class thread_db_query(QThread):
 
 
 # QTHREAD FOR UPDATING THE DATABASE
-# PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS AS IT GOES
+# PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW STEPS PROGRESS
 class thread_database_update(QThread):
     db_update_signal = pyqtSignal(str)
 
@@ -51,8 +52,8 @@ class thread_database_update(QThread):
     def run(self):
         the_temp_file = '/tmp/angry_{}'.format(os.getpid())
         with open(the_temp_file, 'w+', encoding='utf-8') as self.temp_file:
-
             self.db_update_signal.emit('label_1')
+            time.sleep(0.2)  # to maybe fix rare skip of the first ➔
             self.sudo_updatedb()
 
             self.db_update_signal.emit('label_2')
@@ -125,7 +126,7 @@ class thread_database_update(QThread):
         con = sqlite3.connect(self.db_path, check_same_thread=False)
 
 
-# THE PRIMARY GUI, WIDGET WITHIN THE MAINWINDOW
+# THE PRIMARY GUI, THE WIDGET WITHIN THE MAINWINDOW
 class center_widget(QWidget):
     def __init__(self):
         super(center_widget, self).__init__()
@@ -147,7 +148,6 @@ class center_widget(QWidget):
 
 # THE MAIN APPLICATION WINDOW WITH STATUS BAR AND LOGIC
 class GUI_MainWindow(QMainWindow):
-
     def __init__(self, parent=None):
         super(GUI_MainWindow, self).__init__(parent)
         self.settings = QSettings('angrysearch', 'angrysearch')
