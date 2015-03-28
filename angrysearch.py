@@ -11,7 +11,6 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import base64
-import time
 
 
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
@@ -24,7 +23,6 @@ class thread_db_query(QThread):
         super(thread_db_query, self).__init__(parent)
         self.db_query = db_query
         self.numb_results = numb_results
-        self.exiting = False
 
     def run(self):
         cur = con.cursor()
@@ -47,14 +45,12 @@ class thread_database_update(QThread):
         self.temp_db_path = '/tmp/angry_database.db'
         super(thread_database_update, self).__init__(parent)
         self.sudo_passwd = sudo_passwd
-        self.exiting = False
 
     def run(self):
         the_temp_file = '/tmp/angry_{}'.format(os.getpid())
 
         with open(the_temp_file, 'w+', encoding='utf-8') as self.temp_file:
             self.db_update_signal.emit('label_1')
-            time.sleep(1)  # to maybe fix occasional skip of the first ➔
             self.sudo_updatedb()
 
             self.db_update_signal.emit('label_2')
@@ -276,9 +272,9 @@ class GUI_MainWindow(QMainWindow):
             del self.threads[0:9]
         self.threads.append({'input': input,
                             'thread': thread_db_query(input, n)})
-        self.threads[-1]['thread'].start()
         self.threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qt.QueuedConnection)
+        self.threads[-1]['thread'].start()
 
     # CHECK IF THE QUERY IS THE LAST ONE BEFORE SHOWING DATA
     def database_query_done(self, db_query_result):
@@ -464,9 +460,9 @@ class sudo_dialog(QDialog):
     def clicked_OK_update_db(self):
         sudo_passwd = self.passwd_input.text()
         self.thread_updating = thread_database_update(sudo_passwd)
-        self.thread_updating.start()
         self.thread_updating.db_update_signal.connect(
             self.sudo_dialog_receive_signal, Qt.QueuedConnection)
+        self.thread_updating.start()
 
     def sudo_dialog_receive_signal(self, message):
         if message == 'the_end_of_the_update':
