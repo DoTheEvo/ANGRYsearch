@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import re
 import sys
 import locale
 import sqlite3
@@ -318,8 +317,14 @@ class GUI_MainWindow(QMainWindow):
         try:
             fm = subprocess.check_output(['xdg-mime', 'query',
                                           'default', 'inode/directory'])
-            self.set['file_manager'] = fm.decode('utf-8').strip()
-            print('autodetected file manager: ' + self.set['file_manager'])
+            detected_fm = fm.decode('utf-8').strip().lower()
+
+            known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd']
+            if any(item in detected_fm for item in known_fm):
+                self.set['file_manager'] = detected_fm
+                print('autodetected file manager: ' + detected_fm)
+            else:
+                self.set['file_manager'] = 'xdg-open'
         except Exception as err:
             self.set['file_manager'] = 'xdg-open'
             print(err)
@@ -349,21 +354,21 @@ class GUI_MainWindow(QMainWindow):
 
         fm = self.set['file_manager']
 
-        dolphin = re.compile('^.*dolphin.*$', re.IGNORECASE)
-        nemo = re.compile('^.*nemo.*$', re.IGNORECASE)
-        nautilus = re.compile('^.*nautilus.*$', re.IGNORECASE)
-        doublecmd = re.compile('^.*doublecmd.*$', re.IGNORECASE)
-
         if os.path.isdir(path):
+            known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd']
+            for x in known_fm:
+                if x in fm:
+                    subprocess.Popen([x, path])
+                    return
             subprocess.Popen([fm, path])
         else:
-            if dolphin.match(fm):
+            if 'dolphin' in fm:
                 cmd = ['dolphin', '--select', path]
-            elif nemo.match(fm):
+            elif 'nemo' in fm:
                 cmd = ['nemo', path]
-            elif nautilus.match(fm):
+            elif 'nautilus' in fm:
                 cmd = ['nautilus', path]
-            elif doublecmd.match(fm):
+            elif 'doublecmd' in fm:
                 cmd = ['doublecmd', path]
             else:
                 if self.set['file_manager_receives_file_path']:
