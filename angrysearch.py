@@ -141,6 +141,9 @@ class center_widget(QWidget):
         grid.addWidget(self.main_list, 2, 1, 4, 4)
         self.setLayout(grid)
 
+        self.setTabOrder(self.search_input, self.main_list)
+        self.setTabOrder(self.main_list, self.upd_button)
+
 
 # THE MAIN APPLICATION WINDOW WITH STATUS BAR AND LOGIC
 class GUI_MainWindow(QMainWindow):
@@ -311,7 +314,6 @@ class GUI_MainWindow(QMainWindow):
         self.update_file_list_results(l)
         total = str(locale.format('%d', total_rows_numb, grouping=True))
         self.status_bar.showMessage(str(total))
-        self.center.search_input.setFocus()
 
     def detect_file_manager(self):
         try:
