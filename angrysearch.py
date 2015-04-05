@@ -10,6 +10,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import base64
+import re
 
 
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
@@ -20,18 +21,30 @@ class thread_db_query(QThread):
 
     def __init__(self, db_query, numb_results, parent=None):
         super(thread_db_query, self).__init__(parent)
-        self.db_query = db_query
         self.numb_results = numb_results
+        self.db_query = db_query
+        strip_and_split = db_query.strip('*').split('*')
+        rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
+        self.regex_queries = re.compile(rx, re.IGNORECASE)
 
     def run(self):
         cur = con.cursor()
         cur.execute('SELECT file_path_col FROM vt_locate_data_table WHERE '
                     'file_path_col MATCH ? LIMIT ?',
                     (self.db_query, self.numb_results))
-        result = cur.fetchall()
-        result = [i[0] for i in result]
-        signal_message = {'input': self.db_query, 'results': result}
+        tuppled_500 = cur.fetchall()
+        results_500 = [i[0] for i in tuppled_500]
+
+        bold_results_500 = []
+        for line in results_500:
+            bold = self.bold_text(line)
+            bold_results_500.append(bold)
+
+        signal_message = {'input': self.db_query, 'results': bold_results_500}
         self.db_query_signal.emit(signal_message)
+
+    def bold_text(self, line):
+        return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
 
 # QTHREAD FOR UPDATING THE DATABASE
@@ -261,7 +274,7 @@ class GUI_MainWindow(QMainWindow):
         pm.loadFromData(base64.b64decode(base64_data))
         i = QIcon()
         i.addPixmap(pm)
-        return(i)
+        return i
 
     def on_input_change(self, input):
         if input == '':
@@ -283,7 +296,7 @@ class GUI_MainWindow(QMainWindow):
             self.database_query_done, Qt.QueuedConnection)
         self.threads[-1]['thread'].start()
 
-    # CHECK IF THE QUERY IS THE LAST ONE BEFORE SHOWING DATA
+    # CHECK IF THE QUERY IS THE LAST ONE BEFORE SHOWING THE DATA
     def database_query_done(self, db_query_result):
         if (db_query_result['input'] != self.threads[-1]['input']):
             return
@@ -291,6 +304,7 @@ class GUI_MainWindow(QMainWindow):
 
     def update_file_list_results(self, data):
         model = QStringListModel(data)
+        self.center.main_list.setItemDelegate(HTMLDelegate())
         self.center.main_list.setModel(model)
         total = str(locale.format('%d', len(data), grouping=True))
         self.status_bar.showMessage(total)
@@ -332,7 +346,8 @@ class GUI_MainWindow(QMainWindow):
             print(err)
 
     def single_click(self, QModelIndex):
-        path = QModelIndex.data()
+        path = QModelIndex.data().replace('<b>', '').replace('</b>', '')
+
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
             return
@@ -349,7 +364,8 @@ class GUI_MainWindow(QMainWindow):
             self.status_bar.showMessage(str('NOPE'))
 
     def double_click_enter(self, QModelIndex):
-        path = QModelIndex.data()
+        path = QModelIndex.data().replace('<b>', '').replace('</b>', '')
+
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
             return
@@ -501,6 +517,44 @@ class sudo_dialog(QDialog):
             prev_label.setText(prev_label_alt)
 
         self.last_signal = message
+
+
+# CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
+class HTMLDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        options = QStyleOptionViewItem(option)
+        self.initStyleOption(options, index)
+        style = QApplication.style() if options.widget is None \
+            else options.widget.style()
+
+        doc = QTextDocument(self)
+        doc.setHtml(options.text)
+
+        options.text = ""
+        style.drawControl(QStyle.CE_ItemViewItem, options, painter)
+
+        ctx = QAbstractTextDocumentLayout.PaintContext()
+
+        if option.state & QStyle.State_Selected:
+            ctx.palette.setColor(QPalette.Text, option.palette.color(
+                                 QPalette.Active, QPalette.HighlightedText))
+
+        textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
+        painter.save()
+        painter.translate(textRect.topLeft())
+        painter.setClipRect(textRect.translated(-textRect.topLeft()))
+        doc.documentLayout().draw(painter, ctx)
+
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        options = QStyleOptionViewItem(option)
+        self.initStyleOption(options, index)
+
+        doc = QTextDocument(self)
+        doc.setDocumentMargin(1)
+        doc.setHtml(options.text)
+        return QSize(doc.idealWidth(), 23)
 
 
 def open_database():
