@@ -144,6 +144,7 @@ class center_widget(QWidget):
     def initUI(self):
         self.search_input = QLineEdit()
         self.main_list = QListView()
+        self.main_list.setItemDelegate(HTMLDelegate())
         self.upd_button = QPushButton('updatedb')
 
         grid = QGridLayout()
@@ -240,7 +241,7 @@ class GUI_MainWindow(QMainWindow):
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
             menu = QMenu()
-            menu.addAction('v0.9.0')
+            menu.addAction('v0.9.1')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)
@@ -304,7 +305,6 @@ class GUI_MainWindow(QMainWindow):
 
     def update_file_list_results(self, data):
         model = QStringListModel(data)
-        self.center.main_list.setItemDelegate(HTMLDelegate())
         self.center.main_list.setModel(model)
         total = str(locale.format('%d', len(data), grouping=True))
         self.status_bar.showMessage(total)
@@ -521,14 +521,18 @@ class sudo_dialog(QDialog):
 
 # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
 class HTMLDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super(HTMLDelegate, self).__init__(parent)
+        self.doc = QTextDocument(self)
+        self.doc.setDocumentMargin(1)
+
     def paint(self, painter, option, index):
         options = QStyleOptionViewItem(option)
         self.initStyleOption(options, index)
         style = QApplication.style() if options.widget is None \
             else options.widget.style()
 
-        doc = QTextDocument(self)
-        doc.setHtml(options.text)
+        self.doc.setHtml(options.text)
 
         options.text = ""
         style.drawControl(QStyle.CE_ItemViewItem, options, painter)
@@ -543,18 +547,17 @@ class HTMLDelegate(QStyledItemDelegate):
         painter.save()
         painter.translate(textRect.topLeft())
         painter.setClipRect(textRect.translated(-textRect.topLeft()))
-        doc.documentLayout().draw(painter, ctx)
+        self.doc.documentLayout().draw(painter, ctx)
 
         painter.restore()
 
     def sizeHint(self, option, index):
         options = QStyleOptionViewItem(option)
         self.initStyleOption(options, index)
+        self.doc.setHtml(options.text)
 
-        doc = QTextDocument(self)
-        doc.setDocumentMargin(1)
-        doc.setHtml(options.text)
-        return QSize(doc.idealWidth(), 23)
+        return(QSize(self.doc.idealWidth(),
+               QStyledItemDelegate.sizeHint(self, option, index).height()))
 
 
 def open_database():
