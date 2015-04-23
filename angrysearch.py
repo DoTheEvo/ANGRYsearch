@@ -29,8 +29,8 @@ class thread_db_query(QThread):
 
     def run(self):
         cur = con.cursor()
-        cur.execute('SELECT file_path_col FROM vt_locate_data_table WHERE '
-                    'file_path_col MATCH ? LIMIT ?',
+        cur.execute('''SELECT file_path_col FROM vt_locate_data_table WHERE
+                        file_path_col MATCH ? LIMIT ?''',
                     (self.db_query, self.numb_results))
         tuppled_500 = cur.fetchall()
         results_500 = [i[0] for i in tuppled_500]
@@ -72,9 +72,6 @@ class thread_database_update(QThread):
             self.new_database()
 
             self.db_update_signal.emit('label_4')
-            self.indexing_new_database()
-
-            self.db_update_signal.emit('label_5')
             self.replace_old_db_with_new()
 
         os.remove(the_temp_file)
@@ -100,17 +97,13 @@ class thread_database_update(QThread):
         global con
         con = sqlite3.connect(self.temp_db_path, check_same_thread=False)
         cur = con.cursor()
-        cur.execute('CREATE TABLE locate_data_table(file_path_col TEXT)')
+        cur.execute('''CREATE VIRTUAL TABLE vt_locate_data_table
+                        USING fts4(file_path_col)''')
         self.temp_file.seek(0)
         for text_line in self.temp_file:
             line = text_line.strip()
-            cur.execute('INSERT INTO locate_data_table VALUES (?)', (line,))
-
-    def indexing_new_database(self):
-        con.execute('CREATE VIRTUAL TABLE vt_locate_data_table '
-                    'USING fts4(file_path_col TEXT)')
-        con.execute('INSERT INTO vt_locate_data_table '
-                    'SELECT * FROM locate_data_table')
+            cur.execute('''INSERT INTO vt_locate_data_table VALUES (?)''',
+                        (line,))
         con.commit()
 
     def replace_old_db_with_new(self):
@@ -144,6 +137,7 @@ class center_widget(QWidget):
     def initUI(self):
         self.search_input = QLineEdit()
         self.main_list = QListView()
+        self.main_list.setUniformItemSizes(True)
         self.main_list.setItemDelegate(HTMLDelegate())
         self.upd_button = QPushButton('updatedb')
 
@@ -312,20 +306,23 @@ class GUI_MainWindow(QMainWindow):
     # RUNS ON START OR ON EMPTY INPUT
     def show_first_500(self):
         cur = con.cursor()
-        cur.execute('SELECT name FROM sqlite_master WHERE '
-                    'type="table" AND name="locate_data_table"')
+        cur.execute('''SELECT name FROM sqlite_master WHERE
+                        type="table" AND name="vt_locate_data_table"''')
         if cur.fetchone() is None:
             self.status_bar.showMessage('0')
             self.tutorial()
             return
 
-        cur.execute('SELECT file_path_col FROM locate_data_table LIMIT 500')
+        cur.execute('''SELECT file_path_col FROM vt_locate_data_table
+                        LIMIT 500''')
         file_list = cur.fetchall()
-        cur.execute('SELECT Count() FROM locate_data_table')
-        total_rows_numb = cur.fetchone()[0]
 
         l = [i[0] for i in file_list]
         self.update_file_list_results(l)
+
+        cur.execute('''SELECT COALESCE(MAX(rowid), 0)
+                        FROM vt_locate_data_table''')
+        total_rows_numb = cur.fetchone()[0]
         total = str(locale.format('%d', total_rows_numb, grouping=True))
         self.status_bar.showMessage(str(total))
 
@@ -450,8 +447,7 @@ class sudo_dialog(QDialog):
         self.label_1 = QLabel('• sudo updatedb')
         self.label_2 = QLabel('• sudo locate * > /tmp/tempfile')
         self.label_3 = QLabel('• new database from the tempfile')
-        self.label_4 = QLabel('• indexing the new databse')
-        self.label_5 = QLabel('• replacing  the old database\n  '
+        self.label_4 = QLabel('• replacing  the old database\n  '
                               'with the new one')
         self.OK_button = QPushButton('OK')
         self.OK_button.setEnabled(False)
@@ -461,7 +457,6 @@ class sudo_dialog(QDialog):
         self.label_2.setIndent(19)
         self.label_3.setIndent(19)
         self.label_4.setIndent(19)
-        self.label_5.setIndent(19)
 
         # TO MAKE SQUARE BRACKETS NOTATION WORK LATER ON
         # ALSO THE REASON FOR CUSTOM __getitem__ & __setitem__
@@ -469,7 +464,6 @@ class sudo_dialog(QDialog):
         self['label_2'] = self.label_2
         self['label_3'] = self.label_3
         self['label_4'] = self.label_4
-        self['label_5'] = self.label_5
 
         grid = QGridLayout()
         grid.setSpacing(5)
@@ -479,7 +473,6 @@ class sudo_dialog(QDialog):
         grid.addWidget(self.label_2, 2, 0, 1, 2)
         grid.addWidget(self.label_3, 3, 0, 1, 2)
         grid.addWidget(self.label_4, 4, 0, 1, 2)
-        grid.addWidget(self.label_5, 5, 0, 1, 2)
         grid.addWidget(self.OK_button, 6, 0)
         grid.addWidget(self.cancel_button, 6, 1)
         self.setLayout(grid)
@@ -524,17 +517,22 @@ class HTMLDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(HTMLDelegate, self).__init__(parent)
         self.doc = QTextDocument(self)
-        self.doc.setDocumentMargin(1)
+        self.doc.setDocumentMargin(0)
 
     def paint(self, painter, option, index):
+        painter.save()
+
         options = QStyleOptionViewItem(option)
         self.initStyleOption(options, index)
-        style = QApplication.style() if options.widget is None \
-            else options.widget.style()
 
         self.doc.setHtml(options.text)
-
         options.text = ""
+
+        rect = options.rect
+        options.rect = QRect(rect.x()+3, rect.y(), rect.width(), rect.height())
+
+        style = QApplication.style() if options.widget is None \
+            else options.widget.style()
         style.drawControl(QStyle.CE_ItemViewItem, options, painter)
 
         ctx = QAbstractTextDocumentLayout.PaintContext()
@@ -544,20 +542,10 @@ class HTMLDelegate(QStyledItemDelegate):
                                  QPalette.Active, QPalette.HighlightedText))
 
         textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
-        painter.save()
         painter.translate(textRect.topLeft())
-        painter.setClipRect(textRect.translated(-textRect.topLeft()))
         self.doc.documentLayout().draw(painter, ctx)
 
         painter.restore()
-
-    def sizeHint(self, option, index):
-        options = QStyleOptionViewItem(option)
-        self.initStyleOption(options, index)
-        self.doc.setHtml(options.text)
-
-        return(QSize(self.doc.idealWidth(),
-               QStyledItemDelegate.sizeHint(self, option, index).height()))
 
 
 def open_database():
