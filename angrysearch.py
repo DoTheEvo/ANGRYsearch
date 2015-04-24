@@ -137,7 +137,6 @@ class center_widget(QWidget):
     def initUI(self):
         self.search_input = QLineEdit()
         self.main_list = QListView()
-        self.main_list.setUniformItemSizes(True)
         self.main_list.setItemDelegate(HTMLDelegate())
         self.upd_button = QPushButton('updatedb')
 
@@ -314,7 +313,7 @@ class GUI_MainWindow(QMainWindow):
             return
 
         cur.execute('''SELECT file_path_col FROM vt_locate_data_table
-                        LIMIT 500''')
+                        LIMIT ?''', (self.set['number_of_results'],))
         file_list = cur.fetchall()
 
         l = [i[0] for i in file_list]
@@ -399,11 +398,13 @@ class GUI_MainWindow(QMainWindow):
                 '   • locate uses "updatedb" to update its own database',
                 '   • configuration can be find in /etc/updatedb.conf',
                 '   • there you can exclude paths from being searched',
-                '   • for Btrfs users, you really want to exclude snapshots',
-                '   • add ".snapshots" to PRUNENAMES if you use snapper', '',
-                '   • learn more about locate on its manpage',
-                '   • learn more about updatedb on its manpage', '',
+                '   • Btrfs users really want to exclude snapshots',
+                '',
+                '   • learn more about locate on it\'s manpage',
+                '   • learn more about updatedb on it\'s manpage',
+                '',
                 '   • ANGRYsearch database is in /var/lib/angrysearch/',
+                '   • with ~1 mil files indexed it\'s size is roughly 200MB',
                 '   • config file is in ~/.config/angrysearch/',
                 '   • currently you can set file manager manually there',
                 '   • otherwise xdg-open is used which might have few hickups',
