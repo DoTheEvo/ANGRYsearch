@@ -1,18 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
-import sys
+import base64
+from datetime import datetime
 import locale
-import sqlite3
-import subprocess
+import os
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-import base64
 import re
+import scandir
+import sqlite3
+import subprocess
+import sys
 
 
+# print(os.__file__)
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
 # CALLED ON EVERY KEYPRESS
 # RETURNS FIRST 500(numb_results) RESULTS MATCHING THE QUERY
@@ -29,16 +32,17 @@ class thread_db_query(QThread):
 
     def run(self):
         cur = con.cursor()
-        cur.execute('''SELECT file_path_col FROM vt_locate_data_table WHERE
-                        file_path_col MATCH ? LIMIT ?''',
+        cur.execute('''SELECT * FROM vt_locate_data_table WHERE file_path_col
+                        MATCH ? LIMIT ?''',
                     (self.db_query, self.numb_results))
         tuppled_500 = cur.fetchall()
-        results_500 = [i[0] for i in tuppled_500]
 
         bold_results_500 = []
-        for line in results_500:
-            bold = self.bold_text(line)
-            bold_results_500.append(bold)
+
+        for tup in tuppled_500:
+            bold = self.bold_text(tup[1])
+            item = {'dir': tup[0], 'path': tup[1], 'bold_path': bold}
+            bold_results_500.append(item)
 
         signal_message = {'input': self.db_query, 'results': bold_results_500}
         self.db_query_signal.emit(signal_message)
@@ -57,54 +61,72 @@ class thread_database_update(QThread):
         self.temp_db_path = '/tmp/angry_database.db'
         super(thread_database_update, self).__init__(parent)
         self.sudo_passwd = sudo_passwd
+        self.table = []
 
     def run(self):
-        the_temp_file = '/tmp/angry_{}'.format(os.getpid())
+        self.db_update_signal.emit('label_1')
+        self.crawling_drives()
 
-        with open(the_temp_file, 'w+', encoding='utf-8') as self.temp_file:
-            self.db_update_signal.emit('label_1')
-            self.sudo_updatedb()
+        self.db_update_signal.emit('label_2')
+        self.new_database()
 
-            self.db_update_signal.emit('label_2')
-            self.locate_to_file()
+        self.db_update_signal.emit('label_3')
+        self.replace_old_db_with_new()
 
-            self.db_update_signal.emit('label_3')
-            self.new_database()
-
-            self.db_update_signal.emit('label_4')
-            self.replace_old_db_with_new()
-
-        os.remove(the_temp_file)
         self.db_update_signal.emit('the_end_of_the_update')
 
-    def sudo_updatedb(self):
-        cmd = ['sudo', '-S', 'updatedb']
-        p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
-                             stdin=subprocess.PIPE)
-        p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
-        p.stdin.flush()
-        p.wait()
+    def crawling_drives(self):
+        def error(err):
+            print(err)
 
-    def locate_to_file(self):
-        cmd = ['sudo', '-S', 'locate', '*']
-        p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
-                             stdin=subprocess.PIPE, stdout=self.temp_file)
-        p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
-        p.stdin.flush()
-        p.wait()
+        root_dir = b'/'
+        exclude = [b'.snapshots',
+                   b'dev',
+                   b'proc',
+                   b'root',
+                   b'mnt',
+                   b'home/ja/Documents/Linux']
+        self.tstart = datetime.now()
+
+        self.table = []
+        dir_list = []
+        file_list = []
+
+        for root, dirs, files in scandir.walk(root_dir, onerror=error):
+
+            dirs.sort()
+            dirs[:] = [d for d in dirs if d not in exclude]
+
+            for dname in dirs:
+                dir_list.append(('1', os.path.join(root, dname).decode(
+                    encoding='UTF-8', errors='ignore')))
+            for fname in files:
+                file_list.append(('0', os.path.join(root, fname).decode(
+                    encoding='UTF-8', errors='ignore')))
+
+        self.table = dir_list + file_list
+
+        print(str(datetime.now() - self.tstart))
 
     def new_database(self):
         global con
+
+        if os.path.exists(self.temp_db_path):
+            os.remove(self.temp_db_path)
+
         con = sqlite3.connect(self.temp_db_path, check_same_thread=False)
         cur = con.cursor()
         cur.execute('''CREATE VIRTUAL TABLE vt_locate_data_table
-                        USING fts4(file_path_col)''')
-        self.temp_file.seek(0)
-        for text_line in self.temp_file:
-            line = text_line.strip()
-            cur.execute('''INSERT INTO vt_locate_data_table VALUES (?)''',
-                        (line,))
+                        USING fts4(directory, file_path_col)''')
+
+        self.tstart = datetime.now()
+
+        for x in self.table:
+            cur.execute('''INSERT INTO vt_locate_data_table VALUES
+                            (?, ?)''', (x[0], x[1]))
+
         con.commit()
+        print(str(datetime.now() - self.tstart))
 
     def replace_old_db_with_new(self):
         global con
@@ -113,18 +135,19 @@ class thread_database_update(QThread):
             return
         if not os.path.exists('/var/lib/angrysearch/'):
             cmd = ['sudo', 'mkdir', '/var/lib/angrysearch/']
-            p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+            p = subprocess.Popen(cmd, stdout=PIPE, stderr=subprocess.PIPE,
                                  stdin=subprocess.PIPE)
             p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
             p.stdin.flush()
             p.wait()
 
-        cmd = ['sudo', 'mv', '-f', self.temp_db_path, self.db_path]
+        cmd = ['sudo', '-S', 'mv', '-f', self.temp_db_path, self.db_path]
         p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
                              stdin=subprocess.PIPE)
         p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
         p.stdin.flush()
         p.wait()
+
         con = sqlite3.connect(self.db_path, check_same_thread=False)
 
 
@@ -138,7 +161,7 @@ class center_widget(QWidget):
         self.search_input = QLineEdit()
         self.main_list = QListView()
         self.main_list.setItemDelegate(HTMLDelegate())
-        self.upd_button = QPushButton('updatedb')
+        self.upd_button = QPushButton('update')
 
         grid = QGridLayout()
         grid.setSpacing(10)
@@ -209,6 +232,7 @@ class GUI_MainWindow(QMainWindow):
         self.locale_current = locale.getdefaultlocale()
         self.icon = self.get_icon()
         self.setWindowIcon(self.icon)
+        self.model = QStandardItemModel()
 
         self.threads = []
         self.file_list = []
@@ -254,15 +278,15 @@ class GUI_MainWindow(QMainWindow):
             QCoreApplication.instance().quit()
 
     def get_icon(self):
-        base64_data = 'iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHN\
-                        CSVQICAgIfAhkiAAAAQNJREFUOI3t1M9KAlEcxfHPmP0xU6Ogo\
-                        G0teoCiHjAIfIOIepvKRUE9R0G0KNApfy0c8hqKKUMrD9zVGc4\
-                        9nPtlsgp5n6qSVSk7cBG8CJ6sEX63UEcXz4jE20YNPbygPy25Q\
-                        o6oE+fEPXFF7A5yA9Eg2sQDcU3sJd6k89O4iiMcYKVol3rH2Mc\
-                        a1meZ4hMdNPCIj+SjHHfFZU94/0Nwlv4rWoY7vhrdeLNoO86bG\
-                        lym/ge3lsHDdI2fojbBG6sUtzOiQ1wQOwk6GwWKHeJyHtxOcFi\
-                        0TpFaxmnhNcyIW45bQ6RS3Hq4MeB7Ltyahki9Gd2xidWiwG9va\
-                        nCZqi7xlZGVHfwN6+5nU/ccBUYAAAAASUVORK5CYII='
+        base64_data = '''iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHN
+                         CSVQICAgIfAhkiAAAAQNJREFUOI3t1M9KAlEcxfHPmP0xU6Ogo
+                         G0teoCiHjAIfIOIepvKRUE9R0G0KNApfy0c8hqKKUMrD9zVGc4
+                         9nPtlsgp5n6qSVSk7cBG8CJ6sEX63UEcXz4jE20YNPbygPy25Q
+                         o6oE+fEPXFF7A5yA9Eg2sQDcU3sJd6k89O4iiMcYKVol3rH2Mc
+                         a1meZ4hMdNPCIj+SjHHfFZU94/0Nwlv4rWoY7vhrdeLNoO86bG
+                         lym/ge3lsHDdI2fojbBG6sUtzOiQ1wQOwk6GwWKHeJyHtxOcFi
+                         0TpFaxmnhNcyIW45bQ6RS3Hq4MeB7Ltyahki9Gd2xidWiwG9va
+                         nCZqi7xlZGVHfwN6+5nU/ccBUYAAAAASUVORK5CYII='''
 
         pm = QPixmap()
         pm.loadFromData(base64.b64decode(base64_data))
@@ -297,8 +321,20 @@ class GUI_MainWindow(QMainWindow):
         self.update_file_list_results(db_query_result['results'])
 
     def update_file_list_results(self, data):
-        model = QStringListModel(data)
-        self.center.main_list.setModel(model)
+        self.model = QStandardItemModel()
+        file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
+        dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
+
+        for n in data:
+            item = QStandardItem(n['bold_path'])
+            item.path = n['path']
+            if n['dir'] == '1':
+                item.setIcon(dir_icon)
+            else:
+                item.setIcon(file_icon)
+            self.model.appendRow(item)
+
+        self.center.main_list.setModel(self.model)
         total = str(locale.format('%d', len(data), grouping=True))
         self.status_bar.showMessage(total)
 
@@ -312,13 +348,17 @@ class GUI_MainWindow(QMainWindow):
             self.tutorial()
             return
 
-        cur.execute('''SELECT file_path_col FROM vt_locate_data_table
+        cur.execute('''SELECT * FROM vt_locate_data_table
                         LIMIT ?''', (self.set['number_of_results'],))
-        file_list = cur.fetchall()
+        tuppled_500 = cur.fetchall()
 
-        l = [i[0] for i in file_list]
-        self.update_file_list_results(l)
+        bold_results_500 = []
 
+        for tup in tuppled_500:
+            item = {'dir': tup[0], 'path': tup[1], 'bold_path': tup[1]}
+            bold_results_500.append(item)
+
+        self.update_file_list_results(bold_results_500)
         cur.execute('''SELECT COALESCE(MAX(rowid), 0)
                         FROM vt_locate_data_table''')
         total_rows_numb = cur.fetchone()[0]
@@ -342,7 +382,7 @@ class GUI_MainWindow(QMainWindow):
             print(err)
 
     def single_click(self, QModelIndex):
-        path = QModelIndex.data().replace('<b>', '').replace('</b>', '')
+        path = self.model.itemFromIndex(QModelIndex).path
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
@@ -360,7 +400,7 @@ class GUI_MainWindow(QMainWindow):
             self.status_bar.showMessage(str('NOPE'))
 
     def double_click_enter(self, QModelIndex):
-        path = QModelIndex.data().replace('<b>', '').replace('</b>', '')
+        path = self.model.itemFromIndex(QModelIndex).path
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
@@ -411,8 +451,7 @@ class GUI_MainWindow(QMainWindow):
                 '',
                 '  time to press the updatedb button in the top right corner'
                 ]
-        model = QStringListModel(chat)
-        self.center.main_list.setModel(model)
+        self.center.main_list.setModel(QStringListModel(chat))
 
     def clicked_button_updatedb(self):
         self.sud = sudo_dialog(self)
@@ -445,10 +484,9 @@ class sudo_dialog(QDialog):
         self.label_0 = QLabel('sudo password:')
         self.passwd_input = QLineEdit()
         self.passwd_input.setEchoMode(QLineEdit.Password)
-        self.label_1 = QLabel('• sudo updatedb')
-        self.label_2 = QLabel('• sudo locate * > /tmp/tempfile')
-        self.label_3 = QLabel('• new database from the tempfile')
-        self.label_4 = QLabel('• replacing  the old database\n  '
+        self.label_1 = QLabel('• crawling the file system')
+        self.label_2 = QLabel('• creating a new database')
+        self.label_3 = QLabel('• replacing old database\n  '
                               'with the new one')
         self.OK_button = QPushButton('OK')
         self.OK_button.setEnabled(False)
@@ -457,25 +495,22 @@ class sudo_dialog(QDialog):
         self.label_1.setIndent(19)
         self.label_2.setIndent(19)
         self.label_3.setIndent(19)
-        self.label_4.setIndent(19)
 
         # TO MAKE SQUARE BRACKETS NOTATION WORK LATER ON
         # ALSO THE REASON FOR CUSTOM __getitem__ & __setitem__
         self['label_1'] = self.label_1
         self['label_2'] = self.label_2
         self['label_3'] = self.label_3
-        self['label_4'] = self.label_4
 
         grid = QGridLayout()
-        grid.setSpacing(5)
+        grid.setSpacing(7)
         grid.addWidget(self.label_0, 0, 0)
         grid.addWidget(self.passwd_input, 0, 1)
         grid.addWidget(self.label_1, 1, 0, 1, 2)
         grid.addWidget(self.label_2, 2, 0, 1, 2)
         grid.addWidget(self.label_3, 3, 0, 1, 2)
-        grid.addWidget(self.label_4, 4, 0, 1, 2)
-        grid.addWidget(self.OK_button, 6, 0)
-        grid.addWidget(self.cancel_button, 6, 1)
+        grid.addWidget(self.OK_button, 4, 0)
+        grid.addWidget(self.cancel_button, 4, 1)
         self.setLayout(grid)
 
         self.OK_button.clicked.connect(self.clicked_OK_update_db)
@@ -518,7 +553,7 @@ class HTMLDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(HTMLDelegate, self).__init__(parent)
         self.doc = QTextDocument(self)
-        self.doc.setDocumentMargin(0)
+        self.doc.setDocumentMargin(4)
 
     def paint(self, painter, option, index):
         painter.save()
@@ -529,8 +564,8 @@ class HTMLDelegate(QStyledItemDelegate):
         self.doc.setHtml(options.text)
         options.text = ""
 
-        rect = options.rect
-        options.rect = QRect(rect.x()+3, rect.y(), rect.width(), rect.height())
+        #rect = options.rect
+        #options.rect = QRect(rect.x()+3, rect.y(), rect.width(), rect.height())
 
         style = QApplication.style() if options.widget is None \
             else options.widget.style()
