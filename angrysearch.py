@@ -15,7 +15,6 @@ import subprocess
 import sys
 
 
-# print(os.__file__)
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
 # CALLED ON EVERY KEYPRESS
 # RETURNS FIRST 500(numb_results) RESULTS MATCHING THE QUERY
@@ -26,15 +25,15 @@ class thread_db_query(QThread):
         super(thread_db_query, self).__init__(parent)
         self.numb_results = numb_results
         self.db_query = db_query
-        strip_and_split = db_query.strip('*').split('*')
+        self.sql_query = self.query_adjustment_for_sqlite(db_query)
+        strip_and_split = db_query.strip().split()
         rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
         self.regex_queries = re.compile(rx, re.IGNORECASE)
 
     def run(self):
         cur = con.cursor()
-        cur.execute('''SELECT * FROM vt_locate_data_table WHERE file_path_col
-                        MATCH ? LIMIT ?''',
-                    (self.db_query, self.numb_results))
+        cur.execute('''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
+                    (self.sql_query, self.numb_results))
         tuppled_500 = cur.fetchall()
 
         bold_results_500 = []
@@ -50,17 +49,26 @@ class thread_db_query(QThread):
     def bold_text(self, line):
         return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
+    def query_adjustment_for_sqlite(self, input):
+        search_terms = input.split()
+        t = '*'
+        for x in search_terms:
+            t += x + '*'
+        return t
+
 
 # QTHREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW STEPS PROGRESS
 class thread_database_update(QThread):
     db_update_signal = pyqtSignal(str)
+    crawl_signal = pyqtSignal(str)
 
-    def __init__(self, sudo_passwd, parent=None):
+    def __init__(self, sudo_passwd, settings, parent=None):
         self.db_path = '/var/lib/angrysearch/angry_database.db'
         self.temp_db_path = '/tmp/angry_database.db'
         super(thread_database_update, self).__init__(parent)
         self.sudo_passwd = sudo_passwd
+        self.settings = settings
         self.table = []
 
     def run(self):
@@ -79,13 +87,11 @@ class thread_database_update(QThread):
         def error(err):
             print(err)
 
+        exclude = []
+        if self.settings.value('directories_excluded'):
+            q = self.settings.value('directories_excluded').strip().split()
+            exclude = [x.encode() for x in q]
         root_dir = b'/'
-        exclude = [b'.snapshots',
-                   b'dev',
-                   b'proc',
-                   b'root',
-                   b'mnt',
-                   b'home/ja/Documents/Linux']
         self.tstart = datetime.now()
 
         self.table = []
@@ -96,6 +102,8 @@ class thread_database_update(QThread):
 
             dirs.sort()
             dirs[:] = [d for d in dirs if d not in exclude]
+            self.crawl_signal.emit(root.decode(encoding='UTF-8',
+                                               errors='ignore'))
 
             for dname in dirs:
                 dir_list.append(('1', os.path.join(root, dname).decode(
@@ -116,14 +124,14 @@ class thread_database_update(QThread):
 
         con = sqlite3.connect(self.temp_db_path, check_same_thread=False)
         cur = con.cursor()
-        cur.execute('''CREATE VIRTUAL TABLE vt_locate_data_table
-                        USING fts4(directory, file_path_col)''')
+        cur.execute('''CREATE VIRTUAL TABLE angry_table
+                        USING fts4(directory, path)''')
 
         self.tstart = datetime.now()
 
         for x in self.table:
-            cur.execute('''INSERT INTO vt_locate_data_table VALUES
-                            (?, ?)''', (x[0], x[1]))
+            cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
+                        (x[0], x[1]))
 
         con.commit()
         print(str(datetime.now() - self.tstart))
@@ -135,7 +143,8 @@ class thread_database_update(QThread):
             return
         if not os.path.exists('/var/lib/angrysearch/'):
             cmd = ['sudo', 'mkdir', '/var/lib/angrysearch/']
-            p = subprocess.Popen(cmd, stdout=PIPE, stderr=subprocess.PIPE,
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
                                  stdin=subprocess.PIPE)
             p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
             p.stdin.flush()
@@ -175,14 +184,15 @@ class center_widget(QWidget):
         self.setTabOrder(self.main_list, self.upd_button)
 
 
-# THE MAIN APPLICATION WINDOW WITH STATUS BAR AND LOGIC
+# THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
 class GUI_MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(GUI_MainWindow, self).__init__(parent)
         self.settings = QSettings('angrysearch', 'angrysearch')
         self.set = {'file_manager': 'xdg-open',
                     'file_manager_receives_file_path': False,
-                    'number_of_results': '500'}
+                    'number_of_results': '500',
+                    'directories_excluded': ['.snapshots', 'proc']}
         self.read_settings()
         self.init_GUI()
 
@@ -217,6 +227,10 @@ class GUI_MainWindow(QMainWindow):
                 self.set['number_of_results'] = \
                     self.settings.value('number_of_results')
 
+        if self.settings.value('directories_excluded'):
+            self.set['directories_excluded'] = \
+                self.settings.value('directories_excluded').strip().split()
+
     def closeEvent(self, event):
         self.settings.setValue('Last_Run/geometry', self.saveGeometry())
         self.settings.setValue('Last_Run/window_state', self.saveState())
@@ -226,6 +240,8 @@ class GUI_MainWindow(QMainWindow):
             self.settings.setValue('file_manager_receives_file_path', 'false')
         if not self.settings.value('number_of_results'):
             self.settings.setValue('number_of_results', '500')
+        if not self.settings.value('directories_excluded'):
+            self.settings.setValue('directories_excluded', '')
         event.accept()
 
     def init_GUI(self):
@@ -248,7 +264,8 @@ class GUI_MainWindow(QMainWindow):
         self.center.main_list.clicked.connect(self.single_click)
         self.center.main_list.activated.connect(self.double_click_enter)
 
-        self.center.search_input.textChanged[str].connect(self.on_input_change)
+        self.center.search_input.textChanged[str].connect(
+            self.new_query_new_thread)
         self.center.upd_button.clicked.connect(self.clicked_button_updatedb)
 
         self.show()
@@ -294,22 +311,18 @@ class GUI_MainWindow(QMainWindow):
         i.addPixmap(pm)
         return i
 
-    def on_input_change(self, input):
+    def new_query_new_thread(self, input):
         if input == '':
             self.show_first_500()
             return
-        search_terms = input.split(' ')
-        t = '*'
-        for x in search_terms:
-            t += x + '*'
-        self.new_query_new_thread(t)
 
-    def new_query_new_thread(self, input):
-        n = self.set['number_of_results']
         if len(self.threads) > 30:
             del self.threads[0:9]
+
         self.threads.append({'input': input,
-                            'thread': thread_db_query(input, n)})
+                            'thread': thread_db_query(
+                                input, self.set['number_of_results'])})
+
         self.threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qt.QueuedConnection)
         self.threads[-1]['thread'].start()
@@ -322,8 +335,10 @@ class GUI_MainWindow(QMainWindow):
 
     def update_file_list_results(self, data):
         self.model = QStandardItemModel()
-        file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
+        # dir_icon = QIcon('icons/adwa_dir.png')
+        # file_icon = QIcon('icons/adwa_file.png')
         dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
+        file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
 
         for n in data:
             item = QStandardItem(n['bold_path'])
@@ -342,14 +357,14 @@ class GUI_MainWindow(QMainWindow):
     def show_first_500(self):
         cur = con.cursor()
         cur.execute('''SELECT name FROM sqlite_master WHERE
-                        type="table" AND name="vt_locate_data_table"''')
+                        type="table" AND name="angry_table"''')
         if cur.fetchone() is None:
             self.status_bar.showMessage('0')
             self.tutorial()
             return
 
-        cur.execute('''SELECT * FROM vt_locate_data_table
-                        LIMIT ?''', (self.set['number_of_results'],))
+        cur.execute('''SELECT * FROM angry_table LIMIT ?''',
+                    (self.set['number_of_results'],))
         tuppled_500 = cur.fetchall()
 
         bold_results_500 = []
@@ -359,8 +374,7 @@ class GUI_MainWindow(QMainWindow):
             bold_results_500.append(item)
 
         self.update_file_list_results(bold_results_500)
-        cur.execute('''SELECT COALESCE(MAX(rowid), 0)
-                        FROM vt_locate_data_table''')
+        cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
         total_rows_numb = cur.fetchone()[0]
         total = str(locale.format('%d', total_rows_numb, grouping=True))
         self.status_bar.showMessage(str(total))
@@ -395,9 +409,9 @@ class GUI_MainWindow(QMainWindow):
             mime_type = mime.communicate()[0].decode('latin-1').strip()
             self.status_bar.showMessage(str(mime_type))
         elif mime.returncode == 5:
-            self.status_bar.showMessage(str('NO PERMISSION'))
+            self.status_bar.showMessage('NO PERMISSION')
         else:
-            self.status_bar.showMessage(str('NOPE'))
+            self.status_bar.showMessage('NOPE')
 
     def double_click_enter(self, QModelIndex):
         path = self.model.itemFromIndex(QModelIndex).path
@@ -433,25 +447,21 @@ class GUI_MainWindow(QMainWindow):
             subprocess.Popen(cmd)
 
     def tutorial(self):
-        chat = ['  ANGRYsearch',
-                '   • uses "locate" command to create own database',
-                '   • locate uses "updatedb" to update its own database',
-                '   • configuration can be find in /etc/updatedb.conf',
-                '   • there you can exclude paths from being searched',
+        chat = ['   • config file is in ~/.config/angrysearch/',
+                '',
+                '   • ignored directories are space separated names',
+                '   • e.g. - "dev proc .snapshots"',
                 '   • Btrfs users really want to exclude snapshots',
-                '',
-                '   • learn more about locate on it\'s manpage',
-                '   • learn more about updatedb on it\'s manpage',
-                '',
-                '   • ANGRYsearch database is in /var/lib/angrysearch/',
-                '   • with ~1 mil files indexed it\'s size is roughly 200MB',
-                '   • config file is in ~/.config/angrysearch/',
-                '   • currently you can set file manager manually there',
+                '   • you can also set file manager manually in the config',
                 '   • otherwise xdg-open is used which might have few hickups',
                 '',
-                '  time to press the updatedb button in the top right corner'
+                '   • the database is in /var/lib/angrysearch/',
+                '   • with ~1 mil files indexed it\'s size is roughly 200MB',
                 ]
+
         self.center.main_list.setModel(QStringListModel(chat))
+        self.status_bar.showMessage(
+            'READ, then press the update button in the top right corner')
 
     def clicked_button_updatedb(self):
         self.sud = sudo_dialog(self)
@@ -471,6 +481,7 @@ class sudo_dialog(QDialog):
         self.values = dict()
         self.last_signal = ''
         super(sudo_dialog, self).__init__(parent)
+        self.settings = QSettings('angrysearch', 'angrysearch')
         self.initUI()
 
     def __setitem__(self, k, v):
@@ -480,21 +491,35 @@ class sudo_dialog(QDialog):
         return None if k not in self.values else self.values[k]
 
     def initUI(self):
+        self.excluded_dirs = ''
+        if self.settings.value('directories_excluded'):
+            self.excluded_dirs = \
+                self.settings.value('directories_excluded').strip()
+
         self.setWindowTitle('Database Update')
+        self.excluded_label = QLabel('ignored directories:')
+        self.excluded_dirs_btn = QPushButton(self.excluded_dirs)
         self.label_0 = QLabel('sudo password:')
         self.passwd_input = QLineEdit()
         self.passwd_input.setEchoMode(QLineEdit.Password)
         self.label_1 = QLabel('• crawling the file system')
-        self.label_2 = QLabel('• creating a new database')
-        self.label_3 = QLabel('• replacing old database\n  '
-                              'with the new one')
+        self.label_2 = QLabel('• creating new database')
+        self.label_3 = QLabel('• replacing old database')
         self.OK_button = QPushButton('OK')
         self.OK_button.setEnabled(False)
         self.cancel_button = QPushButton('Cancel')
 
-        self.label_1.setIndent(19)
-        self.label_2.setIndent(19)
-        self.label_3.setIndent(19)
+        if self.excluded_dirs == '':
+            self.excluded_dirs_btn.setText('none')
+            self.excluded_dirs_btn.setStyleSheet("color:#7700AA;font: italic;")
+
+        self.label_1.setIndent(60)
+        self.label_2.setIndent(60)
+        self.label_3.setIndent(60)
+
+        self.passwd_input.setMinimumWidth(170)
+
+        self.excluded_dirs_btn.clicked.connect(self.exclude_dialog)
 
         # TO MAKE SQUARE BRACKETS NOTATION WORK LATER ON
         # ALSO THE REASON FOR CUSTOM __getitem__ & __setitem__
@@ -504,31 +529,58 @@ class sudo_dialog(QDialog):
 
         grid = QGridLayout()
         grid.setSpacing(7)
-        grid.addWidget(self.label_0, 0, 0)
-        grid.addWidget(self.passwd_input, 0, 1)
-        grid.addWidget(self.label_1, 1, 0, 1, 2)
-        grid.addWidget(self.label_2, 2, 0, 1, 2)
-        grid.addWidget(self.label_3, 3, 0, 1, 2)
-        grid.addWidget(self.OK_button, 4, 0)
-        grid.addWidget(self.cancel_button, 4, 1)
+        grid.addWidget(self.excluded_label, 0, 0)
+        grid.addWidget(self.excluded_dirs_btn, 0, 1)
+        grid.addWidget(self.label_0, 1, 0)
+        grid.addWidget(self.passwd_input, 1, 1)
+        grid.addWidget(self.label_1, 2, 0, 1, 2)
+        grid.addWidget(self.label_2, 3, 0, 1, 2)
+        grid.addWidget(self.label_3, 4, 0, 1, 2)
+        grid.addWidget(self.OK_button, 5, 0)
+        grid.addWidget(self.cancel_button, 5, 1)
         self.setLayout(grid)
 
         self.OK_button.clicked.connect(self.clicked_OK_update_db)
         self.cancel_button.clicked.connect(self.clicked_cancel)
         self.passwd_input.textChanged[str].connect(self.password_typed)
 
+        self.passwd_input.setFocus()
+
     def password_typed(self, input):
         if len(input) > 0:
             self.OK_button.setEnabled(True)
+
+    def exclude_dialog(self):
+        text, ok = QInputDialog.getText(self, '~/.config/angrysearch/',
+                                        'Directories to be ignored:',
+                                        QLineEdit.Normal, self.excluded_dirs)
+        if ok:
+            text = text.strip()
+            self.settings.setValue('directories_excluded', text)
+            self.excluded_dirs = text
+            if text == '':
+                self.excluded_dirs_btn.setText('none')
+                self.excluded_dirs_btn.setStyleSheet('color:#7700AA;'
+                                                     'font:italic;')
+            else:
+                self.excluded_dirs_btn.setText(text)
+                self.excluded_dirs_btn.setStyleSheet("color:#000;")
 
     def clicked_cancel(self):
         self.accept()
 
     def clicked_OK_update_db(self):
         sudo_passwd = self.passwd_input.text()
-        self.thread_updating = thread_database_update(sudo_passwd)
+        self.thread_updating = thread_database_update(
+            sudo_passwd, self.settings)
         self.thread_updating.db_update_signal.connect(
             self.sudo_dialog_receive_signal, Qt.QueuedConnection)
+        self.thread_updating.crawl_signal.connect(
+            self.sudo_dialog_receive_crawl, Qt.QueuedConnection)
+
+        self.label_0.setText('crawling in:')
+        self.passwd_input.setEchoMode(QLineEdit.Normal)
+
         self.thread_updating.start()
 
     def sudo_dialog_receive_signal(self, message):
@@ -547,13 +599,15 @@ class sudo_dialog(QDialog):
 
         self.last_signal = message
 
+    def sudo_dialog_receive_crawl(self, message):
+        self.passwd_input.setText(message[:19])
+
 
 # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
 class HTMLDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(HTMLDelegate, self).__init__(parent)
         self.doc = QTextDocument(self)
-        self.doc.setDocumentMargin(4)
 
     def paint(self, painter, option, index):
         painter.save()
@@ -563,9 +617,6 @@ class HTMLDelegate(QStyledItemDelegate):
 
         self.doc.setHtml(options.text)
         options.text = ""
-
-        #rect = options.rect
-        #options.rect = QRect(rect.x()+3, rect.y(), rect.width(), rect.height())
 
         style = QApplication.style() if options.widget is None \
             else options.widget.style()
@@ -578,10 +629,14 @@ class HTMLDelegate(QStyledItemDelegate):
                                  QPalette.Active, QPalette.HighlightedText))
 
         textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
+        # textRect.adjust(0, 0, 0, 0)
         painter.translate(textRect.topLeft())
         self.doc.documentLayout().draw(painter, ctx)
 
         painter.restore()
+
+    def sizeHint(self, option, index):
+        return QSize(self.doc.idealWidth(), self.doc.size().height())
 
 
 def open_database():
