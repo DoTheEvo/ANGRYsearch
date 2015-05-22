@@ -9,10 +9,15 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import re
-import scandir
 import sqlite3
 import subprocess
 import sys
+
+try:
+    import scandir
+    SCANDIR_AVAILABLE = True
+except ImportError:
+    SCANDIR_AVAILABLE = False
 
 
 # QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
@@ -87,6 +92,8 @@ class thread_database_update(QThread):
         def error(err):
             print(err)
 
+        global SCANDIR_AVAILABLE
+
         exclude = []
         if self.settings.value('directories_excluded'):
             q = self.settings.value('directories_excluded').strip().split()
@@ -98,7 +105,12 @@ class thread_database_update(QThread):
         dir_list = []
         file_list = []
 
-        for root, dirs, files in scandir.walk(root_dir, onerror=error):
+        if SCANDIR_AVAILABLE:
+            ror = scandir
+        else:
+            ror = os
+
+        for root, dirs, files in ror.walk(root_dir, onerror=error):
 
             dirs.sort()
             dirs[:] = [d for d in dirs if d not in exclude]
@@ -629,7 +641,7 @@ class HTMLDelegate(QStyledItemDelegate):
                                  QPalette.Active, QPalette.HighlightedText))
 
         textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
-        # textRect.adjust(0, 0, 0, 0)
+        #textRect.adjust(0, 0, 0, 0)
         painter.translate(textRect.topLeft())
         self.doc.documentLayout().draw(painter, ctx)
 
