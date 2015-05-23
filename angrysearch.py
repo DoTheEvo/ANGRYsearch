@@ -205,7 +205,7 @@ class GUI_MainWindow(QMainWindow):
         self.set = {'file_manager': 'xdg-open',
                     'file_manager_receives_file_path': False,
                     'number_of_results': '500',
-                    'directories_excluded': ['.snapshots', 'proc']}
+                    'directories_excluded': []}
         self.read_settings()
         self.init_GUI()
 
