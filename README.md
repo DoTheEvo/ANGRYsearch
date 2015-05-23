@@ -10,14 +10,14 @@ Done in python 3, using PyQt5/PySide for GUI
 
 ### What you should know:
 
-* unfortunately search results are bound to the beginning of the words present in the name, **no substring search**
+* unfortunately search results are bound to the beginning of the words present in the name
 * so a search for the word - "finite" would not include the results that have in the path word - "infinite"
 * previous versions used data from the linux "locate" command, now the data are gathered by python itself
-* it's slower, but allows to differentiate between file vs directory
+* it's slower, but allows to differentiate between file vs directory, and more in the future
 
 ### Install scandir for much faster indexing of your drives
 
-* it will be part of python 3.5 by default but we are not there yet
+* scandir will be part of python 3.5 by default but we are not there yet
 * get python-pip, its a package manager for python
   * for arch: `sudo pacman -S python-pip`
   * for ubuntu based distros: `sudo apt-get install python3-pip`
@@ -26,8 +26,8 @@ Done in python 3, using PyQt5/PySide for GUI
   * `sudo pip install scandir`
   * maybe `sudo pip3 install scandir`
 * if you want to test if its installed correctly
-* write `python` or `python3` in to terminal
-* you will enter python enviroment informing you of the version
+* write `python` or `python3` in to terminal, whichever gets you python 3
+* you will enter python environment informing you of the version
 * write `import scandir`
 * you should just get moved to a new line, if you get error something is wrong
 * ctrl+D to exit python
@@ -35,25 +35,36 @@ Done in python 3, using PyQt5/PySide for GUI
 ### How to make it work on your system:
 
 * Arch has [AUR package](https://aur.archlinux.org/packages/angrysearch/), so you can install it from there
-* for other distros
+
+for other distros:
+
+* dependencies - `python-pyqt5`, `libxkbcommon-x11`, `sudo`, `xdg-utils`
+* most of these you very likely have, except PyQt5, so get it
+* for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
+
+
+* now download the latest release of ANGRYsearch, unpack it, go in to the containing directory
+* **if you just want to test it, you can run it right away**
+  * `python angrysearch.py` or
+  * `python3 angrysearch.py`
+* just remember to remove the database that gets created in /var/lib/angrysearch/ once you are done
+
+* for normal installation on your system for every day use we need to place the files where they belong
 * we will be using `install` command because in a single line it can copy, create directories and set permissions
-* download the latest release, unpack it, go in to the containing directory
 * copy angrysearch.py in to /usr/share/angrysearch/angrysearch.py and make it executable
-* `install -Dm755 angrysearch.py "/usr/share/angrysearch/angrysearch.py"`
+  * `install -Dm755 angrysearch.py "/usr/share/angrysearch/angrysearch.py"`
 * copy the icon - angrysearch.svg in to /usr/share/pixmaps/
-* `install -Dm644 angrysearch.svg "/usr/share/pixmaps/angrysearch.svg"`
-* now is the time to check your python version, since ANGRYsearch is done in python 3
+  * `install -Dm644 angrysearch.svg "/usr/share/pixmaps/angrysearch.svg"`
+* time to check your python version, since ANGRYsearch is done in python 3
   * `python --version` if the answer is Python 2.7.6 or similar check python3
-  * `python3 --version` this should give you Python 3.4.0 or such, if thats the case we need to edit angrysearch.desktop file
-* open angrysearch.desktop in editor of your choice find the line: `Exec=python /usr/share/angrysearch/angrysearch.py`
-* change it to `Exec=python3 /usr/share/angrysearch/angrysearch.py`
-* this edit was only needed to be done if `python --version` returned 2.7.6 or similar
+  * `python3 --version` this should give you Python 3.4.0 if the plain `python` failed you, if thats the case we need to edit angrysearch.desktop file
+    * open angrysearch.desktop in editor of your choice, find the line: `Exec=python /usr/share/angrysearch/angrysearch.py`
+    * change it to `Exec=python3 /usr/share/angrysearch/angrysearch.py`
 * copy the desktop file - angrysearch.desktop in to /usr/share/applications/
-* `install -Dm644 angrysearch.desktop "/usr/share/applications/angrysearch.desktop"`
-* allright, all 3 files are positioned, now for dependencies
-* PyQt5 is needed, so get it, for example ubuntu, mint and other debian based distros
-* `sudo apt-get install python3-pyqt5`
-* after this you should be able to run ANGRYsearch from your application launcher
+  * `install -Dm644 angrysearch.desktop "/usr/share/applications/angrysearch.desktop"`
+
+
+after this you should be able to run ANGRYsearch from your application launcher
 
 ### How it works:
 
@@ -73,11 +84,12 @@ Done in python 3, using PyQt5/PySide for GUI
 
 ### KDE visual issues:
 
-Since introducing the bold text highlighting searched phrase in the results, KDE is causing some trouble with the correct text positioning.
+Since introducing the bold text highlighting searched phrase in the results,
+KDE is causing some trouble with the correct text positioning, at least in my virtual box test.
 Will try to solve this eventually, but for now just a way to fix it individually on KDE user's machines
 
 * as root open in editor of your choice: `/usr/share/angrysearch/angrysearch.py`
-* path might be different if you just downloaded package and run it from wherever
+* path might be different if you just downloaded the package and run it from wherever
 * search for `textRect`
 * you will find this line of code: `#textRect.adjust(0, 0, 0, 0)`
 * delete `#` to allow that line to influence the program
