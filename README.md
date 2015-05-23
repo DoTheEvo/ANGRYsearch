@@ -15,11 +15,11 @@ Done in python 3, using PyQt5/PySide for GUI
 * previous versions used data from the linux "locate" command, now the data are gathered by python itself
 * it's slower, but allows to differentiate between file vs directory, and more in the future
 
-### Install scandir for much faster indexing of your drives
+### Install scandir for much faster indexing of your drives:
 
-* scandir will be part of python 3.5 by default but we are not there yet
+scandir will be part of python 3.5 by default but we are not there yet, so heres how to install it
+
 * get python-pip, its a package manager for python
-  * for arch: `sudo pacman -S python-pip`
   * for ubuntu based distros: `sudo apt-get install python3-pip`
   * for fedora and such: `yum -y install python3-pip`
 * then install scandir through pip
@@ -34,7 +34,7 @@ Done in python 3, using PyQt5/PySide for GUI
 
 ### How to make it work on your system:
 
-* Arch has [AUR package](https://aur.archlinux.org/packages/angrysearch/), so you can install it from there
+* Arch has [AUR package](https://aur.archlinux.org/packages/angrysearch/), includes scandir installation
 
 for other distros:
 
@@ -45,9 +45,8 @@ for other distros:
 
 * now download the latest release of ANGRYsearch, unpack it, go in to the containing directory
 * **if you just want to test it, you can run it right away**
-  * `python angrysearch.py` or
-  * `python3 angrysearch.py`
-* just remember to remove the database that gets created in /var/lib/angrysearch/ once you are done
+  * `python angrysearch.py` or `python3 angrysearch.py`
+* remember to remove the database that gets created in /var/lib/angrysearch/ once you are done testing
 
 * for normal installation on your system for every day use we need to place the files where they belong
 * we will be using `install` command because in a single line it can copy, create directories and set permissions
@@ -90,7 +89,7 @@ Will try to solve this eventually, but for now just a way to fix it individually
 
 * as root open in editor of your choice: `/usr/share/angrysearch/angrysearch.py`
 * path might be different if you just downloaded the package and run it from wherever
-* search for `textRect`
+* search it for `textRect`
 * you will find this line of code: `#textRect.adjust(0, 0, 0, 0)`
 * delete `#` to allow that line to influence the program
 * change the second zero to value `-3` or whatever looks correct to you
