@@ -113,6 +113,7 @@ class thread_database_update(QThread):
         for root, dirs, files in ror.walk(root_dir, onerror=error):
 
             dirs.sort()
+            files.sort()
             dirs[:] = [d for d in dirs if d not in exclude]
             self.crawl_signal.emit(root.decode(encoding='UTF-8',
                                                errors='ignore'))
@@ -284,10 +285,12 @@ class GUI_MainWindow(QMainWindow):
         self.show_first_500()
         self.make_sys_tray()
 
+        self.center.search_input.setFocus()
+
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
             menu = QMenu()
-            menu.addAction('v0.9.1')
+            menu.addAction('v0.9.2')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)
@@ -464,7 +467,7 @@ class GUI_MainWindow(QMainWindow):
                 '   • ignored directories are space separated names',
                 '   • e.g. - "dev proc .snapshots"',
                 '   • Btrfs users really want to exclude snapshots',
-                '   • you can also set file manager manually in the config',
+                '   • you can set file manager manually in the config',
                 '   • otherwise xdg-open is used which might have few hickups',
                 '',
                 '   • the database is in /var/lib/angrysearch/',
@@ -479,6 +482,7 @@ class GUI_MainWindow(QMainWindow):
         self.sud = sudo_dialog(self)
         self.sud.exec_()
         self.show_first_500()
+        self.center.search_input.setFocus()
 
     def string_to_boolean(self, str):
         if str in ['true', 'True', 'yes', 'y', '1']:
@@ -525,9 +529,9 @@ class sudo_dialog(QDialog):
             self.excluded_dirs_btn.setText('none')
             self.excluded_dirs_btn.setStyleSheet("color:#7700AA;font: italic;")
 
-        self.label_1.setIndent(60)
-        self.label_2.setIndent(60)
-        self.label_3.setIndent(60)
+        self.label_1.setIndent(70)
+        self.label_2.setIndent(70)
+        self.label_3.setIndent(70)
 
         self.passwd_input.setMinimumWidth(170)
 
