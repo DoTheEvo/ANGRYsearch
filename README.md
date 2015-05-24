@@ -38,7 +38,7 @@ scandir will be part of python 3.5 by default but we are not there yet, so heres
 
 for other distros:
 
-* dependencies - `python-pyqt5`, `libxkbcommon-x11`, `sudo`, `xdg-utils`
+* **dependencies** - `python-pyqt5`, `libxkbcommon-x11`, `sudo`, `xdg-utils`
 * most of these you very likely have, except PyQt5, so get it
 * for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
 
@@ -46,10 +46,10 @@ for other distros:
 * now download the latest release of ANGRYsearch, unpack it, go in to the containing directory
 * **if you just want to test it, you can run it right away**
   * `python angrysearch.py` or `python3 angrysearch.py`
-* remember to remove the database that gets created in /var/lib/angrysearch/ once you are done testing
+  * remember to remove the database that gets created in /var/lib/angrysearch/ once you are done testing
 
-* for normal installation on your system for every day use we need to place the files where they belong
-* we will be using `install` command because in a single line it can copy, create directories and set permissions
+for normal installation on your system for every day use we need to place the files where they belong, we will be using `install` command because in a single line it can copy, create directories and set permissions
+
 * copy angrysearch.py in to /usr/share/angrysearch/angrysearch.py and make it executable
   * `install -Dm755 angrysearch.py "/usr/share/angrysearch/angrysearch.py"`
 * copy the icon - angrysearch.svg in to /usr/share/pixmaps/
@@ -57,8 +57,9 @@ for other distros:
 * time to check your python version, since ANGRYsearch is done in python 3
   * `python --version` if the answer is Python 2.7.6 or similar check python3
   * `python3 --version` this should give you Python 3.4.0 if the plain `python` failed you, if thats the case we need to edit angrysearch.desktop file
-    * open angrysearch.desktop in editor of your choice, find the line: `Exec=python /usr/share/angrysearch/angrysearch.py`
-    * change it to `Exec=python3 /usr/share/angrysearch/angrysearch.py`
+    * open angrysearch.desktop in editor of your choice
+    * find the line: `Exec=python /usr/share/angrysearch/angrysearch.py`
+    * change it to: `Exec=python3 /usr/share/angrysearch/angrysearch.py`
 * copy the desktop file - angrysearch.desktop in to /usr/share/applications/
   * `install -Dm644 angrysearch.desktop "/usr/share/applications/angrysearch.desktop"`
 
