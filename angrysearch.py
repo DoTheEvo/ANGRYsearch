@@ -20,7 +20,7 @@ except ImportError:
     SCANDIR_AVAILABLE = False
 
 
-# QTHREAD FOR ASYNC SEARCHES IN THE DATABASE
+# THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # CALLED ON EVERY KEYPRESS
 # RETURNS FIRST 500(numb_results) RESULTS MATCHING THE QUERY
 class thread_db_query(QThread):
@@ -55,23 +55,20 @@ class thread_db_query(QThread):
         return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
     def query_adjustment_for_sqlite(self, input):
-        search_terms = input.split()
-        t = '*'
-        for x in search_terms:
-            t += x + '*'
-        return t
+        joined = '*'.join(input.split())
+        return '*{0}*'.format(joined)
 
 
-# QTHREAD FOR UPDATING THE DATABASE
+# THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW STEPS PROGRESS
 class thread_database_update(QThread):
     db_update_signal = pyqtSignal(str)
     crawl_signal = pyqtSignal(str)
 
     def __init__(self, sudo_passwd, settings, parent=None):
+        super(thread_database_update, self).__init__(parent)
         self.db_path = '/var/lib/angrysearch/angry_database.db'
         self.temp_db_path = '/tmp/angry_database.db'
-        super(thread_database_update, self).__init__(parent)
         self.sudo_passwd = sudo_passwd
         self.settings = settings
         self.table = []
@@ -111,19 +108,25 @@ class thread_database_update(QThread):
             ror = os
 
         for root, dirs, files in ror.walk(root_dir, onerror=error):
-
             dirs.sort()
             files.sort()
             dirs[:] = [d for d in dirs if d not in exclude]
-            self.crawl_signal.emit(root.decode(encoding='UTF-8',
+            self.crawl_signal.emit(root.decode(encoding='utf-8',
                                                errors='ignore'))
-
             for dname in dirs:
-                dir_list.append(('1', os.path.join(root, dname).decode(
-                    encoding='UTF-8', errors='ignore')))
+                full_path = os.path.join(root, dname)
+                utf_full_path = full_path.decode(encoding='utf-8',
+                                                 errors='ignore')
+                stats = os.lstat(full_path)
+                dir_list.append(
+                    ('1', utf_full_path, stats.st_size, stats.st_mtime))
             for fname in files:
-                file_list.append(('0', os.path.join(root, fname).decode(
-                    encoding='UTF-8', errors='ignore')))
+                full_path = os.path.join(root, fname)
+                utf_full_path = full_path.decode(encoding='utf-8',
+                                                 errors='ignore')
+                stats = os.lstat(full_path)
+                file_list.append(
+                     ('0', utf_full_path, stats.st_size, stats.st_mtime))
 
         self.table = dir_list + file_list
 
@@ -138,13 +141,14 @@ class thread_database_update(QThread):
         con = sqlite3.connect(self.temp_db_path, check_same_thread=False)
         cur = con.cursor()
         cur.execute('''CREATE VIRTUAL TABLE angry_table
-                        USING fts4(directory, path)''')
+                        USING fts4(directory, path, size, date)''')
 
         self.tstart = datetime.now()
 
         for x in self.table:
-            cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
-                        (x[0], x[1]))
+            print(x)
+            cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
+                        (x[0], x[1], x[2], x[3]))
 
         con.commit()
         print(str(datetime.now() - self.tstart))
@@ -258,7 +262,6 @@ class GUI_MainWindow(QMainWindow):
         event.accept()
 
     def init_GUI(self):
-        self.locale_current = locale.getdefaultlocale()
         self.icon = self.get_icon()
         self.setWindowIcon(self.icon)
         self.model = QStandardItemModel()
@@ -290,7 +293,7 @@ class GUI_MainWindow(QMainWindow):
     def make_sys_tray(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
             menu = QMenu()
-            menu.addAction('v0.9.2')
+            menu.addAction('v0.9.3')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)
@@ -365,7 +368,7 @@ class GUI_MainWindow(QMainWindow):
             self.model.appendRow(item)
 
         self.center.main_list.setModel(self.model)
-        total = str(locale.format('%d', len(data), grouping=True))
+        total = locale.format('%d', len(data), grouping=True)
         self.status_bar.showMessage(total)
 
     # RUNS ON START OR ON EMPTY INPUT
@@ -391,8 +394,8 @@ class GUI_MainWindow(QMainWindow):
         self.update_file_list_results(bold_results_500)
         cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
         total_rows_numb = cur.fetchone()[0]
-        total = str(locale.format('%d', total_rows_numb, grouping=True))
-        self.status_bar.showMessage(str(total))
+        total = locale.format('%d', total_rows_numb, grouping=True)
+        self.status_bar.showMessage(total)
 
     def detect_file_manager(self):
         try:
