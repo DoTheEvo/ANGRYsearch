@@ -19,40 +19,25 @@ try:
 except ImportError:
     SCANDIR_AVAILABLE = False
 
-
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # CALLED ON EVERY KEYPRESS
 # RETURNS FIRST 500(numb_results) RESULTS MATCHING THE QUERY
-class thread_db_query(QThread):
+class Thread_db_query(QThread):
     db_query_signal = pyqtSignal(dict)
 
     def __init__(self, db_query, numb_results, parent=None):
-        super(thread_db_query, self).__init__(parent)
+        super().__init__()
         self.numb_results = numb_results
         self.db_query = db_query
         self.sql_query = self.query_adjustment_for_sqlite(db_query)
-        strip_and_split = db_query.strip().split()
-        rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
-        self.regex_queries = re.compile(rx, re.IGNORECASE)
 
     def run(self):
         cur = con.cursor()
         cur.execute('''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
-                    (self.sql_query, self.numb_results))
+                    (self.sql_query, 5))
         tuppled_500 = cur.fetchall()
-
-        bold_results_500 = []
-
-        for tup in tuppled_500:
-            bold = self.bold_text(tup[1])
-            item = {'dir': tup[0], 'path': tup[1], 'bold_path': bold}
-            bold_results_500.append(item)
-
-        signal_message = {'input': self.db_query, 'results': bold_results_500}
+        signal_message = {'input': self.db_query, 'results': tuppled_500}
         self.db_query_signal.emit(signal_message)
-
-    def bold_text(self, line):
-        return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
     def query_adjustment_for_sqlite(self, input):
         joined = '*'.join(input.split())
@@ -61,12 +46,12 @@ class thread_db_query(QThread):
 
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW STEPS PROGRESS
-class thread_database_update(QThread):
+class Thread_database_update(QThread):
     db_update_signal = pyqtSignal(str)
     crawl_signal = pyqtSignal(str)
 
     def __init__(self, sudo_passwd, settings, parent=None):
-        super(thread_database_update, self).__init__(parent)
+        super().__init__()
         self.db_path = '/var/lib/angrysearch/angry_database.db'
         self.temp_db_path = '/tmp/angry_database.db'
         self.sudo_passwd = sudo_passwd
@@ -95,6 +80,9 @@ class thread_database_update(QThread):
         if self.settings.value('directories_excluded'):
             q = self.settings.value('directories_excluded').strip().split()
             exclude = [x.encode() for x in q]
+
+        exclude.append(b'proc')
+
         root_dir = b'/'
         self.tstart = datetime.now()
 
@@ -114,19 +102,19 @@ class thread_database_update(QThread):
             self.crawl_signal.emit(root.decode(encoding='utf-8',
                                                errors='ignore'))
             for dname in dirs:
-                full_path = os.path.join(root, dname)
-                utf_full_path = full_path.decode(encoding='utf-8',
-                                                 errors='ignore')
-                stats = os.lstat(full_path)
-                dir_list.append(
-                    ('1', utf_full_path, stats.st_size, stats.st_mtime))
+                path = os.path.join(root, dname)
+                utf_path = path.decode(encoding='utf-8', errors='ignore')
+                stats = os.lstat(path)
+                readable_date = datetime.fromtimestamp(stats.st_mtime.__trunc__())
+                dir_list.append(('1', utf_path, '', readable_date))
             for fname in files:
-                full_path = os.path.join(root, fname)
-                utf_full_path = full_path.decode(encoding='utf-8',
-                                                 errors='ignore')
-                stats = os.lstat(full_path)
+                path = os.path.join(root, fname)
+                utf_path = path.decode(encoding='utf-8', errors='ignore')
+                stats = os.lstat(path)
+                size = self.readable_filesize(stats.st_size)
+                readable_date = datetime.fromtimestamp(stats.st_mtime.__trunc__())
                 file_list.append(
-                     ('0', utf_full_path, stats.st_size, stats.st_mtime))
+                    ('0', utf_path, size, readable_date))
 
         self.table = dir_list + file_list
 
@@ -146,7 +134,6 @@ class thread_database_update(QThread):
         self.tstart = datetime.now()
 
         for x in self.table:
-            print(x)
             cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
                         (x[0], x[1], x[2], x[3]))
 
@@ -176,17 +163,83 @@ class thread_database_update(QThread):
 
         con = sqlite3.connect(self.db_path, check_same_thread=False)
 
+    def readable_filesize(self, nbytes):
+        suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+        if nbytes == 0: return '0 B'
+        i = 0
+        while nbytes >= 1024 and i < len(suffixes)-1:
+            nbytes /= 1024.
+            i += 1
+        f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
+        return '{} {}'.format(f, suffixes[i])
+
+# MODEL FOR TABLE DATA
+class Model_table(QAbstractTableModel):
+    def __init__(self, table_data = [[]], parent = None):
+        super().__init__()
+        self.table_data = table_data
+        self.headers = ['Name', 'Path', 'Size', 'Date Modified']
+
+    def rowCount(self, parent):
+        return len(self.table_data)
+
+    def columnCount(self, parent):
+        return 4
+
+    def flags(self, index):
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+    def headerData(self, section, orientation, role):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+                return self.headers[section]
+
+    def data(self, index, role):
+        if role == Qt.DisplayRole:
+            row = index.row()
+            column = index.column()
+            value = self.table_data[row][column]
+            if column == 0:
+                return value.text()
+            else:
+                return value
+
+        if role == Qt.DecorationRole and index.column() == 0:
+            row = index.row()
+            column = index.column()
+            value = self.table_data[row][column]
+            return value.icon()
+
+    def itemFromIndex(self, index):
+        row = index.row()
+        column = index.column()
+        value = self.table_data[row][column]
+        if index.column() == 0:
+            return value
+
+
+class My_table(QTableView):
+    def __init__(self, parent=None):
+        super().__init__()
+
+        #rowHeight = self.fontMetrics().height()
+        self.verticalHeader().setDefaultSectionSize(24)
+
+    def resizeEvent(self, event):
+        width = event.size().width()
+        self.setColumnWidth(0, width * 0.30)
+        self.setColumnWidth(1, width * 0.40)
+        self.setColumnWidth(2, width * 0.10)
+        self.setColumnWidth(3, width * 0.20)
 
 # THE PRIMARY GUI, THE WIDGET WITHIN THE MAINWINDOW
-class center_widget(QWidget):
+class Center_widget(QWidget):
     def __init__(self):
-        super(center_widget, self).__init__()
+        super().__init__()
         self.initUI()
 
     def initUI(self):
         self.search_input = QLineEdit()
-        self.main_list = QListView()
-        self.main_list.setItemDelegate(HTMLDelegate())
+        self.main_table = My_table()
         self.upd_button = QPushButton('update')
 
         grid = QGridLayout()
@@ -194,17 +247,17 @@ class center_widget(QWidget):
 
         grid.addWidget(self.search_input, 1, 1)
         grid.addWidget(self.upd_button, 1, 4)
-        grid.addWidget(self.main_list, 2, 1, 4, 4)
+        grid.addWidget(self.main_table, 2, 1, 4, 4)
         self.setLayout(grid)
 
-        self.setTabOrder(self.search_input, self.main_list)
-        self.setTabOrder(self.main_list, self.upd_button)
+        self.setTabOrder(self.search_input, self.main_table)
+        self.setTabOrder(self.main_table, self.upd_button)
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
-class GUI_MainWindow(QMainWindow):
+class Gui_MainWindow(QMainWindow):
     def __init__(self, parent=None):
-        super(GUI_MainWindow, self).__init__(parent)
+        super().__init__()
         self.settings = QSettings('angrysearch', 'angrysearch')
         self.set = {'file_manager': 'xdg-open',
                     'file_manager_receives_file_path': False,
@@ -264,21 +317,28 @@ class GUI_MainWindow(QMainWindow):
     def init_GUI(self):
         self.icon = self.get_icon()
         self.setWindowIcon(self.icon)
-        self.model = QStandardItemModel()
+        self.model = Model_table()
 
         self.threads = []
         self.file_list = []
 
-        self.center = center_widget()
+        self.center = Center_widget()
         self.setCentralWidget(self.center)
 
         self.setWindowTitle('ANGRYsearch')
         self.status_bar = QStatusBar(self)
         self.setStatusBar(self.status_bar)
 
-        self.center.main_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.center.main_list.clicked.connect(self.single_click)
-        self.center.main_list.activated.connect(self.double_click_enter)
+        self.center.main_table.setGridStyle(0)
+        self.center.main_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.center.main_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.center.main_table.setAlternatingRowColors(True)
+        self.center.main_table.verticalHeader().setVisible(False)
+
+        self.center.main_table.setItemDelegate(HTMLDelegate())
+
+        self.center.main_table.clicked.connect(self.single_click)
+        self.center.main_table.activated.connect(self.double_click_enter)
 
         self.center.search_input.textChanged[str].connect(
             self.new_query_new_thread)
@@ -329,6 +389,7 @@ class GUI_MainWindow(QMainWindow):
         i.addPixmap(pm)
         return i
 
+    # QUERY THE DATABASE, LIST OF QUERIES TO KNOW THE LAST ONE
     def new_query_new_thread(self, input):
         if input == '':
             self.show_first_500()
@@ -338,38 +399,60 @@ class GUI_MainWindow(QMainWindow):
             del self.threads[0:9]
 
         self.threads.append({'input': input,
-                            'thread': thread_db_query(
+                            'thread': Thread_db_query(
                                 input, self.set['number_of_results'])})
 
         self.threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qt.QueuedConnection)
         self.threads[-1]['thread'].start()
 
-    # CHECK IF THE QUERY IS THE LAST ONE BEFORE SHOWING THE DATA
+    # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
     def database_query_done(self, db_query_result):
         if (db_query_result['input'] != self.threads[-1]['input']):
             return
-        self.update_file_list_results(db_query_result['results'])
+        self.process_database_resuls(db_query_result)
 
-    def update_file_list_results(self, data):
-        self.model = QStandardItemModel()
-        # dir_icon = QIcon('icons/adwa_dir.png')
-        # file_icon = QIcon('icons/adwa_file.png')
+    # FORMAT DATA FOR THE MODEL
+    def process_database_resuls(self, data):
+        typed_text = data['input']
+        results = data['results']
+        model_data = []
+
+        strip_and_split = typed_text.strip().split()
+        rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
+        self.regex_queries = re.compile(rx, re.IGNORECASE)
+
         dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
         file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
 
-        for n in data:
-            item = QStandardItem(n['bold_path'])
-            item.path = n['path']
-            if n['dir'] == '1':
-                item.setIcon(dir_icon)
-            else:
-                item.setIcon(file_icon)
-            self.model.appendRow(item)
+        for tup in results:
+            split_by_slash = tup[1].split('/')
 
-        self.center.main_list.setModel(self.model)
+            name = split_by_slash[-1]
+            path = '/'.join(split_by_slash[:-1]) or '/'
+
+            if typed_text:
+                name = self.bold_text(name)
+                path = self.bold_text(path)
+
+            n = QStandardItem(name)
+            n.path = tup[1]
+            n.setIcon(dir_icon) if tup[0] == '1' else n.setIcon(file_icon)
+
+            item = [n, path, tup[2], tup[3]]
+
+            model_data.append(item)
+
+        self.model = Model_table(model_data)
+        dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
+        file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
+
+        self.center.main_table.setModel(self.model)
         total = locale.format('%d', len(data), grouping=True)
         self.status_bar.showMessage(total)
+
+    def bold_text(self, line):
+        return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
     # RUNS ON START OR ON EMPTY INPUT
     def show_first_500(self):
@@ -385,13 +468,8 @@ class GUI_MainWindow(QMainWindow):
                     (self.set['number_of_results'],))
         tuppled_500 = cur.fetchall()
 
-        bold_results_500 = []
+        self.process_database_resuls({'input': '', 'results': tuppled_500})
 
-        for tup in tuppled_500:
-            item = {'dir': tup[0], 'path': tup[1], 'bold_path': tup[1]}
-            bold_results_500.append(item)
-
-        self.update_file_list_results(bold_results_500)
         cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
         total_rows_numb = cur.fetchone()[0]
         total = locale.format('%d', total_rows_numb, grouping=True)
@@ -414,7 +492,8 @@ class GUI_MainWindow(QMainWindow):
             print(err)
 
     def single_click(self, QModelIndex):
-        path = self.model.itemFromIndex(QModelIndex).path
+        path = self.model.itemFromIndex(
+            QModelIndex.child(QModelIndex.row(), 0)).path
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
@@ -432,37 +511,43 @@ class GUI_MainWindow(QMainWindow):
             self.status_bar.showMessage('NOPE')
 
     def double_click_enter(self, QModelIndex):
-        path = self.model.itemFromIndex(QModelIndex).path
+
+        column = QModelIndex.column()
+        path = self.model.itemFromIndex(
+            QModelIndex.child(QModelIndex.row(), 0)).path
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
             return
 
-        fm = self.set['file_manager']
+        if column == 0:
+            subprocess.Popen(['xdg-open', path])
+        if column == 1:
+            fm = self.set['file_manager']
 
-        if os.path.isdir(path):
-            known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd']
-            for x in known_fm:
-                if x in fm:
-                    subprocess.Popen([x, path])
-                    return
-            subprocess.Popen([fm, path])
-        else:
-            if 'dolphin' in fm:
-                cmd = ['dolphin', '--select', path]
-            elif 'nemo' in fm:
-                cmd = ['nemo', path]
-            elif 'nautilus' in fm:
-                cmd = ['nautilus', path]
-            elif 'doublecmd' in fm:
-                cmd = ['doublecmd', path]
+            if os.path.isdir(path):
+                known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd']
+                for x in known_fm:
+                    if x in fm:
+                        subprocess.Popen([x, path])
+                        return
+                subprocess.Popen([fm, path])
             else:
-                if self.set['file_manager_receives_file_path']:
-                    cmd = [fm, path]
+                if 'dolphin' in fm:
+                    cmd = ['dolphin', '--select', path]
+                elif 'nemo' in fm:
+                    cmd = ['nemo', path]
+                elif 'nautilus' in fm:
+                    cmd = ['nautilus', path]
+                elif 'doublecmd' in fm:
+                    cmd = ['doublecmd', path]
                 else:
-                    parent_dir = os.path.abspath(os.path.join(path, os.pardir))
-                    cmd = [fm, parent_dir]
-            subprocess.Popen(cmd)
+                    if self.set['file_manager_receives_file_path']:
+                        cmd = [fm, path]
+                    else:
+                        parent_dir = os.path.abspath(os.path.join(path, os.pardir))
+                        cmd = [fm, parent_dir]
+                subprocess.Popen(cmd)
 
     def tutorial(self):
         chat = ['   • config file is in ~/.config/angrysearch/',
@@ -477,12 +562,12 @@ class GUI_MainWindow(QMainWindow):
                 '   • with ~1 mil files indexed it\'s size is roughly 200MB',
                 ]
 
-        self.center.main_list.setModel(QStringListModel(chat))
+        self.center.main_table.setModel(QStringListModel(chat))
         self.status_bar.showMessage(
             'READ, then press the update button in the top right corner')
 
     def clicked_button_updatedb(self):
-        self.sud = sudo_dialog(self)
+        self.sud = Sudo_dialog(self)
         self.sud.exec_()
         self.show_first_500()
         self.center.search_input.setFocus()
@@ -495,11 +580,11 @@ class GUI_MainWindow(QMainWindow):
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
-class sudo_dialog(QDialog):
+class Sudo_dialog(QDialog):
     def __init__(self, parent):
+        super().__init__(parent)
         self.values = dict()
         self.last_signal = ''
-        super(sudo_dialog, self).__init__(parent)
         self.settings = QSettings('angrysearch', 'angrysearch')
         self.initUI()
 
@@ -590,7 +675,7 @@ class sudo_dialog(QDialog):
 
     def clicked_OK_update_db(self):
         sudo_passwd = self.passwd_input.text()
-        self.thread_updating = thread_database_update(
+        self.thread_updating = Thread_database_update(
             sudo_passwd, self.settings)
         self.thread_updating.db_update_signal.connect(
             self.sudo_dialog_receive_signal, Qt.QueuedConnection)
@@ -622,18 +707,24 @@ class sudo_dialog(QDialog):
         self.passwd_input.setText(message[:19])
 
 
+#QTextOption txtOption;
+#txtOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+#doc.setDefaultTextOption(txtOption);
+#doc.setTextWidth(rect.width());
+#doc.setHtml(text);
+
 # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
 class HTMLDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
-        super(HTMLDelegate, self).__init__(parent)
+        super().__init__()
         self.doc = QTextDocument(self)
 
     def paint(self, painter, option, index):
         painter.save()
 
         options = QStyleOptionViewItem(option)
-        self.initStyleOption(options, index)
 
+        self.initStyleOption(options, index)
         self.doc.setHtml(options.text)
         options.text = ""
 
@@ -650,6 +741,7 @@ class HTMLDelegate(QStyledItemDelegate):
         textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
         #textRect.adjust(0, 0, 0, 0)
         painter.translate(textRect.topLeft())
+        painter.setClipRect(textRect.translated(-textRect.topLeft()))
         self.doc.documentLayout().draw(painter, ctx)
 
         painter.restore()
@@ -673,5 +765,5 @@ if __name__ == '__main__':
     con = open_database()
     with con:
         app = QApplication(sys.argv)
-        ui = GUI_MainWindow()
+        ui = Gui_MainWindow()
         sys.exit(app.exec_())
