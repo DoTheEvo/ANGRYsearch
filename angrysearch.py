@@ -34,7 +34,7 @@ class Thread_db_query(QThread):
     def run(self):
         cur = con.cursor()
         cur.execute('''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
-                    (self.sql_query, 5))
+                    (self.sql_query, self.numb_results))
         tuppled_500 = cur.fetchall()
         signal_message = {'input': self.db_query, 'results': tuppled_500}
         self.db_query_signal.emit(signal_message)
@@ -231,6 +231,7 @@ class My_table(QTableView):
         self.setColumnWidth(2, width * 0.10)
         self.setColumnWidth(3, width * 0.20)
 
+
 # THE PRIMARY GUI, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(QWidget):
     def __init__(self):
@@ -332,6 +333,7 @@ class Gui_MainWindow(QMainWindow):
         self.center.main_table.setGridStyle(0)
         self.center.main_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.center.main_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.center.main_table.horizontalHeader().setStretchLastSection(True)
         self.center.main_table.setAlternatingRowColors(True)
         self.center.main_table.verticalHeader().setVisible(False)
 
@@ -739,6 +741,8 @@ class HTMLDelegate(QStyledItemDelegate):
                                  QPalette.Active, QPalette.HighlightedText))
 
         textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
+        if index.column() != 0:
+            textRect.adjust(5, 0, 0, 0)
         #textRect.adjust(0, 0, 0, 0)
         painter.translate(textRect.topLeft())
         painter.setClipRect(textRect.translated(-textRect.topLeft()))
