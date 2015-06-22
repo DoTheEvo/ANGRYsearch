@@ -4,6 +4,7 @@
 import base64
 from datetime import datetime
 import locale
+import mimetypes
 import os
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -18,6 +19,7 @@ try:
     SCANDIR_AVAILABLE = True
 except ImportError:
     SCANDIR_AVAILABLE = False
+
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # CALLED ON EVERY KEYPRESS
@@ -173,9 +175,10 @@ class Thread_database_update(QThread):
         f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
         return '{} {}'.format(f, suffixes[i])
 
+
 # MODEL FOR TABLE DATA
 class Model_table(QAbstractTableModel):
-    def __init__(self, table_data = [[]], parent = None):
+    def __init__(self, table_data=[[]], parent=None):
         super().__init__()
         self.table_data = table_data
         self.headers = ['Name', 'Path', 'Size', 'Date Modified']
@@ -220,7 +223,6 @@ class Model_table(QAbstractTableModel):
 class My_table(QTableView):
     def __init__(self, parent=None):
         super().__init__()
-
         #rowHeight = self.fontMetrics().height()
         self.verticalHeader().setDefaultSectionSize(24)
 
@@ -336,6 +338,7 @@ class Gui_MainWindow(QMainWindow):
         self.center.main_table.horizontalHeader().setStretchLastSection(True)
         self.center.main_table.setAlternatingRowColors(True)
         self.center.main_table.verticalHeader().setVisible(False)
+        self.center.main_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
         self.center.main_table.setItemDelegate(HTMLDelegate())
 
@@ -427,10 +430,12 @@ class Gui_MainWindow(QMainWindow):
         dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
         file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
 
+        icon_dictionary = self.get_icons()
+
         for tup in results:
             split_by_slash = tup[1].split('/')
 
-            name = split_by_slash[-1]
+            name = name_ = split_by_slash[-1]
             path = '/'.join(split_by_slash[:-1]) or '/'
 
             if typed_text:
@@ -439,8 +444,14 @@ class Gui_MainWindow(QMainWindow):
 
             n = QStandardItem(name)
             n.path = tup[1]
-            n.setIcon(dir_icon) if tup[0] == '1' else n.setIcon(file_icon)
-
+            if tup[0] == '1':
+                n.setIcon(icon_dictionary['directory'])
+            else:
+                short_mime = mimetypes.guess_type(name_)
+                if short_mime[0] and short_mime[0][:5] in icon_dictionary:
+                    n.setIcon(icon_dictionary[short_mime[0][:5]])
+                else:
+                    n.setIcon(icon_dictionary['file'])
             item = [n, path, tup[2], tup[3]]
 
             model_data.append(item)
@@ -455,6 +466,19 @@ class Gui_MainWindow(QMainWindow):
 
     def bold_text(self, line):
         return re.sub(self.regex_queries, '<b>\\1</b>', line)
+
+    def get_icons(self):
+
+        icon_dictionary = {
+            'directory': QIcon('icons/adwa/folder.png'),
+            'file': QIcon('icons/adwa/file.png'),
+            'image': QIcon('icons/adwa/image.png'),
+            'audio': QIcon('icons/adwa/audio.png'),
+            'video': QIcon('icons/adwa/video.png'),
+            'text/': QIcon('icons/adwa/text.png')
+        }
+
+        return icon_dictionary
 
     # RUNS ON START OR ON EMPTY INPUT
     def show_first_500(self):
@@ -709,12 +733,6 @@ class Sudo_dialog(QDialog):
         self.passwd_input.setText(message[:19])
 
 
-#QTextOption txtOption;
-#txtOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
-#doc.setDefaultTextOption(txtOption);
-#doc.setTextWidth(rect.width());
-#doc.setHtml(text);
-
 # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
 class HTMLDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -741,11 +759,18 @@ class HTMLDelegate(QStyledItemDelegate):
                                  QPalette.Active, QPalette.HighlightedText))
 
         textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
+
         if index.column() != 0:
             textRect.adjust(5, 0, 0, 0)
         #textRect.adjust(0, 0, 0, 0)
+
+        thefuckyourshitup_constant = 4
+        margin = (option.rect.height() - options.fontMetrics.height()) // 2
+        margin = margin - thefuckyourshitup_constant
+        textRect.setTop(textRect.top()+margin)
+
         painter.translate(textRect.topLeft())
-        painter.setClipRect(textRect.translated(-textRect.topLeft()))
+        painter.setClipRect(option.rect.translated(-option.rect.topLeft()))
         self.doc.documentLayout().draw(painter, ctx)
 
         painter.restore()
