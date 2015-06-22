@@ -262,8 +262,8 @@ class Gui_MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
         self.settings = QSettings('angrysearch', 'angrysearch')
-        self.set = {'file_manager': 'xdg-open',
-                    'file_manager_receives_file_path': False,
+        self.set = {'icon_theme': 'adwaita',
+                    'file_manager': 'xdg-open',
                     'number_of_results': '500',
                     'directories_excluded': []}
         self.read_settings()
@@ -282,14 +282,12 @@ class Gui_MainWindow(QMainWindow):
         if self.settings.value('Last_Run/window_state'):
             self.restoreState(self.settings.value('Last_Run/window_state'))
 
+        if self.settings.value('icon_theme'):
+            self.set['icon_theme'] = self.settings.value('icon_theme')
+
         if self.settings.value('file_manager'):
             if self.settings.value('file_manager') not in ['', 'xdg-open']:
                 self.set['file_manager'] = self.settings.value('file_manager')
-
-                if self.settings.value('file_manager_receives_file_path'):
-                    self.set['file_manager_receives_file_path'] = \
-                        self.string_to_boolean(self.settings.value(
-                            'file_manager_receives_file_path'))
             else:
                 self.detect_file_manager()
         else:
@@ -307,10 +305,10 @@ class Gui_MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.settings.setValue('Last_Run/geometry', self.saveGeometry())
         self.settings.setValue('Last_Run/window_state', self.saveState())
+        if not self.settings.value('icon_theme'):
+            self.settings.setValue('icon_theme', 'adwaita')
         if not self.settings.value('file_manager'):
             self.settings.setValue('file_manager', 'xdg-open')
-        if not self.settings.value('file_manager_receives_file_path'):
-            self.settings.setValue('file_manager_receives_file_path', 'false')
         if not self.settings.value('number_of_results'):
             self.settings.setValue('number_of_results', '500')
         if not self.settings.value('directories_excluded'):
@@ -468,14 +466,15 @@ class Gui_MainWindow(QMainWindow):
         return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
     def get_icons(self):
+        theme = self.set['icon_theme']
 
         icon_dictionary = {
-            'directory': QIcon('icons/adwa/folder.png'),
-            'file': QIcon('icons/adwa/file.png'),
-            'image': QIcon('icons/adwa/image.png'),
-            'audio': QIcon('icons/adwa/audio.png'),
-            'video': QIcon('icons/adwa/video.png'),
-            'text/': QIcon('icons/adwa/text.png')
+            'directory': QIcon(os.path.join('icons', theme, 'folder.png')),
+            'file': QIcon(os.path.join('icons', theme, 'file.png')),
+            'image': QIcon(os.path.join('icons', theme, 'image.png')),
+            'audio': QIcon(os.path.join('icons', theme, 'audio.png')),
+            'video': QIcon(os.path.join('icons', theme, 'video.png')),
+            'text/': QIcon(os.path.join('icons', theme, 'text.png'))
         }
 
         return icon_dictionary
@@ -550,30 +549,18 @@ class Gui_MainWindow(QMainWindow):
             subprocess.Popen(['xdg-open', path])
         if column == 1:
             fm = self.set['file_manager']
-
-            if os.path.isdir(path):
-                known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd']
-                for x in known_fm:
-                    if x in fm:
-                        subprocess.Popen([x, path])
-                        return
-                subprocess.Popen([fm, path])
+            if 'dolphin' in fm:
+                cmd = ['dolphin', '--select', path]
+            elif 'nemo' in fm:
+                cmd = ['nemo', path]
+            elif 'nautilus' in fm:
+                cmd = ['nautilus', path]
+            elif 'doublecmd' in fm:
+                cmd = ['doublecmd', path]
             else:
-                if 'dolphin' in fm:
-                    cmd = ['dolphin', '--select', path]
-                elif 'nemo' in fm:
-                    cmd = ['nemo', path]
-                elif 'nautilus' in fm:
-                    cmd = ['nautilus', path]
-                elif 'doublecmd' in fm:
-                    cmd = ['doublecmd', path]
-                else:
-                    if self.set['file_manager_receives_file_path']:
-                        cmd = [fm, path]
-                    else:
-                        parent_dir = os.path.abspath(os.path.join(path, os.pardir))
-                        cmd = [fm, parent_dir]
-                subprocess.Popen(cmd)
+                parent_dir = os.path.abspath(os.path.join(path, os.pardir))
+                cmd = [fm, parent_dir]
+            subprocess.Popen(cmd)
 
     def tutorial(self):
         chat = ['   • config file is in ~/.config/angrysearch/',
@@ -594,9 +581,16 @@ class Gui_MainWindow(QMainWindow):
 
     def clicked_button_updatedb(self):
         self.sud = Sudo_dialog(self)
+        self.sud.icon_theme_signal.connect(
+            self.theme_change_icon, Qt.QueuedConnection)
         self.sud.exec_()
         self.show_first_500()
         self.center.search_input.setFocus()
+
+    def theme_change_icon(self, text):
+        self.settings.setValue('icon_theme', text)
+        self.set['icon_theme'] = text
+        self.show_first_500()
 
     def string_to_boolean(self, str):
         if str in ['true', 'True', 'yes', 'y', '1']:
@@ -607,6 +601,8 @@ class Gui_MainWindow(QMainWindow):
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
 class Sudo_dialog(QDialog):
+    icon_theme_signal = pyqtSignal(str)
+
     def __init__(self, parent):
         super().__init__(parent)
         self.values = dict()
@@ -627,6 +623,14 @@ class Sudo_dialog(QDialog):
                 self.settings.value('directories_excluded').strip()
 
         self.setWindowTitle('Database Update')
+
+        self.icon_theme_label = QLabel('icon theme:')
+        self.icon_theme_combobox = QComboBox(self)
+        self.icon_theme_combobox.addItem("adwaita")
+        self.icon_theme_combobox.addItem("numix")
+        self.icon_theme_combobox.addItem("oxygen")
+        self.icon_theme_combobox.activated[str].connect(self.combo_box_change)
+
         self.excluded_label = QLabel('ignored directories:')
         self.excluded_dirs_btn = QPushButton(self.excluded_dirs)
         self.label_0 = QLabel('sudo password:')
@@ -659,15 +663,17 @@ class Sudo_dialog(QDialog):
 
         grid = QGridLayout()
         grid.setSpacing(7)
-        grid.addWidget(self.excluded_label, 0, 0)
-        grid.addWidget(self.excluded_dirs_btn, 0, 1)
-        grid.addWidget(self.label_0, 1, 0)
-        grid.addWidget(self.passwd_input, 1, 1)
-        grid.addWidget(self.label_1, 2, 0, 1, 2)
-        grid.addWidget(self.label_2, 3, 0, 1, 2)
-        grid.addWidget(self.label_3, 4, 0, 1, 2)
-        grid.addWidget(self.OK_button, 5, 0)
-        grid.addWidget(self.cancel_button, 5, 1)
+        grid.addWidget(self.icon_theme_label, 0, 0)
+        grid.addWidget(self.icon_theme_combobox, 0, 1)
+        grid.addWidget(self.excluded_label, 1, 0)
+        grid.addWidget(self.excluded_dirs_btn, 1, 1)
+        grid.addWidget(self.label_0, 2, 0)
+        grid.addWidget(self.passwd_input, 2, 1)
+        grid.addWidget(self.label_1, 3, 0, 1, 2)
+        grid.addWidget(self.label_2, 4, 0, 1, 2)
+        grid.addWidget(self.label_3, 5, 0, 1, 2)
+        grid.addWidget(self.OK_button, 6, 0)
+        grid.addWidget(self.cancel_button, 6, 1)
         self.setLayout(grid)
 
         self.OK_button.clicked.connect(self.clicked_OK_update_db)
@@ -675,6 +681,9 @@ class Sudo_dialog(QDialog):
         self.passwd_input.textChanged[str].connect(self.password_typed)
 
         self.passwd_input.setFocus()
+
+    def combo_box_change(self, text):
+        self.icon_theme_signal.emit(text)
 
     def password_typed(self, input):
         if len(input) > 0:
@@ -767,7 +776,7 @@ class HTMLDelegate(QStyledItemDelegate):
         thefuckyourshitup_constant = 4
         margin = (option.rect.height() - options.fontMetrics.height()) // 2
         margin = margin - thefuckyourshitup_constant
-        textRect.setTop(textRect.top()+margin)
+        textRect.setTop(textRect.top() + margin)
 
         painter.translate(textRect.topLeft())
         painter.setClipRect(option.rect.translated(-option.rect.topLeft()))
