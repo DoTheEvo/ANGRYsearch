@@ -107,14 +107,16 @@ class Thread_database_update(QThread):
                 path = os.path.join(root, dname)
                 utf_path = path.decode(encoding='utf-8', errors='ignore')
                 stats = os.lstat(path)
-                readable_date = datetime.fromtimestamp(stats.st_mtime.__trunc__())
+                readable_date = datetime.fromtimestamp(
+                    stats.st_mtime.__trunc__())
                 dir_list.append(('1', utf_path, '', readable_date))
             for fname in files:
                 path = os.path.join(root, fname)
                 utf_path = path.decode(encoding='utf-8', errors='ignore')
                 stats = os.lstat(path)
                 size = self.readable_filesize(stats.st_size)
-                readable_date = datetime.fromtimestamp(stats.st_mtime.__trunc__())
+                readable_date = datetime.fromtimestamp(
+                    stats.st_mtime.__trunc__())
                 file_list.append(
                     ('0', utf_path, size, readable_date))
 
@@ -167,7 +169,8 @@ class Thread_database_update(QThread):
 
     def readable_filesize(self, nbytes):
         suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-        if nbytes == 0: return '0 B'
+        if nbytes == 0:
+            return '0 B'
         i = 0
         while nbytes >= 1024 and i < len(suffixes)-1:
             nbytes /= 1024.
@@ -221,10 +224,10 @@ class Model_table(QAbstractTableModel):
 
 
 class My_table(QTableView):
-    def __init__(self, parent=None):
+    def __init__(self, row_height='0', parent=None):
         super().__init__()
-        #rowHeight = self.fontMetrics().height()
-        self.verticalHeader().setDefaultSectionSize(24)
+        if row_height.isdigit() and row_height != '0':
+            self.verticalHeader().setDefaultSectionSize(int(row_height))
 
     def resizeEvent(self, event):
         width = event.size().width()
@@ -236,13 +239,14 @@ class My_table(QTableView):
 
 # THE PRIMARY GUI, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(QWidget):
-    def __init__(self):
+    def __init__(self, row_height='0'):
         super().__init__()
+        self.row_height = row_height
         self.initUI()
 
     def initUI(self):
         self.search_input = QLineEdit()
-        self.main_table = My_table()
+        self.main_tbl = My_table(self.row_height)
         self.upd_button = QPushButton('update')
 
         grid = QGridLayout()
@@ -250,11 +254,11 @@ class Center_widget(QWidget):
 
         grid.addWidget(self.search_input, 1, 1)
         grid.addWidget(self.upd_button, 1, 4)
-        grid.addWidget(self.main_table, 2, 1, 4, 4)
+        grid.addWidget(self.main_tbl, 2, 1, 4, 4)
         self.setLayout(grid)
 
-        self.setTabOrder(self.search_input, self.main_table)
-        self.setTabOrder(self.main_table, self.upd_button)
+        self.setTabOrder(self.search_input, self.main_tbl)
+        self.setTabOrder(self.main_tbl, self.upd_button)
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
@@ -264,6 +268,7 @@ class Gui_MainWindow(QMainWindow):
         self.settings = QSettings('angrysearch', 'angrysearch')
         self.set = {'icon_theme': 'adwaita',
                     'file_manager': 'xdg-open',
+                    'row_height': '0',
                     'number_of_results': '500',
                     'directories_excluded': []}
         self.read_settings()
@@ -284,6 +289,9 @@ class Gui_MainWindow(QMainWindow):
 
         if self.settings.value('icon_theme'):
             self.set['icon_theme'] = self.settings.value('icon_theme')
+
+        if self.settings.value('row_height'):
+            self.set['row_height'] = self.settings.value('row_height')
 
         if self.settings.value('file_manager'):
             if self.settings.value('file_manager') not in ['', 'xdg-open']:
@@ -309,6 +317,8 @@ class Gui_MainWindow(QMainWindow):
             self.settings.setValue('icon_theme', 'adwaita')
         if not self.settings.value('file_manager'):
             self.settings.setValue('file_manager', 'xdg-open')
+        if not self.settings.value('row_height'):
+            self.settings.setValue('row_height', '0')
         if not self.settings.value('number_of_results'):
             self.settings.setValue('number_of_results', '500')
         if not self.settings.value('directories_excluded'):
@@ -323,25 +333,26 @@ class Gui_MainWindow(QMainWindow):
         self.threads = []
         self.file_list = []
 
-        self.center = Center_widget()
+        self.center = Center_widget(self.set['row_height'])
         self.setCentralWidget(self.center)
 
         self.setWindowTitle('ANGRYsearch')
         self.status_bar = QStatusBar(self)
         self.setStatusBar(self.status_bar)
 
-        self.center.main_table.setGridStyle(0)
-        self.center.main_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.center.main_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.center.main_table.horizontalHeader().setStretchLastSection(True)
-        self.center.main_table.setAlternatingRowColors(True)
-        self.center.main_table.verticalHeader().setVisible(False)
-        self.center.main_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.center.main_tbl.setGridStyle(0)
+        self.center.main_tbl.setSortingEnabled(True)
+        self.center.main_tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.center.main_tbl.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.center.main_tbl.horizontalHeader().setStretchLastSection(True)
+        self.center.main_tbl.setAlternatingRowColors(True)
+        self.center.main_tbl.verticalHeader().setVisible(False)
+        self.center.main_tbl.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
-        self.center.main_table.setItemDelegate(HTMLDelegate())
+        self.center.main_tbl.setItemDelegate(self.HTMLDelegate())
 
-        self.center.main_table.clicked.connect(self.single_click)
-        self.center.main_table.activated.connect(self.double_click_enter)
+        self.center.main_tbl.clicked.connect(self.single_click)
+        self.center.main_tbl.activated.connect(self.double_click_enter)
 
         self.center.search_input.textChanged[str].connect(
             self.new_query_new_thread)
@@ -425,9 +436,6 @@ class Gui_MainWindow(QMainWindow):
         rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
         self.regex_queries = re.compile(rx, re.IGNORECASE)
 
-        dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
-        file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
-
         icon_dictionary = self.get_icons()
 
         for tup in results:
@@ -455,11 +463,8 @@ class Gui_MainWindow(QMainWindow):
             model_data.append(item)
 
         self.model = Model_table(model_data)
-        dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
-        file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
-
-        self.center.main_table.setModel(self.model)
-        total = locale.format('%d', len(data), grouping=True)
+        self.center.main_tbl.setModel(self.model)
+        total = locale.format('%d', len(results), grouping=True)
         self.status_bar.showMessage(total)
 
     def bold_text(self, line):
@@ -575,7 +580,7 @@ class Gui_MainWindow(QMainWindow):
                 '   • with ~1 mil files indexed it\'s size is roughly 200MB',
                 ]
 
-        self.center.main_table.setModel(QStringListModel(chat))
+        self.center.main_tbl.setModel(QStringListModel(chat))
         self.status_bar.showMessage(
             'READ, then press the update button in the top right corner')
 
@@ -590,13 +595,58 @@ class Gui_MainWindow(QMainWindow):
     def theme_change_icon(self, text):
         self.settings.setValue('icon_theme', text)
         self.set['icon_theme'] = text
-        self.show_first_500()
+        self.new_query_new_thread(self.center.search_input.text())
 
     def string_to_boolean(self, str):
         if str in ['true', 'True', 'yes', 'y', '1']:
             return True
         else:
             return False
+
+    # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
+    class HTMLDelegate(QStyledItemDelegate):
+        def __init__(self, parent=None):
+            super().__init__()
+            self.doc = QTextDocument(self)
+
+        def paint(self, painter, option, index):
+            painter.save()
+
+            options = QStyleOptionViewItem(option)
+
+            self.initStyleOption(options, index)
+            self.doc.setHtml(options.text)
+            options.text = ""
+
+            style = QApplication.style() if options.widget is None \
+                else options.widget.style()
+            style.drawControl(QStyle.CE_ItemViewItem, options, painter)
+
+            ctx = QAbstractTextDocumentLayout.PaintContext()
+
+            if option.state & QStyle.State_Selected:
+                ctx.palette.setColor(QPalette.Text, option.palette.color(
+                    QPalette.Active, QPalette.HighlightedText))
+
+            textRect = style.subElementRect(
+                QStyle.SE_ItemViewItemText, options)
+
+            if index.column() != 0:
+                textRect.adjust(5, 0, 0, 0)
+
+            thefuckyourshitup_constant = 4
+            margin = (option.rect.height() - options.fontMetrics.height()) // 2
+            margin = margin - thefuckyourshitup_constant
+            textRect.setTop(textRect.top() + margin)
+
+            painter.translate(textRect.topLeft())
+            painter.setClipRect(textRect.translated(-textRect.topLeft()))
+            self.doc.documentLayout().draw(painter, ctx)
+
+            painter.restore()
+
+        def sizeHint(self, option, index):
+            return QSize(self.doc.idealWidth(), self.doc.size().height())
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
@@ -621,15 +671,28 @@ class Sudo_dialog(QDialog):
         if self.settings.value('directories_excluded'):
             self.excluded_dirs = \
                 self.settings.value('directories_excluded').strip()
+        combobox_text = 'adwaita'
+        if self.settings.value('icon_theme'):
+            combobox_text = self.settings.value('icon_theme').strip()
 
         self.setWindowTitle('Database Update')
 
         self.icon_theme_label = QLabel('icon theme:')
         self.icon_theme_combobox = QComboBox(self)
-        self.icon_theme_combobox.addItem("adwaita")
-        self.icon_theme_combobox.addItem("numix")
-        self.icon_theme_combobox.addItem("oxygen")
+        self.icon_theme_combobox.addItems(['adwaita', 'elementary', 'faenza',
+                                           'numix', 'oxygen', 'ubuntu'])
+        self.icon_theme_combobox.setEditable(True)
+        self.icon_theme_combobox.lineEdit().setReadOnly(True)
+        self.icon_theme_combobox.lineEdit().setAlignment(Qt.AlignCenter)
+        for x in range(self.icon_theme_combobox.count()):
+            self.icon_theme_combobox.setItemData(
+                x, Qt.AlignCenter, Qt.TextAlignmentRole)
+
         self.icon_theme_combobox.activated[str].connect(self.combo_box_change)
+
+        index = self.icon_theme_combobox.findText(combobox_text)
+        if index >= 0:
+            self.icon_theme_combobox.setCurrentIndex(index)
 
         self.excluded_label = QLabel('ignored directories:')
         self.excluded_dirs_btn = QPushButton(self.excluded_dirs)
@@ -740,52 +803,6 @@ class Sudo_dialog(QDialog):
 
     def sudo_dialog_receive_crawl(self, message):
         self.passwd_input.setText(message[:19])
-
-
-# CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
-class HTMLDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None):
-        super().__init__()
-        self.doc = QTextDocument(self)
-
-    def paint(self, painter, option, index):
-        painter.save()
-
-        options = QStyleOptionViewItem(option)
-
-        self.initStyleOption(options, index)
-        self.doc.setHtml(options.text)
-        options.text = ""
-
-        style = QApplication.style() if options.widget is None \
-            else options.widget.style()
-        style.drawControl(QStyle.CE_ItemViewItem, options, painter)
-
-        ctx = QAbstractTextDocumentLayout.PaintContext()
-
-        if option.state & QStyle.State_Selected:
-            ctx.palette.setColor(QPalette.Text, option.palette.color(
-                                 QPalette.Active, QPalette.HighlightedText))
-
-        textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
-
-        if index.column() != 0:
-            textRect.adjust(5, 0, 0, 0)
-        #textRect.adjust(0, 0, 0, 0)
-
-        thefuckyourshitup_constant = 4
-        margin = (option.rect.height() - options.fontMetrics.height()) // 2
-        margin = margin - thefuckyourshitup_constant
-        textRect.setTop(textRect.top() + margin)
-
-        painter.translate(textRect.topLeft())
-        painter.setClipRect(option.rect.translated(-option.rect.topLeft()))
-        self.doc.documentLayout().draw(painter, ctx)
-
-        painter.restore()
-
-    def sizeHint(self, option, index):
-        return QSize(self.doc.idealWidth(), self.doc.size().height())
 
 
 def open_database():
