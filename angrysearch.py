@@ -5,6 +5,7 @@ import base64
 from datetime import datetime
 import locale
 import mimetypes
+import operator
 import os
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -180,11 +181,12 @@ class Thread_database_update(QThread):
 
 
 # MODEL FOR TABLE DATA
-class Model_table(QAbstractTableModel):
+class Custom_table_model(QAbstractTableModel):
     def __init__(self, table_data=[[]], parent=None):
         super().__init__()
-        self.table_data = table_data
+        self.table_data = self.data_backup = table_data
         self.headers = ['Name', 'Path', 'Size', 'Date Modified']
+        self._sorted = False
 
     def rowCount(self, parent):
         return len(self.table_data)
@@ -215,6 +217,22 @@ class Model_table(QAbstractTableModel):
             value = self.table_data[row][column]
             return value.icon()
 
+    def sort(self, column, order):
+        if column in [0, 2, 3]:
+            self._sorted = True
+            self.layoutAboutToBeChanged.emit()
+            self.table_data = sorted(self.table_data,
+                                     key=operator.itemgetter(column))
+            if order == Qt.DescendingOrder:
+                self.table_data.reverse()
+            self.layoutChanged.emit()
+        else:
+            if self._sorted:
+                self.layoutAboutToBeChanged.emit()
+                self.table_data = self.data_backup
+                self.layoutChanged.emit()
+                self._sorted = False
+
     def itemFromIndex(self, index):
         row = index.row()
         column = index.column()
@@ -223,7 +241,7 @@ class Model_table(QAbstractTableModel):
             return value
 
 
-class My_table(QTableView):
+class My_table_view(QTableView):
     def __init__(self, row_height='0', parent=None):
         super().__init__()
         if row_height.isdigit() and row_height != '0':
@@ -232,9 +250,9 @@ class My_table(QTableView):
     def resizeEvent(self, event):
         width = event.size().width()
         self.setColumnWidth(0, width * 0.30)
-        self.setColumnWidth(1, width * 0.40)
+        self.setColumnWidth(1, width * 0.38)
         self.setColumnWidth(2, width * 0.10)
-        self.setColumnWidth(3, width * 0.20)
+        self.setColumnWidth(3, width * 0.22)
 
 
 # THE PRIMARY GUI, THE WIDGET WITHIN THE MAINWINDOW
@@ -246,7 +264,7 @@ class Center_widget(QWidget):
 
     def initUI(self):
         self.search_input = QLineEdit()
-        self.main_tbl = My_table(self.row_height)
+        self.main_tbl = My_table_view(self.row_height)
         self.upd_button = QPushButton('update')
 
         grid = QGridLayout()
@@ -328,7 +346,7 @@ class Gui_MainWindow(QMainWindow):
     def init_GUI(self):
         self.icon = self.get_icon()
         self.setWindowIcon(self.icon)
-        self.model = Model_table()
+        self.model = Custom_table_model()
 
         self.threads = []
         self.file_list = []
@@ -342,6 +360,7 @@ class Gui_MainWindow(QMainWindow):
 
         self.center.main_tbl.setGridStyle(0)
         self.center.main_tbl.setSortingEnabled(True)
+        self.center.main_tbl.sortByColumn(1, 0)
         self.center.main_tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.center.main_tbl.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.center.main_tbl.horizontalHeader().setStretchLastSection(True)
@@ -462,7 +481,7 @@ class Gui_MainWindow(QMainWindow):
 
             model_data.append(item)
 
-        self.model = Model_table(model_data)
+        self.model = Custom_table_model(model_data)
         self.center.main_tbl.setModel(self.model)
         total = locale.format('%d', len(results), grouping=True)
         self.status_bar.showMessage(total)
