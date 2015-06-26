@@ -22,29 +22,37 @@ except ImportError:
     SCANDIR_AVAILABLE = False
 
 
-# THREAD FOR ASYNC SEARCHES IN THE DATABASE
-# CALLED ON EVERY KEYPRESS
-# RETURNS FIRST 500(numb_results) RESULTS MATCHING THE QUERY
+# THREAD FOR ASYNC SEARCHES IN THE DATABASE, CALLED ON EVERY KEYPRESS
+# RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
 class Thread_db_query(QThread):
     db_query_signal = pyqtSignal(dict)
 
-    def __init__(self, db_query, numb_results, parent=None):
+    def __init__(self, db_query, settings, parent=None):
         super().__init__()
-        self.numb_results = numb_results
+        self.number_of_results = settings['number_of_results']
+        self.fts4 = settings['fts4']
         self.db_query = db_query
         self.sql_query = self.query_adjustment_for_sqlite(db_query)
 
     def run(self):
         cur = con.cursor()
-        cur.execute('''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
-                    (self.sql_query, self.numb_results))
+        if self.fts4 == 'false':
+            cur.execute('''SELECT * FROM angry_table WHERE path LIKE ? LIMIT ?''',
+                        (self.sql_query, self.number_of_results))
+        else:
+            cur.execute('''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
+                        (self.sql_query, self.number_of_results))
         tuppled_500 = cur.fetchall()
         signal_message = {'input': self.db_query, 'results': tuppled_500}
         self.db_query_signal.emit(signal_message)
 
     def query_adjustment_for_sqlite(self, input):
-        joined = '*'.join(input.split())
-        return '*{0}*'.format(joined)
+        if self.fts4 == 'false':
+            joined = '%'.join(input.split())
+            return '%{0}%'.format(joined)
+        else:
+            joined = '*'.join(input.split())
+            return '*{0}*'.format(joined)
 
 
 # THREAD FOR UPDATING THE DATABASE
@@ -284,7 +292,8 @@ class Gui_MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
         self.settings = QSettings('angrysearch', 'angrysearch')
-        self.set = {'icon_theme': 'adwaita',
+        self.set = {'fts4': 'true',
+                    'icon_theme': 'adwaita',
                     'file_manager': 'xdg-open',
                     'row_height': '0',
                     'number_of_results': '500',
@@ -304,6 +313,11 @@ class Gui_MainWindow(QMainWindow):
 
         if self.settings.value('Last_Run/window_state'):
             self.restoreState(self.settings.value('Last_Run/window_state'))
+
+        if self.settings.value('fast_search_but_no_substring'):
+            fts4 = self.settings.value('fast_search_but_no_substring')
+            if fts4.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
+                self.set['fts4'] = 'false'
 
         if self.settings.value('icon_theme'):
             self.set['icon_theme'] = self.settings.value('icon_theme')
@@ -333,6 +347,8 @@ class Gui_MainWindow(QMainWindow):
         self.settings.setValue('Last_Run/window_state', self.saveState())
         if not self.settings.value('icon_theme'):
             self.settings.setValue('icon_theme', 'adwaita')
+        if not self.settings.value('fast_search_but_no_substring'):
+            self.settings.setValue('fast_search_but_no_substring', 'true')
         if not self.settings.value('file_manager'):
             self.settings.setValue('file_manager', 'xdg-open')
         if not self.settings.value('row_height'):
@@ -350,6 +366,7 @@ class Gui_MainWindow(QMainWindow):
 
         self.threads = []
         self.file_list = []
+        self.icon_dictionary = self.get_mime_icons()
 
         self.center = Center_widget(self.set['row_height'])
         self.setCentralWidget(self.center)
@@ -433,7 +450,7 @@ class Gui_MainWindow(QMainWindow):
 
         self.threads.append({'input': input,
                             'thread': Thread_db_query(
-                                input, self.set['number_of_results'])})
+                                input, self.set)})
 
         self.threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qt.QueuedConnection)
@@ -455,8 +472,6 @@ class Gui_MainWindow(QMainWindow):
         rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
         self.regex_queries = re.compile(rx, re.IGNORECASE)
 
-        icon_dictionary = self.get_icons()
-
         for tup in results:
             split_by_slash = tup[1].split('/')
 
@@ -470,13 +485,13 @@ class Gui_MainWindow(QMainWindow):
             n = QStandardItem(name)
             n.path = tup[1]
             if tup[0] == '1':
-                n.setIcon(icon_dictionary['directory'])
+                n.setIcon(self.icon_dictionary['folder'])
             else:
                 short_mime = mimetypes.guess_type(name_)
-                if short_mime[0] and short_mime[0][:5] in icon_dictionary:
-                    n.setIcon(icon_dictionary[short_mime[0][:5]])
+                if short_mime[0] and short_mime[0][:5] in self.icon_dictionary:
+                    n.setIcon(self.icon_dictionary[short_mime[0][:5]])
                 else:
-                    n.setIcon(icon_dictionary['file'])
+                    n.setIcon(self.icon_dictionary['file'])
             item = [n, path, tup[2], tup[3]]
 
             model_data.append(item)
@@ -489,19 +504,31 @@ class Gui_MainWindow(QMainWindow):
     def bold_text(self, line):
         return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
-    def get_icons(self):
+    def get_mime_icons(self):
         theme = self.set['icon_theme']
+        local_dir = 'icons'
+        system_path = '/opt/angrysearch/icons'
+        detected_mime = ['folder', 'file', 'image', 'audio', 'video', 'text']
+        icon_dic = {}
+        use_path = ''
 
-        icon_dictionary = {
-            'directory': QIcon(os.path.join('icons', theme, 'folder.png')),
-            'file': QIcon(os.path.join('icons', theme, 'file.png')),
-            'image': QIcon(os.path.join('icons', theme, 'image.png')),
-            'audio': QIcon(os.path.join('icons', theme, 'audio.png')),
-            'video': QIcon(os.path.join('icons', theme, 'video.png')),
-            'text/': QIcon(os.path.join('icons', theme, 'text.png'))
-        }
+        if os.path.isdir(local_dir):
+            use_path = local_dir
+        elif os.path.isdir(system_path):
+            use_path = system_path
 
-        return icon_dictionary
+        if use_path == '':
+            for x in detected_mime:
+                dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
+                file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
+                icon_dic[x] = QIcon(file_icon)
+            icon_dic['folder'] = QIcon(dir_icon)
+        else:
+            for x in detected_mime:
+                p = os.path.join(use_path, theme, x + '.png')
+                icon_dic[x] = QIcon(p)
+
+        return icon_dic
 
     # RUNS ON START OR ON EMPTY INPUT
     def show_first_500(self):
@@ -614,6 +641,7 @@ class Gui_MainWindow(QMainWindow):
     def theme_change_icon(self, text):
         self.settings.setValue('icon_theme', text)
         self.set['icon_theme'] = text
+        self.icon_dictionary = self.get_mime_icons()
         self.new_query_new_thread(self.center.search_input.text())
 
     def string_to_boolean(self, str):
