@@ -24,6 +24,7 @@ except ImportError:
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE, CALLED ON EVERY KEYPRESS
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
+# fts4 VALUE DECIDES IF USE FAST INDEXED "MATCH" OR SUBSTRING "LIKE"
 class Thread_db_query(QThread):
     db_query_signal = pyqtSignal(dict)
 
@@ -37,11 +38,13 @@ class Thread_db_query(QThread):
     def run(self):
         cur = con.cursor()
         if self.fts4 == 'false':
-            cur.execute('''SELECT * FROM angry_table WHERE path LIKE ? LIMIT ?''',
-                        (self.sql_query, self.number_of_results))
+            cur.execute(
+                '''SELECT * FROM angry_table WHERE path LIKE ? LIMIT ?''',
+                (self.sql_query, self.number_of_results))
         else:
-            cur.execute('''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
-                        (self.sql_query, self.number_of_results))
+            cur.execute(
+                '''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
+                (self.sql_query, self.number_of_results))
         tuppled_500 = cur.fetchall()
         signal_message = {'input': self.db_query, 'results': tuppled_500}
         self.db_query_signal.emit(signal_message)
@@ -56,14 +59,14 @@ class Thread_db_query(QThread):
 
 
 # THREAD FOR UPDATING THE DATABASE
-# PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW STEPS PROGRESS
+# PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
 class Thread_database_update(QThread):
     db_update_signal = pyqtSignal(str)
     crawl_signal = pyqtSignal(str)
 
     def __init__(self, sudo_passwd, settings, parent=None):
         super().__init__()
-        self.db_path = '/var/lib/angrysearch/angry_database.db'
+        self.db_path = '/opt/angrysearch/angry_database.db'
         self.temp_db_path = '/tmp/angry_database.db'
         self.sudo_passwd = sudo_passwd
         self.settings = settings
@@ -156,11 +159,16 @@ class Thread_database_update(QThread):
     def replace_old_db_with_new(self):
         global con
 
+        dir_path = os.path.dirname(self.db_path)
+        print(self.db_path)
+        print(dir_path)
+
         if not os.path.exists(self.temp_db_path):
             return
-        if not os.path.exists('/var/lib/angrysearch/'):
-            cmd = ['sudo', 'mkdir', '/var/lib/angrysearch/']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+        if not os.path.exists(dir_path):
+            cmd = ['sudo', 'install', '-d', dir_path]
+            p = subprocess.Popen(cmd,
+                                 stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
                                  stdin=subprocess.PIPE)
             p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
@@ -168,7 +176,8 @@ class Thread_database_update(QThread):
             p.wait()
 
         cmd = ['sudo', '-S', 'mv', '-f', self.temp_db_path, self.db_path]
-        p = subprocess.Popen(cmd, stderr=subprocess.PIPE,
+        p = subprocess.Popen(cmd,
+                             stderr=subprocess.PIPE,
                              stdin=subprocess.PIPE)
         p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
         p.stdin.flush()
@@ -360,7 +369,7 @@ class Gui_MainWindow(QMainWindow):
         event.accept()
 
     def init_GUI(self):
-        self.icon = self.get_icon()
+        self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
         self.model = Custom_table_model()
 
@@ -422,7 +431,7 @@ class Gui_MainWindow(QMainWindow):
         elif (reason == QSystemTrayIcon.MiddleClick):
             QCoreApplication.instance().quit()
 
-    def get_icon(self):
+    def get_tray_icon(self):
         base64_data = '''iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHN
                          CSVQICAgIfAhkiAAAAQNJREFUOI3t1M9KAlEcxfHPmP0xU6Ogo
                          G0teoCiHjAIfIOIepvKRUE9R0G0KNApfy0c8hqKKUMrD9zVGc4
@@ -644,12 +653,6 @@ class Gui_MainWindow(QMainWindow):
         self.icon_dictionary = self.get_mime_icons()
         self.new_query_new_thread(self.center.search_input.text())
 
-    def string_to_boolean(self, str):
-        if str in ['true', 'True', 'yes', 'y', '1']:
-            return True
-        else:
-            return False
-
     # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
     class HTMLDelegate(QStyledItemDelegate):
         def __init__(self, parent=None):
@@ -853,7 +856,7 @@ class Sudo_dialog(QDialog):
 
 
 def open_database():
-    path = '/var/lib/angrysearch/angry_database.db'
+    path = '/opt/angrysearch/angry_database.db'
     temp = '/tmp/angry_database.db'
     if os.path.exists(path):
         return sqlite3.connect(path, check_same_thread=False)
