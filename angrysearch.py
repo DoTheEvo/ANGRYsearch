@@ -100,7 +100,6 @@ class Thread_database_update(QThread):
         root_dir = b'/'
         self.tstart = datetime.now()
 
-        self.table = []
         dir_list = []
         file_list = []
 
@@ -212,9 +211,6 @@ class Custom_table_model(QAbstractTableModel):
     def columnCount(self, parent):
         return 4
 
-    def flags(self, index):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
-
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
                 return self.headers[section]
@@ -252,11 +248,10 @@ class Custom_table_model(QAbstractTableModel):
                 self._sorted = False
 
     def itemFromIndex(self, index):
-        row = index.row()
-        column = index.column()
-        value = self.table_data[row][column]
         if index.column() == 0:
-            return value
+            row = index.row()
+            column = index.column()
+            return self.table_data[row][column]
 
 
 class My_table_view(QTableView):
@@ -387,8 +382,10 @@ class Gui_MainWindow(QMainWindow):
         self.status_bar = QStatusBar(self)
         self.setStatusBar(self.status_bar)
 
-        self.center.fts4_checkbox.setToolTip('check = fts4 indexing, fast\n'
-                                             'uncheck = slow but substrings')
+        self.center.fts4_checkbox.setToolTip(
+            'check = fts4 indexing, fast\n'
+            'uncheck = substrings work, slower')
+
         if self.set['fts4'] == 'true':
             self.center.fts4_checkbox.setChecked(True)
         self.center.fts4_checkbox.stateChanged.connect(self.checkbox_fts_click)
@@ -464,7 +461,7 @@ class Gui_MainWindow(QMainWindow):
             return
 
         if len(self.threads) > 30:
-            del self.threads[0:9]
+            del self.threads[0:20]
 
         self.threads.append({'input': input,
                             'thread': Thread_db_query(
@@ -605,7 +602,6 @@ class Gui_MainWindow(QMainWindow):
             self.status_bar.showMessage('NOPE')
 
     def double_click_enter(self, QModelIndex):
-
         column = QModelIndex.column()
         path = self.model.itemFromIndex(
             QModelIndex.child(QModelIndex.row(), 0)).path

@@ -39,7 +39,7 @@ for long term installation on your system for every day use we need to place the
   * `sudo mkdir /opt/angrysearch`
 * go where you downloaded latest release, go deeper inside, copy all files and the icons folder to /opt/angrysearch
   * `sudo cp -r * /opt/angrysearch`
-* change ownership of all the freshly copied files to your account, lets assume you are "jack" and also make two of the executable
+* change ownership of all the freshly copied files to your account, lets assume you are "jack" and also make two of them executable
   * `cd /opt/angrysearch`
   * `sudo chown -R jack:jack *`
   * `sudo chmod +x angrysearch.py angrysearch.desktop`
@@ -54,16 +54,16 @@ thats about it, if something does not work, make sure ownership and permissions 
 
 ### How it works & additional details:
 
-* on update it crawls through your file system and creates database in `~/.cache/angrysearch`
+* on update it crawls through your file system and creates database in `~/.cache/angrysearch/angry_database.db`
 * database uses FTS4 for indexing to provide instantaneous feel - results as you type
-* drawback of this indexing is inability to do substring searches but the checkbox in the top right corner can change this, if its uncheck it will not use FTS4 tables and just do regular slow database search query with substrings as well
+* drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS4 tables and just do regular slow database search query with substrings as well
 * **double-click** on items in search results:
   * `Name` - the first column, opens the file in application associated with its mimetype in xdg-open
-  * `Path` - the second column, open the items location in the file manager
-* **config file** location: `~/.config/angrysearch/angrysearch.conf`
-  *   `directories_excluded=` Not set by default. Which directories to be ignored, directory names(not slashes) separated by space are valid value there. Can be set through programs interface, in the update window. `proc` directory is hardcoded to ignore
-  *   `fast_search_but_no_substring=true` By default set to true. The last set value of the checkbox affecting the speed of search and substrings, see FTS4 above
-  *   `file_manager=xdg-open` By defalut set to xdg-open, meaning xdg-open test which program is associated with inode/directory mime type and set path of files/folders to that application. Can be set to any program. If it detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, making it highlighted - selected when opened in the filemanager. For other programs it just send path to the containing foler.
+  * `Path` - the second column, open the item's location in the file manager
+* **config file** location: `~/.config/angrysearch/angrysearch.conf`. You can delete the config file whenever you wish, on the next run/close a new one will be created with default values.
+  *   `directories_excluded=` By default empty. Which directories to be ignored, directory names(not slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to ignore
+  *   `fast_search_but_no_substring=true` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
+  *   `file_manager=xdg-open` By default set to xdg-open, meaning xdg-open tests which program is associated with inode/directory mime type and on double clicking the path of files/folders is send to that application. Can be set to any program. If it detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, making it highlighted - selected when opened in the filemanager. For other programs it just send path to the containing foler.
   *   `icon_theme=adwaita` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way.
   *   `number_of_results=500` By default set to 500. Limit set in the database query. Lower number means search results would be faster.
   *   `row_height=0` By default set to 0 which means auto-detect. Sets height of the row in pixels.
