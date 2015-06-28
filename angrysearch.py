@@ -61,28 +61,28 @@ class Thread_db_query(QThread):
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
 class Thread_database_update(QThread):
-    db_update_signal = pyqtSignal(str)
+    db_update_signal = pyqtSignal(str, str)
     crawl_signal = pyqtSignal(str)
 
-    def __init__(self, sudo_passwd, settings, parent=None):
+    def __init__(self, settings, parent=None):
         super().__init__()
-        self.db_path = '/opt/angrysearch/angry_database.db'
-        self.temp_db_path = '/tmp/angry_database.db'
-        self.sudo_passwd = sudo_passwd
         self.settings = settings
         self.table = []
+        self.tstart = None
+        self.crawl_time = None
+        self.database_time = None
 
     def run(self):
-        self.db_update_signal.emit('label_1')
+        self.db_update_signal.emit('label_1', None)
         self.crawling_drives()
 
-        self.db_update_signal.emit('label_2')
+        self.db_update_signal.emit('label_2', self.crawl_time)
         self.new_database()
 
-        self.db_update_signal.emit('label_3')
+        self.db_update_signal.emit('label_3', self.database_time)
         self.replace_old_db_with_new()
 
-        self.db_update_signal.emit('the_end_of_the_update')
+        self.db_update_signal.emit('the_end_of_the_update', None)
 
     def crawling_drives(self):
         def error(err):
@@ -134,15 +134,17 @@ class Thread_database_update(QThread):
 
         self.table = dir_list + file_list
 
-        print(str(datetime.now() - self.tstart))
+        self.crawl_time = datetime.now() - self.tstart
+        self.crawl_time = self.time_difference(self.crawl_time.seconds)
 
     def new_database(self):
         global con
+        temp_db_path = '/tmp/angry_database.db'
 
-        if os.path.exists(self.temp_db_path):
-            os.remove(self.temp_db_path)
+        if os.path.exists(temp_db_path):
+            os.remove(temp_db_path)
 
-        con = sqlite3.connect(self.temp_db_path, check_same_thread=False)
+        con = sqlite3.connect(temp_db_path, check_same_thread=False)
         cur = con.cursor()
         cur.execute('''CREATE VIRTUAL TABLE angry_table
                         USING fts4(directory, path, size, date)''')
@@ -154,36 +156,31 @@ class Thread_database_update(QThread):
                         (x[0], x[1], x[2], x[3]))
 
         con.commit()
-        print(str(datetime.now() - self.tstart))
+        self.database_time = datetime.now() - self.tstart
+        self.database_time = self.time_difference(self.database_time.seconds)
 
     def replace_old_db_with_new(self):
         global con
 
-        dir_path = os.path.dirname(self.db_path)
-        print(self.db_path)
-        print(dir_path)
+        home = os.path.expanduser('~')
+        db_path = home + '/.cache/angrysearch/angry_database.db'
+        temp_db_path = '/tmp/angry_database.db'
 
-        if not os.path.exists(self.temp_db_path):
+        dir_path = os.path.dirname(db_path)
+
+        if not os.path.exists(temp_db_path):
             return
         if not os.path.exists(dir_path):
-            cmd = ['sudo', 'install', '-d', dir_path]
-            p = subprocess.Popen(cmd,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE,
-                                 stdin=subprocess.PIPE)
-            p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
-            p.stdin.flush()
+            cmd = ['install', '-d', dir_path]
+            p = subprocess.Popen(cmd)
             p.wait()
 
-        cmd = ['sudo', '-S', 'mv', '-f', self.temp_db_path, self.db_path]
+        cmd = ['mv', '-f', temp_db_path, db_path]
         p = subprocess.Popen(cmd,
-                             stderr=subprocess.PIPE,
-                             stdin=subprocess.PIPE)
-        p.stdin.write(bytes(self.sudo_passwd+'\n', 'ASCII'))
-        p.stdin.flush()
+                             stderr=subprocess.PIPE)
         p.wait()
 
-        con = sqlite3.connect(self.db_path, check_same_thread=False)
+        con = sqlite3.connect(db_path, check_same_thread=False)
 
     def readable_filesize(self, nbytes):
         suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
@@ -195,6 +192,10 @@ class Thread_database_update(QThread):
             i += 1
         f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
         return '{} {}'.format(f, suffixes[i])
+
+    def time_difference(self, nseconds):
+        mins, secs = divmod(nseconds, 60)
+        return '{:0>2d}:{:0>2d}'.format(mins, secs)
 
 
 # MODEL FOR TABLE DATA
@@ -283,11 +284,13 @@ class Center_widget(QWidget):
         self.search_input = QLineEdit()
         self.main_tbl = My_table_view(self.row_height)
         self.upd_button = QPushButton('update')
+        self.fts4_checkbox = QCheckBox()
 
         grid = QGridLayout()
         grid.setSpacing(10)
 
         grid.addWidget(self.search_input, 1, 1)
+        grid.addWidget(self.fts4_checkbox, 1, 3)
         grid.addWidget(self.upd_button, 1, 4)
         grid.addWidget(self.main_tbl, 2, 1, 4, 4)
         self.setLayout(grid)
@@ -383,6 +386,12 @@ class Gui_MainWindow(QMainWindow):
         self.setWindowTitle('ANGRYsearch')
         self.status_bar = QStatusBar(self)
         self.setStatusBar(self.status_bar)
+
+        self.center.fts4_checkbox.setToolTip('check = fts4 indexing, fast\n'
+                                             'uncheck = slow but substrings')
+        if self.set['fts4'] == 'true':
+            self.center.fts4_checkbox.setChecked(True)
+        self.center.fts4_checkbox.stateChanged.connect(self.checkbox_fts_click)
 
         self.center.main_tbl.setGridStyle(0)
         self.center.main_tbl.setSortingEnabled(True)
@@ -622,28 +631,43 @@ class Gui_MainWindow(QMainWindow):
                 cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
 
+    def checkbox_fts_click(self, state):
+        if state == Qt.Checked:
+            self.set['fts4'] = 'true'
+            self.settings.setValue('fast_search_but_no_substring', 'true')
+            self.center.search_input.setFocus()
+        else:
+            self.set['fts4'] = 'false'
+            self.settings.setValue('fast_search_but_no_substring', 'false')
+            self.center.search_input.setFocus()
+
     def tutorial(self):
-        chat = ['   • config file is in ~/.config/angrysearch/',
-                '',
-                '   • ignored directories are space separated names',
-                '   • e.g. - "dev proc .snapshots"',
-                '   • Btrfs users really want to exclude snapshots',
-                '   • you can set file manager manually in the config',
-                '   • otherwise xdg-open is used which might have few hickups',
-                '',
-                '   • the database is in /var/lib/angrysearch/',
-                '   • with ~1 mil files indexed it\'s size is roughly 200MB',
-                ]
+        chat = [
+            '   • database is in ~/.cache/angrysearch/angry_database.db',
+            '   • ~1 mil files can take ~300MB and ~4 min to index',
+            '',
+            '   • double-click on name opens it in associated application',
+            '   • double-click on path opens the location in file manager',
+            '',
+            '   • checkbox in the right top corner changes search behavior',
+            '   • by default checked, it provides very fast searching',
+            '   • drawback is that it can\'t do word bound substrings',
+            '   • it would not find "Pi<b>rate</b>s", or Whip<b>lash</b>"',
+            '   • it would find "<b>Pir</b>ates", or "The-<b>Fif</b>th"',
+            '   • unchecking it provides substring searches, but slower',
+            '',
+            '   • config file is in ~/.config/angrysearch/angrysearch.conf',
+            ]
 
         self.center.main_tbl.setModel(QStringListModel(chat))
         self.status_bar.showMessage(
             'READ, then press the update button in the top right corner')
 
     def clicked_button_updatedb(self):
-        self.sud = Sudo_dialog(self)
-        self.sud.icon_theme_signal.connect(
+        self.u = Update_dialog_window(self)
+        self.u.icon_theme_signal.connect(
             self.theme_change_icon, Qt.QueuedConnection)
-        self.sud.exec_()
+        self.u.exec_()
         self.show_first_500()
         self.center.search_input.setFocus()
 
@@ -700,7 +724,7 @@ class Gui_MainWindow(QMainWindow):
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
-class Sudo_dialog(QDialog):
+class Update_dialog_window(QDialog):
     icon_theme_signal = pyqtSignal(str)
 
     def __init__(self, parent):
@@ -746,14 +770,12 @@ class Sudo_dialog(QDialog):
 
         self.excluded_label = QLabel('ignored directories:')
         self.excluded_dirs_btn = QPushButton(self.excluded_dirs)
-        self.label_0 = QLabel('sudo password:')
-        self.passwd_input = QLineEdit()
-        self.passwd_input.setEchoMode(QLineEdit.Password)
+        self.crawl0_label = QLabel('progress:')
+        self.crawl_label = QLabel('')
         self.label_1 = QLabel('• crawling the file system')
         self.label_2 = QLabel('• creating new database')
         self.label_3 = QLabel('• replacing old database')
-        self.OK_button = QPushButton('OK')
-        self.OK_button.setEnabled(False)
+        self.OK_button = QPushButton('Update')
         self.cancel_button = QPushButton('Cancel')
 
         if self.excluded_dirs == '':
@@ -764,7 +786,7 @@ class Sudo_dialog(QDialog):
         self.label_2.setIndent(70)
         self.label_3.setIndent(70)
 
-        self.passwd_input.setMinimumWidth(170)
+        self.crawl_label.setMinimumWidth(170)
 
         self.excluded_dirs_btn.clicked.connect(self.exclude_dialog)
 
@@ -780,8 +802,8 @@ class Sudo_dialog(QDialog):
         grid.addWidget(self.icon_theme_combobox, 0, 1)
         grid.addWidget(self.excluded_label, 1, 0)
         grid.addWidget(self.excluded_dirs_btn, 1, 1)
-        grid.addWidget(self.label_0, 2, 0)
-        grid.addWidget(self.passwd_input, 2, 1)
+        grid.addWidget(self.crawl0_label, 2, 0)
+        grid.addWidget(self.crawl_label, 2, 1)
         grid.addWidget(self.label_1, 3, 0, 1, 2)
         grid.addWidget(self.label_2, 4, 0, 1, 2)
         grid.addWidget(self.label_3, 5, 0, 1, 2)
@@ -791,16 +813,11 @@ class Sudo_dialog(QDialog):
 
         self.OK_button.clicked.connect(self.clicked_OK_update_db)
         self.cancel_button.clicked.connect(self.clicked_cancel)
-        self.passwd_input.textChanged[str].connect(self.password_typed)
 
-        self.passwd_input.setFocus()
+        self.OK_button.setFocus()
 
     def combo_box_change(self, text):
         self.icon_theme_signal.emit(text)
-
-    def password_typed(self, input):
-        if len(input) > 0:
-            self.OK_button.setEnabled(True)
 
     def exclude_dialog(self):
         text, ok = QInputDialog.getText(self, '~/.config/angrysearch/',
@@ -817,46 +834,43 @@ class Sudo_dialog(QDialog):
             else:
                 self.excluded_dirs_btn.setText(text)
                 self.excluded_dirs_btn.setStyleSheet("color:#000;")
+            self.OK_button.setFocus()
 
     def clicked_cancel(self):
         self.accept()
 
     def clicked_OK_update_db(self):
-        sudo_passwd = self.passwd_input.text()
-        self.thread_updating = Thread_database_update(
-            sudo_passwd, self.settings)
+        self.thread_updating = Thread_database_update(self.settings)
         self.thread_updating.db_update_signal.connect(
-            self.sudo_dialog_receive_signal, Qt.QueuedConnection)
+            self.upd_dialog_receives_signal, Qt.QueuedConnection)
         self.thread_updating.crawl_signal.connect(
-            self.sudo_dialog_receive_crawl, Qt.QueuedConnection)
-
-        self.label_0.setText('crawling in:')
-        self.passwd_input.setEchoMode(QLineEdit.Normal)
+            self.upd_dialog_receives_crawl, Qt.QueuedConnection)
 
         self.thread_updating.start()
 
-    def sudo_dialog_receive_signal(self, message):
+    def upd_dialog_receives_signal(self, message, time=''):
         if message == 'the_end_of_the_update':
             self.accept()
             return
 
         label = self[message]
-        label_alt = '➔' + label.text()[1:]
+        label_alt = '➔{}'.format(label.text()[1:])
         label.setText(label_alt)
 
         if self.last_signal:
             prev_label = self[self.last_signal]
-            prev_label_alt = '✔' + prev_label.text()[1:]
+            prev_label_alt = '✔{} - {}'.format(prev_label.text()[1:], time)
             prev_label.setText(prev_label_alt)
 
         self.last_signal = message
 
-    def sudo_dialog_receive_crawl(self, message):
-        self.passwd_input.setText(message[:19])
+    def upd_dialog_receives_crawl(self, message):
+        self.crawl_label.setText(message)
 
 
 def open_database():
-    path = '/opt/angrysearch/angry_database.db'
+    home = os.path.expanduser('~')
+    path = home + '/.cache/angrysearch/angry_database.db'
     temp = '/tmp/angry_database.db'
     if os.path.exists(path):
         return sqlite3.connect(path, check_same_thread=False)
