@@ -46,8 +46,8 @@ for long term installation on your system for every day use we need to place the
 * make a link in /usr/share/applications to the desktop file so that angrysearch appears in your launchers and start menus
   * `sudo ln -s /opt/angrysearch/angrysearch.desktop /usr/share/applications`
 * would be nice if it would have some distinguishable icon, make a link to the icon
-  * `sudo ln -s /opt/angrysearch/icons/angrysearch.svg usr/share/pixmaps`
-* if you would like to launch angrysearch from terminal anywhere, make this link
+  * `sudo ln -s /opt/angrysearch/icons/angrysearch.svg /usr/share/pixmaps`
+* to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
   * `sudo ln -s /opt/angrysearch2/angrysearch.py /usr/bin/angrysearch`
 
 thats about it, if something does not work, make sure ownership and permissions are in order
