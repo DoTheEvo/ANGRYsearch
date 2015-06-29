@@ -37,7 +37,7 @@ for long term installation on your system for every day use we need to place the
 
 * create angrysearch folder in /opt
   * `sudo mkdir /opt/angrysearch`
-* go where you downloaded latest release, go deeper inside, copy all files and the icons folder to /opt/angrysearch
+* go where you downloaded latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
   * `sudo cp -r * /opt/angrysearch`
 * change ownership of all the freshly copied files to your account, lets assume you are "jack" and also make two of them executable
   * `cd /opt/angrysearch`
