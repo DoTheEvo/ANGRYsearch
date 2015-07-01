@@ -39,28 +39,28 @@ and make some links to these files to integrate ANGRYsearch in to your system we
 
 * create angrysearch folder in /opt
 
-      sudo mkdir /opt/angrysearch
+        sudo mkdir /opt/angrysearch
 
 * go where you downloaded latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
 
-      sudo cp -r * /opt/angrysearch
+        sudo cp -r * /opt/angrysearch
 
 * make the main python file and the desktop file executable
 
-      cd /opt/angrysearch
-      sudo chmod +x angrysearch.py angrysearch.desktop
+        cd /opt/angrysearch
+        sudo chmod +x angrysearch.py angrysearch.desktop
 
 * make a link in /usr/share/applications to the desktop file so that angrysearch appears in your launchers and start menus
 
-      sudo ln -s /opt/angrysearch/angrysearch.desktop /usr/share/applications
+        sudo ln -s /opt/angrysearch/angrysearch.desktop /usr/share/applications
 
 * would be nice if it would have some distinguishable icon, make a link to the icon
 
-      sudo ln -s /opt/angrysearch/icons/angrysearch.svg /usr/share/pixmaps
+        sudo ln -s /opt/angrysearch/icons/angrysearch.svg /usr/share/pixmaps
 
 * to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
 
-      sudo ln -s /opt/angrysearch/angrysearch.py /usr/bin/angrysearch
+        sudo ln -s /opt/angrysearch/angrysearch.py /usr/bin/angrysearch
 
 
 ### How it works & additional details:
