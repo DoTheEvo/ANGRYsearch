@@ -33,24 +33,35 @@ for other distros:
   * once you are done testing, remember to remove the database that is created in
     `~/.cache/angrysearch/angry_database.db`
 
-for long term installation on your system for every day use we need to place the files where they belong, long story short, all the files and the icons-folder go in to `/opt/angrysearch`, set permissions and ownership and then theres some links pointing to those files.
+for a long term installation on your system for every day use we need to place the files somewhere,
+long story short, all the files and the icons-folder go in to `/opt/angrysearch`, set two of them executable
+and make some links to these files to integrate ANGRYsearch in to your system well.
 
 * create angrysearch folder in /opt
-  * `sudo mkdir /opt/angrysearch`
-* go where you downloaded latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
-  * `sudo cp -r * /opt/angrysearch`
-* change ownership of all the freshly copied files to your account, lets assume you are "jack" and also make two of them executable
-  * `cd /opt/angrysearch`
-  * `sudo chown -R jack:jack *`
-  * `sudo chmod +x angrysearch.py angrysearch.desktop`
-* make a link in /usr/share/applications to the desktop file so that angrysearch appears in your launchers and start menus
-  * `sudo ln -s /opt/angrysearch/angrysearch.desktop /usr/share/applications`
-* would be nice if it would have some distinguishable icon, make a link to the icon
-  * `sudo ln -s /opt/angrysearch/icons/angrysearch.svg /usr/share/pixmaps`
-* to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
-  * `sudo ln -s /opt/angrysearch2/angrysearch.py /usr/bin/angrysearch`
 
-thats about it, if something does not work, make sure ownership and permissions are in order
+      sudo mkdir /opt/angrysearch
+
+* go where you downloaded latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
+
+      sudo cp -r * /opt/angrysearch
+
+* make the main python file and the desktop file executable
+
+      cd /opt/angrysearch
+      sudo chmod +x angrysearch.py angrysearch.desktop
+
+* make a link in /usr/share/applications to the desktop file so that angrysearch appears in your launchers and start menus
+
+      sudo ln -s /opt/angrysearch/angrysearch.desktop /usr/share/applications
+
+* would be nice if it would have some distinguishable icon, make a link to the icon
+
+      sudo ln -s /opt/angrysearch/icons/angrysearch.svg /usr/share/pixmaps
+
+* to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
+
+      sudo ln -s /opt/angrysearch/angrysearch.py /usr/bin/angrysearch
+
 
 ### How it works & additional details:
 
