@@ -4,7 +4,7 @@ Linux file search, instant results as you type
 Attempt at making Linux version of Everything Search Engine, or MasterSeeker, or Hddb File Search, because no one else bothered.
 Everyone seems to be damn content with linux file searches which are slow, populating results as they go, cli based only, heavily integrated with a file manager, limited to home directory, or are trying to be everything with full-text file's content search.
 
-![demonstration gif](http://i.imgur.com/nQO5yVM.gif)
+![demonstration gif](http://i.imgur.com/lfHw2kn.png)
 
 Done in python 3, using PyQt5 for GUI, theres a PyQt4 branch
 
@@ -41,7 +41,7 @@ and make some links to these files to integrate ANGRYsearch in to your system we
 
         sudo mkdir /opt/angrysearch
 
-* go where you downloaded latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
+* go where you extracted a latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
 
         sudo cp -r * /opt/angrysearch
 
