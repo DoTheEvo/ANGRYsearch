@@ -454,6 +454,7 @@ class Gui_MainWindow(QMainWindow):
         i.addPixmap(pm)
         return i
 
+    # CALLED ON EVERY TECH CHANGE IN SEARCH INPUT
     # QUERY THE DATABASE, LIST OF QUERIES TO KNOW THE LAST ONE
     def new_query_new_thread(self, input):
         if input == '':
@@ -502,9 +503,15 @@ class Gui_MainWindow(QMainWindow):
             if tup[0] == '1':
                 n.setIcon(self.icon_dictionary['folder'])
             else:
-                short_mime = mimetypes.guess_type(name_)
-                if short_mime[0] and short_mime[0][:5] in self.icon_dictionary:
-                    n.setIcon(self.icon_dictionary[short_mime[0][:5]])
+                short_mime = mimetypes.guess_type(name_)[0]
+                if short_mime:
+                    short_mime = short_mime.split('/')
+                    if short_mime[0] in self.icon_dictionary:
+                        n.setIcon(self.icon_dictionary[short_mime[0]])
+                    elif short_mime[1] in self.icon_dictionary:
+                        n.setIcon(self.icon_dictionary[short_mime[1]])
+                    else:
+                        n.setIcon(self.icon_dictionary['file'])
                 else:
                     n.setIcon(self.icon_dictionary['file'])
             item = [n, path, tup[2], tup[3]]
@@ -523,7 +530,8 @@ class Gui_MainWindow(QMainWindow):
         theme = self.set['icon_theme']
         local_dir = 'icons'
         system_path = '/opt/angrysearch/icons'
-        detected_mime = ['folder', 'file', 'image', 'audio', 'video', 'text']
+        iconed_mimes = ['folder', 'file', 'image', 'audio',
+                        'video', 'text', 'pdf']
         icon_dic = {}
         use_path = ''
 
@@ -533,13 +541,13 @@ class Gui_MainWindow(QMainWindow):
             use_path = system_path
 
         if use_path == '':
-            for x in detected_mime:
+            for x in iconed_mimes:
                 dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
                 file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
                 icon_dic[x] = QIcon(file_icon)
             icon_dic['folder'] = QIcon(dir_icon)
         else:
-            for x in detected_mime:
+            for x in iconed_mimes:
                 p = os.path.join(use_path, theme, x + '.png')
                 icon_dic[x] = QIcon(p)
 
@@ -631,11 +639,12 @@ class Gui_MainWindow(QMainWindow):
         if state == Qt.Checked:
             self.set['fts4'] = 'true'
             self.settings.setValue('fast_search_but_no_substring', 'true')
-            self.center.search_input.setFocus()
         else:
             self.set['fts4'] = 'false'
             self.settings.setValue('fast_search_but_no_substring', 'false')
-            self.center.search_input.setFocus()
+        current_search = self.center.search_input.text()
+        self.new_query_new_thread(current_search)
+        self.center.search_input.setFocus()
 
     def tutorial(self):
         chat = [
@@ -661,11 +670,17 @@ class Gui_MainWindow(QMainWindow):
 
     def clicked_button_updatedb(self):
         self.u = Update_dialog_window(self)
+        self.u.window_close_signal.connect(
+            self.update_window_close, Qt.QueuedConnection)
         self.u.icon_theme_signal.connect(
             self.theme_change_icon, Qt.QueuedConnection)
         self.u.exec_()
-        self.show_first_500()
         self.center.search_input.setFocus()
+
+    def update_window_close(self, text):
+        if text == 'update_win_ok':
+            self.center.search_input.setText('')
+            self.show_first_500()
 
     def theme_change_icon(self, text):
         self.settings.setValue('icon_theme', text)
@@ -722,6 +737,7 @@ class Gui_MainWindow(QMainWindow):
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
 class Update_dialog_window(QDialog):
     icon_theme_signal = pyqtSignal(str)
+    window_close_signal = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -833,6 +849,7 @@ class Update_dialog_window(QDialog):
             self.OK_button.setFocus()
 
     def clicked_cancel(self):
+        self.window_close_signal.emit('update_win_cancel')
         self.accept()
 
     def clicked_OK_update_db(self):
@@ -846,6 +863,7 @@ class Update_dialog_window(QDialog):
 
     def upd_dialog_receives_signal(self, message, time=''):
         if message == 'the_end_of_the_update':
+            self.window_close_signal.emit('update_win_ok')
             self.accept()
             return
 
