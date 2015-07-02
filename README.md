@@ -4,7 +4,7 @@ Linux file search, instant results as you type
 Attempt at making Linux version of Everything Search Engine, or MasterSeeker, or Hddb File Search, because no one else bothered.
 Everyone seems to be damn content with linux file searches which are slow, populating results as they go, cli based only, heavily integrated with a file manager, limited to home directory, or are trying to be everything with full-text file's content search.
 
-![demonstration gif](http://i.imgur.com/lfHw2kn.png)
+![demonstration gif](http://i.imgur.com/BsjGoYz.gif)
 
 Done in python 3, using PyQt5 for GUI, theres a PyQt4 branch
 
