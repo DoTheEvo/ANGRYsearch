@@ -6,7 +6,9 @@ Everyone seems to be damn content with linux file searches which are slow, popul
 
 ![demonstration gif](http://i.imgur.com/BsjGoYz.gif)
 
-Done in python 3, using PyQt5 for GUI, theres a PyQt4 branch
+Done in python 3, using PyQt5 for GUI
+
+Theres a PyQt4 branch as well, but it's not identical, it is somewhat ANGRYsearch-lite, no size and date info, just listing paths, but indexing is therefore considerably faster
 
 ### What you should know:
 
@@ -14,7 +16,7 @@ Done in python 3, using PyQt5 for GUI, theres a PyQt4 branch
 * it would not find "Pi<b>rate</b>s" or Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"
 * unchecking the checkbox in the top right corner fixes this, but searching gets slower
 * database is in ~/.cache/angrysearch/angry_database.db
-* it can take ~4 min to index ~1 mil files and the database might be ~300MB in size
+* it can take ~4 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB in size
 * do not recommend to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
 
 ### How to make it work on your system:
@@ -23,7 +25,7 @@ Done in python 3, using PyQt5 for GUI, theres a PyQt4 branch
 
 for other distros:
 
-**dependencies** - `python-pyqt5`, `libxkbcommon-x11`, `sudo`, `xdg-utils`
+**dependencies** - `python-pyqt5`, `libxkbcommon-x11`, `xdg-utils`
   * most of these you very likely have, except PyQt5, so get it
   * for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
 
@@ -34,21 +36,20 @@ for other distros:
     `~/.cache/angrysearch/angry_database.db`
 
 for a long term installation on your system for every day use we need to place the files somewhere,
-long story short, all the files and the icons-folder go in to `/opt/angrysearch`, set two of them executable
-and make some links to these files to integrate ANGRYsearch in to your system well.
+long story short, all the files and the icons-folder go in to `/opt/angrysearch`, set the angrysearch.py as executable
+and make some links to these files to integrate ANGRYsearch in to your system
 
 * create angrysearch folder in /opt
 
         sudo mkdir /opt/angrysearch
 
-* go where you extracted a latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
+* go where you extracted the latest release, go deeper inside, copy all the files and the icons folder to /opt/angrysearch
 
         sudo cp -r * /opt/angrysearch
 
-* make the main python file and the desktop file executable
+* make the main python file executable
 
-        cd /opt/angrysearch
-        sudo chmod +x angrysearch.py angrysearch.desktop
+        sudo chmod +x /opt/angrysearch/angrysearch.py
 
 * make a link in /usr/share/applications to the desktop file so that angrysearch appears in your launchers and start menus
 
@@ -74,11 +75,11 @@ and make some links to these files to integrate ANGRYsearch in to your system we
 * **config file** location: `~/.config/angrysearch/angrysearch.conf`. You can delete the config file whenever you wish, on the next run/close a new one will be created with default values.
   *   `directories_excluded=` By default empty. Which directories to be ignored, directory names(not slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to ignore
   *   `fast_search_but_no_substring=true` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
-  *   `file_manager=xdg-open` By default set to xdg-open, meaning xdg-open tests which program is associated with inode/directory mime type and on double clicking the path of files/folders is send to that application. Can be set to any program. If it detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, making it highlighted - selected when opened in the filemanager. For other programs it just send path to the containing foler.
+  *   `file_manager=xdg-open` By default set to xdg-open, meaning xdg-open tests which program is associated with inode/directory mime type and on double clicking the path of files/folders, it sends the path to that application. Can be set to any program. If it detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, making it highlighted - selected when opened in the filemanager. For other programs it just sends path to the containing foler.
   *   `icon_theme=adwaita` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way.
   *   `number_of_results=500` By default set to 500. Limit set in the database query. Lower number means search results would be faster.
   *   `row_height=0` By default set to 0 which means auto-detect. Sets height of the row in pixels.
-  *   `[Last_Run]` The applications properties from the last time it was launched. Window size, position, state.
+  *   `[Last_Run]` The applications properties from the last time at the moment when it was closed - window size, position, state.
 
 * results can be sorted by clicking on columns, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column.
 
