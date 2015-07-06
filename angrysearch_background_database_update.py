@@ -6,10 +6,9 @@ RUNNING THIS PYTHON SCRIPT WILL INDEX THE DRIVES AND CREATE NEW DATABASE
 REPLACING THE OLD ONE, IT RESPECTS directories_excluded SETTINGS
 
 RECOMMENDING USING CRONTAB TO RUN THIS FILE, 2 TIMES A DAY SOUNDS ABOUT RIGHT
+CRONTAB EXAMPLE THAT EXECUTES AT MIDNIGHT AND NOON:
 
-CRONTAB EXAMPLE:
-00 00 * * * /opt/angrysearch/angrysearch_background_database_update.py
-00 18 * * * /opt/angrysearch/angrysearch_background_database_update.py
+00 00,12 * * * /opt/angrysearch/angrysearch_background_database_update.py
 '''
 
 from datetime import datetime
