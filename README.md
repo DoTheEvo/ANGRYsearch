@@ -18,6 +18,7 @@ Theres a PyQt4 branch as well, but it's not identical, it is somewhat ANGRYsearc
 * database is in ~/.cache/angrysearch/angry_database.db
 * it can take ~4 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB in size
 * do not recommend to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
+* [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, default applications can be set in ~/.local/share/applications/ in mimeapps.list and defaults.list
 
 ### How to make it work on your system:
 

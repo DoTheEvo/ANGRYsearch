@@ -7,9 +7,9 @@ import locale
 import mimetypes
 import operator
 import os
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
+import PyQt5.QtCore as Qc
+import PyQt5.QtWidgets as Qw
+import PyQt5.QtGui as Qg
 import re
 import sqlite3
 import subprocess
@@ -25,8 +25,8 @@ except ImportError:
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE, CALLED ON EVERY KEYPRESS
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
 # fts4 VALUE DECIDES IF USE FAST INDEXED "MATCH" OR SUBSTRING "LIKE"
-class Thread_db_query(QThread):
-    db_query_signal = pyqtSignal(dict)
+class Thread_db_query(Qc.QThread):
+    db_query_signal = Qc.pyqtSignal(dict)
 
     def __init__(self, db_query, settings, parent=None):
         super().__init__()
@@ -60,9 +60,9 @@ class Thread_db_query(QThread):
 
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
-class Thread_database_update(QThread):
-    db_update_signal = pyqtSignal(str, str)
-    crawl_signal = pyqtSignal(str)
+class Thread_database_update(Qc.QThread):
+    db_update_signal = Qc.pyqtSignal(str, str)
+    crawl_signal = Qc.pyqtSignal(str)
 
     def __init__(self, settings, parent=None):
         super().__init__()
@@ -72,12 +72,30 @@ class Thread_database_update(QThread):
         self.crawl_time = None
         self.database_time = None
 
+        self.exclude = []
+        if self.settings.value('directories_excluded'):
+            nope = self.settings.value('directories_excluded').strip().split()
+            self.exclude = [x.encode() for x in nope]
+        self.exclude.append(b'proc')
+
+        self.lite = True
+        if self.settings.value('angrysearch_lite'):
+            lite = self.settings.value('angrysearch_lite')
+            if lite.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
+                self.lite = False
+
     def run(self):
         self.db_update_signal.emit('label_1', None)
-        self.crawling_drives()
+        if self.lite:
+            self.crawling_drives_lite()
+        else:
+            self.crawling_drives()
 
         self.db_update_signal.emit('label_2', self.crawl_time)
-        self.new_database()
+        if self.lite:
+            self.new_database_lite()
+        else:
+            self.new_database()
 
         self.db_update_signal.emit('label_3', self.database_time)
         self.replace_old_db_with_new()
@@ -89,13 +107,6 @@ class Thread_database_update(QThread):
             print(err)
 
         global SCANDIR_AVAILABLE
-
-        exclude = []
-        if self.settings.value('directories_excluded'):
-            q = self.settings.value('directories_excluded').strip().split()
-            exclude = [x.encode() for x in q]
-
-        exclude.append(b'proc')
 
         root_dir = b'/'
         self.tstart = datetime.now()
@@ -111,7 +122,7 @@ class Thread_database_update(QThread):
         for root, dirs, files in ror.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
-            dirs[:] = [d for d in dirs if d not in exclude]
+            dirs[:] = [d for d in dirs if d not in self.exclude]
             self.crawl_signal.emit(root.decode(encoding='utf-8',
                                                errors='ignore'))
             for dname in dirs:
@@ -136,6 +147,42 @@ class Thread_database_update(QThread):
         self.crawl_time = datetime.now() - self.tstart
         self.crawl_time = self.time_difference(self.crawl_time.seconds)
 
+    def crawling_drives_lite(self):
+        def error(err):
+            print(err)
+
+        global SCANDIR_AVAILABLE
+
+        root_dir = b'/'
+        self.tstart = datetime.now()
+
+        dir_list = []
+        file_list = []
+
+        if SCANDIR_AVAILABLE:
+            ror = scandir
+        else:
+            ror = os
+
+        for root, dirs, files in ror.walk(root_dir, onerror=error):
+            dirs.sort()
+            files.sort()
+            dirs[:] = [d for d in dirs if d not in self.exclude]
+            self.crawl_signal.emit(root.decode(encoding='UTF-8',
+                                               errors='ignore'))
+
+            for dname in dirs:
+                dir_list.append(('1', os.path.join(root, dname).decode(
+                    encoding='UTF-8', errors='ignore')))
+            for fname in files:
+                file_list.append(('0', os.path.join(root, fname).decode(
+                    encoding='UTF-8', errors='ignore')))
+
+        self.table = dir_list + file_list
+
+        self.crawl_time = datetime.now() - self.tstart
+        self.crawl_time = self.time_difference(self.crawl_time.seconds)
+
     def new_database(self):
         global con
         temp_db_path = '/tmp/angry_database.db'
@@ -153,6 +200,28 @@ class Thread_database_update(QThread):
         for x in self.table:
             cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
                         (x[0], x[1], x[2], x[3]))
+
+        con.commit()
+        self.database_time = datetime.now() - self.tstart
+        self.database_time = self.time_difference(self.database_time.seconds)
+
+    def new_database_lite(self):
+        global con
+        temp_db_path = '/tmp/angry_database.db'
+
+        if os.path.exists(temp_db_path):
+            os.remove(temp_db_path)
+
+        con = sqlite3.connect(temp_db_path, check_same_thread=False)
+        cur = con.cursor()
+        cur.execute('''CREATE VIRTUAL TABLE angry_table
+                        USING fts4(directory, path)''')
+
+        self.tstart = datetime.now()
+
+        for x in self.table:
+            cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
+                        (x[0], x[1]))
 
         con.commit()
         self.database_time = datetime.now() - self.tstart
@@ -198,7 +267,7 @@ class Thread_database_update(QThread):
 
 
 # MODEL FOR TABLE DATA
-class Custom_table_model(QAbstractTableModel):
+class Custom_table_model(Qc.QAbstractTableModel):
     def __init__(self, table_data=[[]], parent=None):
         super().__init__()
         self.table_data = self.data_backup = table_data
@@ -212,11 +281,11 @@ class Custom_table_model(QAbstractTableModel):
         return 4
 
     def headerData(self, section, orientation, role):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+        if role == Qc.Qt.DisplayRole and orientation == Qc.Qt.Horizontal:
                 return self.headers[section]
 
     def data(self, index, role):
-        if role == Qt.DisplayRole:
+        if role == Qc.Qt.DisplayRole:
             row = index.row()
             column = index.column()
             value = self.table_data[row][column]
@@ -225,7 +294,7 @@ class Custom_table_model(QAbstractTableModel):
             else:
                 return value
 
-        if role == Qt.DecorationRole and index.column() == 0:
+        if role == Qc.Qt.DecorationRole and index.column() == 0:
             row = index.row()
             column = index.column()
             value = self.table_data[row][column]
@@ -237,7 +306,7 @@ class Custom_table_model(QAbstractTableModel):
             self.layoutAboutToBeChanged.emit()
             self.table_data = sorted(self.table_data,
                                      key=operator.itemgetter(column))
-            if order == Qt.DescendingOrder:
+            if order == Qc.Qt.DescendingOrder:
                 self.table_data.reverse()
             self.layoutChanged.emit()
         else:
@@ -254,52 +323,116 @@ class Custom_table_model(QAbstractTableModel):
             return self.table_data[row][column]
 
 
-class My_table_view(QTableView):
-    def __init__(self, row_height='0', parent=None):
+# MODEL FOR TABLE DATA
+class Custom_table_model_lite(Qc.QAbstractTableModel):
+    def __init__(self, table_data=[[]], parent=None):
         super().__init__()
+        self.table_data = self.data_backup = table_data
+        self.headers = ['Name', 'Path']
+        self._sorted = False
+
+    def rowCount(self, parent):
+        return len(self.table_data)
+
+    def columnCount(self, parent):
+        return 2
+
+    def headerData(self, section, orientation, role):
+        if role == Qc.Qt.DisplayRole and orientation == Qc.Qt.Horizontal:
+                return self.headers[section]
+
+    def data(self, index, role):
+        if role == Qc.Qt.DisplayRole:
+            row = index.row()
+            column = index.column()
+            value = self.table_data[row][column]
+            if column == 0:
+                return value.text()
+            else:
+                return value
+
+        if role == Qc.Qt.DecorationRole and index.column() == 0:
+            row = index.row()
+            column = index.column()
+            value = self.table_data[row][column]
+            return value.icon()
+
+    def sort(self, column, order):
+        if column in [0, 2, 3]:
+            self._sorted = True
+            self.layoutAboutToBeChanged.emit()
+            self.table_data = sorted(self.table_data,
+                                     key=operator.itemgetter(column))
+            if order == Qc.Qt.DescendingOrder:
+                self.table_data.reverse()
+            self.layoutChanged.emit()
+        else:
+            if self._sorted:
+                self.layoutAboutToBeChanged.emit()
+                self.table_data = self.data_backup
+                self.layoutChanged.emit()
+                self._sorted = False
+
+    def itemFromIndex(self, index):
+        if index.column() == 0:
+            row = index.row()
+            column = index.column()
+            return self.table_data[row][column]
+
+
+class My_table_view(Qw.QTableView):
+    def __init__(self, set={}, parent=None):
+        super().__init__()
+        self.lite = set['angrysearch_lite']
+        row_height = set['row_height']
         if row_height.isdigit() and row_height != '0':
             self.verticalHeader().setDefaultSectionSize(int(row_height))
 
     def resizeEvent(self, event):
         width = event.size().width()
-        self.setColumnWidth(0, width * 0.30)
-        self.setColumnWidth(1, width * 0.38)
-        self.setColumnWidth(2, width * 0.10)
-        self.setColumnWidth(3, width * 0.22)
+        if self.lite is True:
+            self.setColumnWidth(0, width * 0.40)
+            self.setColumnWidth(1, width * 0.60)
+        else:
+            self.setColumnWidth(0, width * 0.30)
+            self.setColumnWidth(1, width * 0.38)
+            self.setColumnWidth(2, width * 0.10)
+            self.setColumnWidth(3, width * 0.22)
 
 
 # THE PRIMARY GUI, THE WIDGET WITHIN THE MAINWINDOW
-class Center_widget(QWidget):
-    def __init__(self, row_height='0'):
+class Center_widget(Qw.QWidget):
+    def __init__(self, set={}):
         super().__init__()
-        self.row_height = row_height
+        self.set = set
         self.initUI()
 
     def initUI(self):
-        self.search_input = QLineEdit()
-        self.main_tbl = My_table_view(self.row_height)
-        self.upd_button = QPushButton('update')
-        self.fts4_checkbox = QCheckBox()
+        self.search_input = Qw.QLineEdit()
+        self.table = My_table_view(self.set)
+        self.upd_button = Qw.QPushButton('update')
+        self.fts4_checkbox = Qw.QCheckBox()
 
-        grid = QGridLayout()
+        grid = Qw.QGridLayout()
         grid.setSpacing(10)
 
         grid.addWidget(self.search_input, 1, 1)
         grid.addWidget(self.fts4_checkbox, 1, 3)
         grid.addWidget(self.upd_button, 1, 4)
-        grid.addWidget(self.main_tbl, 2, 1, 4, 4)
+        grid.addWidget(self.table, 2, 1, 4, 4)
         self.setLayout(grid)
 
-        self.setTabOrder(self.search_input, self.main_tbl)
-        self.setTabOrder(self.main_tbl, self.upd_button)
+        self.setTabOrder(self.search_input, self.table)
+        self.setTabOrder(self.table, self.upd_button)
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
-class Gui_MainWindow(QMainWindow):
+class Gui_MainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
-        self.settings = QSettings('angrysearch', 'angrysearch')
-        self.set = {'fts4': 'true',
+        self.settings = Qc.QSettings('angrysearch', 'angrysearch')
+        self.set = {'angrysearch_lite': True,
+                    'fts4': 'true',
                     'icon_theme': 'adwaita',
                     'file_manager': 'xdg-open',
                     'row_height': '0',
@@ -314,12 +447,17 @@ class Gui_MainWindow(QMainWindow):
         else:
             self.resize(640, 480)
             qr = self.frameGeometry()
-            cp = QDesktopWidget().availableGeometry().center()
+            cp = Qw.QDesktopWidget().availableGeometry().center()
             qr.moveCenter(cp)
             self.move(qr.topLeft())
 
         if self.settings.value('Last_Run/window_state'):
             self.restoreState(self.settings.value('Last_Run/window_state'))
+
+        if self.settings.value('angrysearch_lite'):
+            lite = self.settings.value('angrysearch_lite')
+            if lite.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
+                self.set['angrysearch_lite'] = False
 
         if self.settings.value('fast_search_but_no_substring'):
             fts4 = self.settings.value('fast_search_but_no_substring')
@@ -352,6 +490,8 @@ class Gui_MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.settings.setValue('Last_Run/geometry', self.saveGeometry())
         self.settings.setValue('Last_Run/window_state', self.saveState())
+        if not self.settings.value('angrysearch_lite'):
+            self.settings.setValue('angrysearch_lite', 'true')
         if not self.settings.value('icon_theme'):
             self.settings.setValue('icon_theme', 'adwaita')
         if not self.settings.value('fast_search_but_no_substring'):
@@ -369,17 +509,17 @@ class Gui_MainWindow(QMainWindow):
     def init_GUI(self):
         self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
-        self.model = Custom_table_model()
+        # self.model = Custom_table_model()
 
         self.threads = []
         self.file_list = []
         self.icon_dictionary = self.get_mime_icons()
 
-        self.center = Center_widget(self.set['row_height'])
+        self.center = Center_widget(self.set)
         self.setCentralWidget(self.center)
 
         self.setWindowTitle('ANGRYsearch')
-        self.status_bar = QStatusBar(self)
+        self.status_bar = Qw.QStatusBar(self)
         self.setStatusBar(self.status_bar)
 
         self.center.fts4_checkbox.setToolTip(
@@ -390,20 +530,20 @@ class Gui_MainWindow(QMainWindow):
             self.center.fts4_checkbox.setChecked(True)
         self.center.fts4_checkbox.stateChanged.connect(self.checkbox_fts_click)
 
-        self.center.main_tbl.setGridStyle(0)
-        self.center.main_tbl.setSortingEnabled(True)
-        self.center.main_tbl.sortByColumn(1, 0)
-        self.center.main_tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.center.main_tbl.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.center.main_tbl.horizontalHeader().setStretchLastSection(True)
-        self.center.main_tbl.setAlternatingRowColors(True)
-        self.center.main_tbl.verticalHeader().setVisible(False)
-        self.center.main_tbl.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.center.table.setGridStyle(0)
+        self.center.table.setSortingEnabled(True)
+        self.center.table.sortByColumn(1, 0)
+        self.center.table.setEditTriggers(Qw.QAbstractItemView.NoEditTriggers)
+        self.center.table.setSelectionBehavior(Qw.QAbstractItemView.SelectRows)
+        self.center.table.horizontalHeader().setStretchLastSection(True)
+        self.center.table.setAlternatingRowColors(True)
+        self.center.table.verticalHeader().setVisible(False)
+        self.center.table.setVerticalScrollBarPolicy(Qc.Qt.ScrollBarAlwaysOn)
 
-        self.center.main_tbl.setItemDelegate(self.HTMLDelegate())
+        self.center.table.setItemDelegate(self.HTMLDelegate())
 
-        self.center.main_tbl.clicked.connect(self.single_click)
-        self.center.main_tbl.activated.connect(self.double_click_enter)
+        self.center.table.clicked.connect(self.single_click)
+        self.center.table.activated.connect(self.double_click_enter)
 
         self.center.search_input.textChanged[str].connect(
             self.new_query_new_thread)
@@ -416,14 +556,14 @@ class Gui_MainWindow(QMainWindow):
         self.center.search_input.setFocus()
 
     def make_sys_tray(self):
-        if QSystemTrayIcon.isSystemTrayAvailable():
-            menu = QMenu()
-            menu.addAction('v0.9.3')
+        if Qw.QSystemTrayIcon.isSystemTrayAvailable():
+            menu = Qw.QMenu()
+            menu.addAction('v0.9.4')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)
 
-            self.tray_icon = QSystemTrayIcon()
+            self.tray_icon = Qw.QSystemTrayIcon()
             self.tray_icon.setIcon(self.icon)
             self.tray_icon.setContextMenu(menu)
             self.tray_icon.show()
@@ -431,11 +571,11 @@ class Gui_MainWindow(QMainWindow):
             self.tray_icon.activated.connect(self.sys_tray_clicking)
 
     def sys_tray_clicking(self, reason):
-        if (reason == QSystemTrayIcon.DoubleClick or
-                reason == QSystemTrayIcon.Trigger):
+        if (reason == Qw.QSystemTrayIcon.DoubleClick or
+                reason == Qw.QSystemTrayIcon.Trigger):
             self.show()
-        elif (reason == QSystemTrayIcon.MiddleClick):
-            QCoreApplication.instance().quit()
+        elif (reason == Qw.QSystemTrayIcon.MiddleClick):
+            Qg.QCoreApplication.instance().quit()
 
     def get_tray_icon(self):
         base64_data = '''iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHN
@@ -448,9 +588,9 @@ class Gui_MainWindow(QMainWindow):
                          0TpFaxmnhNcyIW45bQ6RS3Hq4MeB7Ltyahki9Gd2xidWiwG9va
                          nCZqi7xlZGVHfwN6+5nU/ccBUYAAAAASUVORK5CYII='''
 
-        pm = QPixmap()
+        pm = Qg.QPixmap()
         pm.loadFromData(base64.b64decode(base64_data))
-        i = QIcon()
+        i = Qg.QIcon()
         i.addPixmap(pm)
         return i
 
@@ -469,7 +609,7 @@ class Gui_MainWindow(QMainWindow):
                                 input, self.set)})
 
         self.threads[-1]['thread'].db_query_signal.connect(
-            self.database_query_done, Qt.QueuedConnection)
+            self.database_query_done, Qc.Qt.QueuedConnection)
         self.threads[-1]['thread'].start()
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
@@ -498,7 +638,7 @@ class Gui_MainWindow(QMainWindow):
                 name = self.bold_text(name)
                 path = self.bold_text(path)
 
-            n = QStandardItem(name)
+            n = Qg.QStandardItem(name)
             n.path = tup[1]
             if tup[0] == '1':
                 n.setIcon(self.icon_dictionary['folder'])
@@ -514,12 +654,20 @@ class Gui_MainWindow(QMainWindow):
                         n.setIcon(self.icon_dictionary['file'])
                 else:
                     n.setIcon(self.icon_dictionary['file'])
-            item = [n, path, tup[2], tup[3]]
+
+            if self.set['angrysearch_lite']:
+                item = [n, path]
+            else:
+                item = [n, path, tup[2], tup[3]]
 
             model_data.append(item)
 
-        self.model = Custom_table_model(model_data)
-        self.center.main_tbl.setModel(self.model)
+        if self.set['angrysearch_lite']:
+            self.model = Custom_table_model_lite(model_data)
+        else:
+            self.model = Custom_table_model(model_data)
+
+        self.center.table.setModel(self.model)
         total = locale.format('%d', len(results), grouping=True)
         self.status_bar.showMessage(total)
 
@@ -542,27 +690,39 @@ class Gui_MainWindow(QMainWindow):
 
         if use_path == '':
             for x in iconed_mimes:
-                dir_icon = self.style().standardIcon(QStyle.SP_DirIcon)
-                file_icon = self.style().standardIcon(QStyle.SP_FileIcon)
-                icon_dic[x] = QIcon(file_icon)
-            icon_dic['folder'] = QIcon(dir_icon)
+                dir_icon = self.style().standardIcon(Qw.QStyle.SP_DirIcon)
+                file_icon = self.style().standardIcon(Qw.QStyle.SP_FileIcon)
+                icon_dic[x] = Qg.QIcon(file_icon)
+            icon_dic['folder'] = Qg.QIcon(dir_icon)
         else:
             for x in iconed_mimes:
                 p = os.path.join(use_path, theme, x + '.png')
-                icon_dic[x] = QIcon(p)
+                icon_dic[x] = Qg.QIcon(p)
 
         return icon_dic
 
     # RUNS ON START OR ON EMPTY INPUT
     def show_first_500(self):
         cur = con.cursor()
-        cur.execute('''SELECT name FROM sqlite_master WHERE
-                        type="table" AND name="angry_table"''')
-        if cur.fetchone() is None:
+        cur.execute('''PRAGMA table_info(angry_table);''')
+        d = len(cur.fetchall())
+
+        if d is 0:
             self.status_bar.showMessage('0')
             self.tutorial()
             return
 
+        if self.set['angrysearch_lite'] is True and d is 4:
+            self.status_bar.showMessage('0')
+            self.tutorial()
+            return
+
+        if self.set['angrysearch_lite'] is False and d is 2:
+            self.status_bar.showMessage('0')
+            self.tutorial()
+            return
+
+        self.center.table.setDisabled(False)
         cur.execute('''SELECT * FROM angry_table LIMIT ?''',
                     (self.set['number_of_results'],))
         tuppled_500 = cur.fetchall()
@@ -636,7 +796,7 @@ class Gui_MainWindow(QMainWindow):
             subprocess.Popen(cmd)
 
     def checkbox_fts_click(self, state):
-        if state == Qt.Checked:
+        if state == Qc.Qt.Checked:
             self.set['fts4'] = 'true'
             self.settings.setValue('fast_search_but_no_substring', 'true')
         else:
@@ -648,8 +808,9 @@ class Gui_MainWindow(QMainWindow):
 
     def tutorial(self):
         chat = [
+            '   • config file is in ~/.config/angrysearch/angrysearch.conf',
             '   • database is in ~/.cache/angrysearch/angry_database.db',
-            '   • ~1 mil files can take ~300MB and ~4 min to index',
+            '   • ~1 mil files can take ~300MB and ~3 min to index',
             '',
             '   • double-click on name opens it in associated application',
             '   • double-click on path opens the location in file manager',
@@ -660,20 +821,19 @@ class Gui_MainWindow(QMainWindow):
             '   • it would not find "Pi<b>rate</b>s", or Whip<b>lash</b>"',
             '   • it would find "<b>Pir</b>ates", or "The-<b>Fif</b>th"',
             '   • unchecking it provides substring searches, but slower',
-            '',
-            '   • config file is in ~/.config/angrysearch/angrysearch.conf',
             ]
 
-        self.center.main_tbl.setModel(QStringListModel(chat))
+        self.center.table.setModel(Qc.QStringListModel(chat))
+        self.center.table.setDisabled(True)
         self.status_bar.showMessage(
-            'READ, then press the update button in the top right corner')
+            'Press the update button in the top right corner')
 
     def clicked_button_updatedb(self):
         self.u = Update_dialog_window(self)
         self.u.window_close_signal.connect(
-            self.update_window_close, Qt.QueuedConnection)
+            self.update_window_close, Qc.Qt.QueuedConnection)
         self.u.icon_theme_signal.connect(
-            self.theme_change_icon, Qt.QueuedConnection)
+            self.theme_change_icon, Qc.Qt.QueuedConnection)
         self.u.exec_()
         self.center.search_input.setFocus()
 
@@ -689,32 +849,32 @@ class Gui_MainWindow(QMainWindow):
         self.new_query_new_thread(self.center.search_input.text())
 
     # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
-    class HTMLDelegate(QStyledItemDelegate):
+    class HTMLDelegate(Qw.QStyledItemDelegate):
         def __init__(self, parent=None):
             super().__init__()
-            self.doc = QTextDocument(self)
+            self.doc = Qg.QTextDocument(self)
 
         def paint(self, painter, option, index):
             painter.save()
 
-            options = QStyleOptionViewItem(option)
+            options = Qw.QStyleOptionViewItem(option)
 
             self.initStyleOption(options, index)
             self.doc.setHtml(options.text)
             options.text = ""
 
-            style = QApplication.style() if options.widget is None \
+            style = Qg.QApplication.style() if options.widget is None \
                 else options.widget.style()
-            style.drawControl(QStyle.CE_ItemViewItem, options, painter)
+            style.drawControl(Qw.QStyle.CE_ItemViewItem, options, painter)
 
-            ctx = QAbstractTextDocumentLayout.PaintContext()
+            ctx = Qg.QAbstractTextDocumentLayout.PaintContext()
 
-            if option.state & QStyle.State_Selected:
-                ctx.palette.setColor(QPalette.Text, option.palette.color(
-                    QPalette.Active, QPalette.HighlightedText))
+            if option.state & Qw.QStyle.State_Selected:
+                ctx.palette.setColor(Qg.QPalette.Text, option.palette.color(
+                    Qg.QPalette.Active, Qg.QPalette.HighlightedText))
 
             textRect = style.subElementRect(
-                QStyle.SE_ItemViewItemText, options)
+                Qw.QStyle.SE_ItemViewItemText, options)
 
             if index.column() != 0:
                 textRect.adjust(5, 0, 0, 0)
@@ -731,19 +891,19 @@ class Gui_MainWindow(QMainWindow):
             painter.restore()
 
         def sizeHint(self, option, index):
-            return QSize(self.doc.idealWidth(), self.doc.size().height())
+            return Qg.QSize(self.doc.idealWidth(), self.doc.size().height())
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
-class Update_dialog_window(QDialog):
-    icon_theme_signal = pyqtSignal(str)
-    window_close_signal = pyqtSignal(str)
+class Update_dialog_window(Qw.QDialog):
+    icon_theme_signal = Qc.pyqtSignal(str)
+    window_close_signal = Qc.pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent)
         self.values = dict()
         self.last_signal = ''
-        self.settings = QSettings('angrysearch', 'angrysearch')
+        self.settings = Qc.QSettings('angrysearch', 'angrysearch')
         self.initUI()
 
     def __setitem__(self, k, v):
@@ -763,16 +923,16 @@ class Update_dialog_window(QDialog):
 
         self.setWindowTitle('Database Update')
 
-        self.icon_theme_label = QLabel('icon theme:')
-        self.icon_theme_combobox = QComboBox(self)
+        self.icon_theme_label = Qw.QLabel('icon theme:')
+        self.icon_theme_combobox = Qw.QComboBox(self)
         self.icon_theme_combobox.addItems(['adwaita', 'elementary', 'faenza',
                                            'numix', 'oxygen', 'ubuntu'])
         self.icon_theme_combobox.setEditable(True)
         self.icon_theme_combobox.lineEdit().setReadOnly(True)
-        self.icon_theme_combobox.lineEdit().setAlignment(Qt.AlignCenter)
+        self.icon_theme_combobox.lineEdit().setAlignment(Qc.Qt.AlignCenter)
         for x in range(self.icon_theme_combobox.count()):
             self.icon_theme_combobox.setItemData(
-                x, Qt.AlignCenter, Qt.TextAlignmentRole)
+                x, Qc.Qt.AlignCenter, Qc.Qt.TextAlignmentRole)
 
         self.icon_theme_combobox.activated[str].connect(self.combo_box_change)
 
@@ -780,15 +940,15 @@ class Update_dialog_window(QDialog):
         if index >= 0:
             self.icon_theme_combobox.setCurrentIndex(index)
 
-        self.excluded_label = QLabel('ignored directories:')
-        self.excluded_dirs_btn = QPushButton(self.excluded_dirs)
-        self.crawl0_label = QLabel('progress:')
-        self.crawl_label = QLabel('')
-        self.label_1 = QLabel('• crawling the file system')
-        self.label_2 = QLabel('• creating new database')
-        self.label_3 = QLabel('• replacing old database')
-        self.OK_button = QPushButton('Update')
-        self.cancel_button = QPushButton('Cancel')
+        self.excluded_label = Qw.QLabel('ignored directories:')
+        self.excluded_dirs_btn = Qw.QPushButton(self.excluded_dirs)
+        self.crawl0_label = Qw.QLabel('progress:')
+        self.crawl_label = Qw.QLabel('')
+        self.label_1 = Qw.QLabel('• crawling the file system')
+        self.label_2 = Qw.QLabel('• creating new database')
+        self.label_3 = Qw.QLabel('• replacing old database')
+        self.OK_button = Qw.QPushButton('Update')
+        self.cancel_button = Qw.QPushButton('Cancel')
 
         if self.excluded_dirs == '':
             self.excluded_dirs_btn.setText('none')
@@ -808,7 +968,7 @@ class Update_dialog_window(QDialog):
         self['label_2'] = self.label_2
         self['label_3'] = self.label_3
 
-        grid = QGridLayout()
+        grid = Qw.QGridLayout()
         grid.setSpacing(7)
         grid.addWidget(self.icon_theme_label, 0, 0)
         grid.addWidget(self.icon_theme_combobox, 0, 1)
@@ -832,9 +992,10 @@ class Update_dialog_window(QDialog):
         self.icon_theme_signal.emit(text)
 
     def exclude_dialog(self):
-        text, ok = QInputDialog.getText(self, '~/.config/angrysearch/',
-                                        'Directories to be ignored:',
-                                        QLineEdit.Normal, self.excluded_dirs)
+        text, ok = Qw.QInputDialog.getText(self, '~/.config/angrysearch/',
+                                           'Directories to be ignored:',
+                                           Qw.QLineEdit.Normal,
+                                           self.excluded_dirs)
         if ok:
             text = text.strip()
             self.settings.setValue('directories_excluded', text)
@@ -855,9 +1016,9 @@ class Update_dialog_window(QDialog):
     def clicked_OK_update_db(self):
         self.thread_updating = Thread_database_update(self.settings)
         self.thread_updating.db_update_signal.connect(
-            self.upd_dialog_receives_signal, Qt.QueuedConnection)
+            self.upd_dialog_receives_signal, Qc.Qt.QueuedConnection)
         self.thread_updating.crawl_signal.connect(
-            self.upd_dialog_receives_crawl, Qt.QueuedConnection)
+            self.upd_dialog_receives_crawl, Qc.Qt.QueuedConnection)
 
         self.thread_updating.start()
 
@@ -897,6 +1058,6 @@ def open_database():
 if __name__ == '__main__':
     con = open_database()
     with con:
-        app = QApplication(sys.argv)
+        app = Qw.QApplication(sys.argv)
         ui = Gui_MainWindow()
         sys.exit(app.exec_())
