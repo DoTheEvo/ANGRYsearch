@@ -597,6 +597,8 @@ class Gui_MainWindow(Qw.QMainWindow):
     # CALLED ON EVERY TECH CHANGE IN SEARCH INPUT
     # QUERY THE DATABASE, LIST OF QUERIES TO KNOW THE LAST ONE
     def new_query_new_thread(self, input):
+        if self.set['fts4'] == 'false':
+            self.status_bar.showMessage(' ...')
         if input == '':
             self.show_first_500()
             return
