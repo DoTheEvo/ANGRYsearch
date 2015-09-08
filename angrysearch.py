@@ -315,26 +315,42 @@ class Custom_table_model(Qc.QAbstractTableModel):
                                      key=lambda z: z[0]._is_dir, reverse=True)
             if order == Qc.Qt.DescendingOrder:
                 self.table_data.reverse()
+                self.table_data = sorted(self.table_data,
+                                         key=lambda z: z[0]._is_dir,
+                                         reverse=True)
             self.layoutChanged.emit()
         elif column == 1:
             if self.sort_ed:
                 self.layoutAboutToBeChanged.emit()
                 self.table_data = self.data_backup
-                self.layoutChanged.emit()
                 self.sort_ed = False
+                self.layoutChanged.emit()
         elif column == 2:
             self.sort_ed = True
             self.layoutAboutToBeChanged.emit()
             self.table_data = sorted(self.table_data, key=lambda z: z[2]._bits)
+            self.table_data = sorted(self.table_data,
+                                     key=lambda z: z[0]._is_dir,
+                                     reverse=True)
             if order == Qc.Qt.DescendingOrder:
-                self.table_data.reverse()
+                self.table_data = sorted(self.table_data,
+                                         key=lambda z: z[2]._bits,
+                                         reverse=True)
+                self.table_data = sorted(self.table_data,
+                                         key=lambda z: z[0]._is_dir,
+                                         reverse=True)
             self.layoutChanged.emit()
         elif column == 3:
             self.sort_ed = True
             self.layoutAboutToBeChanged.emit()
             self.table_data = sorted(self.table_data, key=lambda z: z[3])
+            self.table_data = sorted(self.table_data,
+                                     key=lambda z: z[0]._is_dir, reverse=True)
             if order == Qc.Qt.DescendingOrder:
                 self.table_data.reverse()
+                self.table_data = sorted(self.table_data,
+                                         key=lambda z: z[0]._is_dir,
+                                         reverse=True)
             self.layoutChanged.emit()
 
     def itemFromIndex(self, row, col):
@@ -677,18 +693,17 @@ class Gui_MainWindow(Qw.QMainWindow):
             m._fullpath = tup[1]
             m._is_dir = tup[0]
 
-            # FILE SIZE ITEM IN THE THIRD COLUMN
-            file_size = ''
-            bitsize = 0
-            if tup[2] != '':
-                bitsize = int(tup[2])
-                file_size = self.readable_filesize(bitsize)
-            o = Qg.QStandardItem(file_size)
-            o._bits = bitsize
-
             if self.set['angrysearch_lite'] is True:
                 item = [n, m]
             else:
+                # FILE SIZE ITEM IN THE THIRD COLUMN
+                file_size = ''
+                bitsize = 0
+                if tup[2] != '':
+                    bitsize = int(tup[2])
+                    file_size = self.readable_filesize(bitsize)
+                o = Qg.QStandardItem(file_size)
+                o._bits = bitsize
                 item = [n, m, o, tup[3]]
 
             model_data.append(item)

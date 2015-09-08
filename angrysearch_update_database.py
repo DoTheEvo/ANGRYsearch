@@ -76,7 +76,7 @@ def crawling_drives():
             path = os.path.join(root, fname)
             utf_path = path.decode(encoding='utf-8', errors='ignore')
             stats = os.lstat(path)
-            size = readable_filesize(stats.st_size)
+            size = stats.st_size
             readable_date = datetime.fromtimestamp(
                 stats.st_mtime.__trunc__())
             file_list.append(
@@ -176,18 +176,6 @@ def replace_old_db_with_new():
     p = subprocess.Popen(cmd,
                          stderr=subprocess.PIPE)
     p.wait()
-
-
-def readable_filesize(nbytes):
-    suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-    if nbytes == 0:
-        return '0 B'
-    i = 0
-    while nbytes >= 1024 and i < len(suffixes)-1:
-        nbytes /= 1024.
-        i += 1
-    f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
-    return '{} {}'.format(f, suffixes[i])
 
 
 def open_database():
