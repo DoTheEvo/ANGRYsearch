@@ -22,8 +22,8 @@ try:
 except ImportError:
     RESOURCE_AVAILABLE = False
 
-# SCANDIR ALLOWS MUCH FASTER INDEXING, OBVIOUS IN IN LITE MODE
-# WILL BE PART OF PYTHON 3.5
+# SCANDIR ALLOWS MUCH FASTER INDEXING OF THE FILE SYSTEM, OBVIOUS IN LITE MODE
+# WILL BE PART OF PYTHON 3.5, FUNCTIONALI REPLACEING os.walk
 try:
     import scandir
     SCANDIR_AVAILABLE = True
@@ -83,6 +83,7 @@ class Thread_delay_db_query(Qc.QThread):
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
 # TWO CRAWLING FUNCTIONS, FASTER LITE MODE IS WITHOUT FILE-SIZE AND MDATE
+# NEW DATABASE IS CREATED IN /tmp AND REPLACES ONE IN /.cache/angrysearch
 class Thread_database_update(Qc.QThread):
     db_update_signal = Qc.pyqtSignal(str, str)
     crawl_signal = Qc.pyqtSignal(str)
@@ -269,7 +270,7 @@ class Thread_database_update(Qc.QThread):
         return '{:0>2d}:{:0>2d}'.format(mins, secs)
 
 
-# OWN CUSTOM MODEL TO HAVE FINE CONTROL OVER THE CONTENT
+# CUSTOM TABLE MODEL TO HAVE FINE CONTROL OVER THE CONTENT AND PRESENTATION
 class Custom_table_model(Qc.QAbstractTableModel):
     def __init__(self, table_data=[[]], lite=True, parent=None):
         super().__init__()
@@ -328,13 +329,14 @@ class Custom_table_model(Qc.QAbstractTableModel):
         elif column == 2:
             self.sort_ed = True
             self.layoutAboutToBeChanged.emit()
-            self.table_data = sorted(self.table_data, key=lambda z: z[2]._bits)
+            self.table_data = sorted(self.table_data,
+                                     key=lambda z: z[2]._bytes)
             self.table_data = sorted(self.table_data,
                                      key=lambda z: z[0]._is_dir,
                                      reverse=True)
             if order == Qc.Qt.DescendingOrder:
                 self.table_data = sorted(self.table_data,
-                                         key=lambda z: z[2]._bits,
+                                         key=lambda z: z[2]._bytes,
                                          reverse=True)
                 self.table_data = sorted(self.table_data,
                                          key=lambda z: z[0]._is_dir,
@@ -357,7 +359,7 @@ class Custom_table_model(Qc.QAbstractTableModel):
         return self.table_data[row][col]
 
 
-# CUSTOME TABLE VIEW TO EASILY ADJUST ROW HEIGHT AND COLUMN WIDTH
+# CUSTOM TABLE VIEW TO EASILY ADJUST ROW HEIGHT AND COLUMN WIDTH
 class My_table_view(Qw.QTableView):
     def __init__(self, lite=True, row_height=0, parent=None):
         super().__init__()
@@ -377,7 +379,7 @@ class My_table_view(Qw.QTableView):
             self.setColumnWidth(3, width * 0.22)
 
 
-# THE PRIMARY GUI, THE WIDGET WITHIN THE MAINWINDOW
+# THE PRIMARY GUI DEFINING INTERFACE WIDGETS, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(Qw.QWidget):
     def __init__(self, set={}):
         super().__init__()
@@ -405,6 +407,8 @@ class Center_widget(Qw.QWidget):
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
+# LOADS AND SAVES QSETTINGS FROM ~/.config/angrysearch
+# INITIALIZES AND SETS INTERFACE, WAITING FOR USER INPUTS
 class Gui_MainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
@@ -521,7 +525,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                 f.close()
                 self.setStyleSheet(self.style_data)
 
-        self.threads = []
+        self.queries_threads = []
         self.waiting_threads = []
         self.last_keyboard_input = {'time': 0, 'input': ''}
         self.file_list = []
@@ -606,10 +610,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         i.addPixmap(pm)
         return i
 
-    # CREATES THREAD ON EVERY KEYPRESS, THREAD WAITS 0.2 SEC THEN RETURNS INPUT
-    # IF INPUT IS STILL THE SAME AS IT WAS BEFORE, DATABASE QUERY HAPENS
-    # OBJECTIVE IS TO LOWER THE NUMBER OF USELESS DB QUERIES
-    # BUT KEEP THE FEELING OF RESPONSIVNES
+    # 0.2 SEC DELAY TO LET USER FINISH TYPING BEFORE INPUT BECOMES DB QUERY
     def wait_for_finishing_typing(self, input):
         self.last_keyboard_input = input
         self.waiting_threads.append(Thread_delay_db_query(input))
@@ -622,8 +623,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.new_query_new_thread(waiting_data)
             self.waiting_threads = []
 
-    # CALLED ON EVERY TEXT CHANGE IN SEARCH INPUT
-    # QUERY THE DATABASE, LIST OF QUERIES TO KNOW THE LAST ONE
+    # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
         if self.set['fts4'] is False:
             self.status_bar.showMessage(' ...')
@@ -631,19 +631,19 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.show_first_500()
             return
 
-        if len(self.threads) > 30:
-            del self.threads[0:20]
+        if len(self.queries_threads) > 30:
+            del self.queries_threads[0:20]
 
-        self.threads.append({'input': input,
-                            'thread': Thread_db_query(input, self.set)})
+        self.queries_threads.append(
+            {'input': input, 'thread': Thread_db_query(input, self.set)})
 
-        self.threads[-1]['thread'].db_query_signal.connect(
+        self.queries_threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qc.Qt.QueuedConnection)
-        self.threads[-1]['thread'].start()
+        self.queries_threads[-1]['thread'].start()
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
     def database_query_done(self, db_query, db_query_result):
-        if (db_query != self.threads[-1]['input']):
+        if (db_query != self.queries_threads[-1]['input']):
             return
         self.process_database_resuls(db_query, db_query_result)
 
@@ -698,12 +698,12 @@ class Gui_MainWindow(Qw.QMainWindow):
             else:
                 # FILE SIZE ITEM IN THE THIRD COLUMN
                 file_size = ''
-                bitsize = 0
+                bytesize = 0
                 if tup[2] != '':
-                    bitsize = int(tup[2])
-                    file_size = self.readable_filesize(bitsize)
+                    bytesize = int(tup[2])
+                    file_size = self.readable_filesize(bytesize)
                 o = Qg.QStandardItem(file_size)
-                o._bits = bitsize
+                o._bytes = bytesize
                 item = [n, m, o, tup[3]]
 
             model_data.append(item)
@@ -718,6 +718,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def bold_text(self, line):
         return re.sub(self.regex_queries, '<b>\\1</b>', line)
 
+    # CREATES DICTIONARY WITH 6 MIME TYPES ICONS DEPENDING ON THEME
     def get_mime_icons(self):
         icon_dic = {}
         iconed_mimes = ['folder', 'file', 'image', 'audio',
@@ -747,7 +748,8 @@ class Gui_MainWindow(Qw.QMainWindow):
         f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
         return '{} {}'.format(f, suffixes[i])
 
-    # RUNS ON START OR ON EMPTY INPUT
+    # RUNS ON START OR ON EMPTY INPUT, SHOWS TOP OF THE FILESYSTEM
+    # CHECKS THE DATABASE AGAINST SETTINGS AND IF ITS NOT EMPTY
     def show_first_500(self):
         cur = con.cursor()
         cur.execute('''PRAGMA table_info(angry_table);''')
@@ -780,6 +782,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         total = locale.format('%d', total_rows_numb, grouping=True)
         self.status_bar.showMessage(total)
 
+    # SHOWS SELECTED ITEMS MIME TYPE
     def single_click(self, QModelIndex):
         path = self.model.itemFromIndex(QModelIndex.row(), 0)._fullpath
 
@@ -798,6 +801,8 @@ class Gui_MainWindow(Qw.QMainWindow):
         else:
             self.status_bar.showMessage('NOPE')
 
+    # IN THE FIRST COLUMN IT OPENS THE FILE IN ASSOCIATED PROGRAM
+    # IN THE SECOND ONE IT OPENS THE LOCATION, ATTEMPTING HIGHLIGHTING FILE
     def double_click_enter(self, QModelIndex):
         column = QModelIndex.column()
         row = QModelIndex.row()
@@ -841,6 +846,8 @@ class Gui_MainWindow(Qw.QMainWindow):
                     cmd = [fm, parent_dir]
                 subprocess.Popen(cmd)
 
+    # USE OR DO NOT USE FTS EXTENSION TABLES IN THE DATABASE
+    # FAST SEARCH OR SEARCH WITH SUBSTRINGS
     def checkbox_fts_click(self, state):
         if state == Qc.Qt.Checked:
             self.set['fts4'] = True
@@ -852,6 +859,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.new_query_new_thread(current_search)
         self.center.search_input.setFocus()
 
+    # SHOWN WHEN THERES NO DATABASE OR LITE SETTINGS CHANGED
     def tutorial(self):
         self.center.search_input.setDisabled(True)
         chat = [
@@ -875,6 +883,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.status_bar.showMessage(
             'Press the update button in the top right corner')
 
+    # CREATE INSTANCE OF UPDATE THE DATABASE DIALOG WINDOW
     def clicked_button_updatedb(self):
         self.center.search_input.setDisabled(False)
         self.u = Update_dialog_window(self)
@@ -897,6 +906,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.new_query_new_thread(self.center.search_input.text())
 
     # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
+    # ALLOWS USE OF <b></b> TAGS TO HIGHLIGHT SEARCHED PHRASE IN RESULTS
     class HTMLDelegate(Qw.QStyledItemDelegate):
         def __init__(self, parent=None):
             super().__init__()
@@ -914,8 +924,6 @@ class Gui_MainWindow(Qw.QMainWindow):
             style = Qg.QApplication.style() if options.widget is None \
                 else options.widget.style()
             style.drawControl(Qw.QStyle.CE_ItemViewItem, options, painter)
-            # style.drawControl(Qw.QStyle.CE_ItemViewItem, options,
-            #                  painter, options.widget)
 
             ctx = Qg.QAbstractTextDocumentLayout.PaintContext()
 
