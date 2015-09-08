@@ -5,7 +5,6 @@ import base64
 from datetime import datetime
 import locale
 import mimetypes
-import operator
 import os
 import PyQt5.QtCore as Qc
 import PyQt5.QtGui as Qg
@@ -32,11 +31,11 @@ except ImportError:
     SCANDIR_AVAILABLE = False
 
 
-# THREAD FOR ASYNC SEARCHES IN THE DATABASE, CALLED ON EVERY KEYPRESS
+# THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
-# fts4 VALUE DECIDES IF USE FAST "MATCH" OR SUBSTRING AWARE "LIKE"
+# fts4 VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
 class Thread_db_query(Qc.QThread):
-    db_query_signal = Qc.pyqtSignal(dict)
+    db_query_signal = Qc.pyqtSignal(str, list)
 
     def __init__(self, db_query, set, parent=None):
         super().__init__()
@@ -55,9 +54,8 @@ class Thread_db_query(Qc.QThread):
             cur.execute(
                 '''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
                 (self.sql_query, self.number_of_results))
-        tuppled_500 = cur.fetchall()
-        signal_message = {'input': self.db_query, 'results': tuppled_500}
-        self.db_query_signal.emit(signal_message)
+        db_query_result = cur.fetchall()
+        self.db_query_signal.emit(self.db_query, db_query_result)
 
     def query_adjustment_for_sqlite(self, input):
         if self.fts4 is False:
@@ -69,6 +67,7 @@ class Thread_db_query(Qc.QThread):
 
 
 # THREAD FOR PREVENTING DATABASE QUERY BEING DONE ON EVERY SINGLE KEYPRESS
+# SHORT WAIT TIME LETS USER FINISH TYPING
 class Thread_delay_db_query(Qc.QThread):
     delay_signal = Qc.pyqtSignal(str)
 
@@ -83,7 +82,7 @@ class Thread_delay_db_query(Qc.QThread):
 
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
-# TWO CRAWLING FUNCTIONS ONE FOR LITE MODE WITHOUT FILE SIZE AND MDATE
+# TWO CRAWLING FUNCTIONS, FASTER LITE MODE IS WITHOUT FILE-SIZE AND MDATE
 class Thread_database_update(Qc.QThread):
     db_update_signal = Qc.pyqtSignal(str, str)
     crawl_signal = Qc.pyqtSignal(str)
@@ -101,13 +100,13 @@ class Thread_database_update(Qc.QThread):
 
     def run(self):
         self.db_update_signal.emit('label_1', None)
-        if self.lite:
+        if self.lite is True:
             self.crawling_drives_lite()
         else:
             self.crawling_drives()
 
         self.db_update_signal.emit('label_2', self.crawl_time)
-        if self.lite:
+        if self.lite is True:
             self.new_database_lite()
         else:
             self.new_database()
@@ -130,11 +129,11 @@ class Thread_database_update(Qc.QThread):
         file_list = []
 
         if SCANDIR_AVAILABLE:
-            ror = scandir
+            modul_var = scandir
         else:
-            ror = os
+            modul_var = os
 
-        for root, dirs, files in ror.walk(root_dir, onerror=error):
+        for root, dirs, files in modul_var.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
             dirs[:] = [d for d in dirs if d not in self.exclude]
@@ -151,7 +150,7 @@ class Thread_database_update(Qc.QThread):
                 path = os.path.join(root, fname)
                 utf_path = path.decode(encoding='utf-8', errors='ignore')
                 stats = os.lstat(path)
-                size = self.readable_filesize(stats.st_size)
+                size = stats.st_size
                 readable_date = datetime.fromtimestamp(
                     stats.st_mtime.__trunc__())
                 file_list.append(
@@ -175,11 +174,11 @@ class Thread_database_update(Qc.QThread):
         file_list = []
 
         if SCANDIR_AVAILABLE:
-            ror = scandir
+            modul_var = scandir
         else:
-            ror = os
+            modul_var = os
 
-        for root, dirs, files in ror.walk(root_dir, onerror=error):
+        for root, dirs, files in modul_var.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
             dirs[:] = [d for d in dirs if d not in self.exclude]
@@ -265,32 +264,21 @@ class Thread_database_update(Qc.QThread):
 
         con = sqlite3.connect(db_path, check_same_thread=False)
 
-    def readable_filesize(self, nbytes):
-        suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-        if nbytes == 0:
-            return '0 B'
-        i = 0
-        while nbytes >= 1024 and i < len(suffixes)-1:
-            nbytes /= 1024.
-            i += 1
-        f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
-        return '{} {}'.format(f, suffixes[i])
-
     def time_difference(self, nseconds):
         mins, secs = divmod(nseconds, 60)
         return '{:0>2d}:{:0>2d}'.format(mins, secs)
 
 
-# MODEL FOR TABLE DATA
+# OWN CUSTOM MODEL TO HAVE FINE CONTROL OVER THE CONTENT
 class Custom_table_model(Qc.QAbstractTableModel):
     def __init__(self, table_data=[[]], lite=True, parent=None):
         super().__init__()
         self.table_data = self.data_backup = table_data
+        self.sort_ed = False
         if lite is True:
             self.headers = ['Name', 'Path']
         else:
             self.headers = ['Name', 'Path', 'Size', 'Date Modified']
-        self._sorted = False
 
     def rowCount(self, parent):
         return len(self.table_data)
@@ -300,17 +288,17 @@ class Custom_table_model(Qc.QAbstractTableModel):
 
     def headerData(self, section, orientation, role):
         if role == Qc.Qt.DisplayRole and orientation == Qc.Qt.Horizontal:
-                return self.headers[section]
+            return self.headers[section]
 
     def data(self, index, role):
         if role == Qc.Qt.DisplayRole:
             row = index.row()
             column = index.column()
             value = self.table_data[row][column]
-            if column == 0:
-                return value.text()
-            else:
+            if column == 3:
                 return value
+            else:
+                return value.text()
 
         if role == Qc.Qt.DecorationRole and index.column() == 0:
             row = index.row()
@@ -319,33 +307,45 @@ class Custom_table_model(Qc.QAbstractTableModel):
             return value.icon()
 
     def sort(self, column, order):
-        if column in [0, 2, 3]:
-            self._sorted = True
+        if column == 0:
+            self.sort_ed = True
             self.layoutAboutToBeChanged.emit()
+            self.table_data = sorted(self.table_data, key=lambda z: z[0]._name)
             self.table_data = sorted(self.table_data,
-                                     key=operator.itemgetter(column))
+                                     key=lambda z: z[0]._is_dir, reverse=True)
             if order == Qc.Qt.DescendingOrder:
                 self.table_data.reverse()
             self.layoutChanged.emit()
-        else:
-            if self._sorted:
+        elif column == 1:
+            if self.sort_ed:
                 self.layoutAboutToBeChanged.emit()
                 self.table_data = self.data_backup
                 self.layoutChanged.emit()
-                self._sorted = False
+                self.sort_ed = False
+        elif column == 2:
+            self.sort_ed = True
+            self.layoutAboutToBeChanged.emit()
+            self.table_data = sorted(self.table_data, key=lambda z: z[2]._bits)
+            if order == Qc.Qt.DescendingOrder:
+                self.table_data.reverse()
+            self.layoutChanged.emit()
+        elif column == 3:
+            self.sort_ed = True
+            self.layoutAboutToBeChanged.emit()
+            self.table_data = sorted(self.table_data, key=lambda z: z[3])
+            if order == Qc.Qt.DescendingOrder:
+                self.table_data.reverse()
+            self.layoutChanged.emit()
 
-    def itemFromIndex(self, index):
-        if index.column() == 0:
-            row = index.row()
-            column = index.column()
-            return self.table_data[row][column]
+    def itemFromIndex(self, row, col):
+        return self.table_data[row][col]
 
 
+# CUSTOME TABLE VIEW TO EASILY ADJUST ROW HEIGHT AND COLUMN WIDTH
 class My_table_view(Qw.QTableView):
-    def __init__(self, set={}, parent=None):
+    def __init__(self, lite=True, row_height=0, parent=None):
         super().__init__()
-        self.lite = set['angrysearch_lite']
-        row_height = set['row_height']
+        self.lite = lite
         if row_height and row_height != 0:
             self.verticalHeader().setDefaultSectionSize(row_height)
 
@@ -370,7 +370,8 @@ class Center_widget(Qw.QWidget):
 
     def initUI(self):
         self.search_input = Qw.QLineEdit()
-        self.table = My_table_view(self.set)
+        self.table = My_table_view(self.set['angrysearch_lite'],
+                                   self.set['row_height'])
         self.upd_button = Qw.QPushButton('update')
         self.fts4_checkbox = Qw.QCheckBox()
 
@@ -602,7 +603,6 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     def waiting_done(self, waiting_data):
         if self.last_keyboard_input == waiting_data:
-            print("DATABASE QUERY GOES THROUGH")
             self.new_query_new_thread(waiting_data)
             self.waiting_threads = []
 
@@ -626,37 +626,40 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.threads[-1]['thread'].start()
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
-    def database_query_done(self, db_query_result):
-        if (db_query_result['input'] != self.threads[-1]['input']):
+    def database_query_done(self, db_query, db_query_result):
+        if (db_query != self.threads[-1]['input']):
             return
-        self.process_database_resuls(db_query_result)
+        self.process_database_resuls(db_query, db_query_result)
 
     # FORMAT DATA FOR THE MODEL
-    def process_database_resuls(self, data):
-        typed_text = data['input']
-        results = data['results']
+    def process_database_resuls(self, db_query, db_query_result):
         model_data = []
 
-        strip_and_split = typed_text.strip().split()
+        strip_and_split = db_query.strip().split()
         rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
         self.regex_queries = re.compile(rx, re.IGNORECASE)
 
-        for tup in results:
+        for tup in db_query_result:
             split_by_slash = tup[1].split('/')
 
-            name = name_ = split_by_slash[-1]
-            path = '/'.join(split_by_slash[:-1]) or '/'
+            name = _name = split_by_slash[-1]
+            path = _path = '/'.join(split_by_slash[:-1]) or '/'
 
-            if typed_text:
+            if db_query != '':
                 name = self.bold_text(name)
                 path = self.bold_text(path)
 
+            # NAME ITEM IN THE FIRST COLUMN
             n = Qg.QStandardItem(name)
-            n.path = tup[1]
+            n._name = _name.lower()
+            n._parent_dir = _path
+            n._fullpath = tup[1]
+            n._is_dir = tup[0]
+
             if tup[0] == '1':
                 n.setIcon(self.icon_dictionary['folder'])
             else:
-                short_mime = mimetypes.guess_type(name_)[0]
+                short_mime = mimetypes.guess_type(_name)[0]
                 if short_mime:
                     short_mime = short_mime.split('/')
                     if short_mime[0] in self.icon_dictionary:
@@ -668,10 +671,25 @@ class Gui_MainWindow(Qw.QMainWindow):
                 else:
                     n.setIcon(self.icon_dictionary['file'])
 
+            # PATH ITEM IN THE SECOND COLUMN
+            m = Qg.QStandardItem(path)
+            m._parent_dir = _path
+            m._fullpath = tup[1]
+            m._is_dir = tup[0]
+
+            # FILE SIZE ITEM IN THE THIRD COLUMN
+            file_size = ''
+            bitsize = 0
+            if tup[2] != '':
+                bitsize = int(tup[2])
+                file_size = self.readable_filesize(bitsize)
+            o = Qg.QStandardItem(file_size)
+            o._bits = bitsize
+
             if self.set['angrysearch_lite'] is True:
-                item = [n, path]
+                item = [n, m]
             else:
-                item = [n, path, tup[2], tup[3]]
+                item = [n, m, o, tup[3]]
 
             model_data.append(item)
 
@@ -679,7 +697,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                                         self.set['angrysearch_lite'])
 
         self.center.table.setModel(self.model)
-        total = locale.format('%d', len(results), grouping=True)
+        total = locale.format('%d', len(db_query_result), grouping=True)
         self.status_bar.showMessage(total)
 
     def bold_text(self, line):
@@ -702,6 +720,17 @@ class Gui_MainWindow(Qw.QMainWindow):
             icon_dic['folder'] = Qg.QIcon(dir_icon)
 
         return icon_dic
+
+    def readable_filesize(self, nbytes):
+        suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+        if nbytes == 0:
+            return '0 B'
+        i = 0
+        while nbytes >= 1024 and i < len(suffixes)-1:
+            nbytes /= 1024.
+            i += 1
+        f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
+        return '{} {}'.format(f, suffixes[i])
 
     # RUNS ON START OR ON EMPTY INPUT
     def show_first_500(self):
@@ -729,7 +758,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     (self.set['number_of_results'],))
         tuppled_500 = cur.fetchall()
 
-        self.process_database_resuls({'input': '', 'results': tuppled_500})
+        self.process_database_resuls('', tuppled_500)
 
         cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
         total_rows_numb = cur.fetchone()[0]
@@ -737,8 +766,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.status_bar.showMessage(total)
 
     def single_click(self, QModelIndex):
-        path = self.model.itemFromIndex(
-            QModelIndex.child(QModelIndex.row(), 0)).path
+        path = self.model.itemFromIndex(QModelIndex.row(), 0)._fullpath
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
@@ -757,8 +785,12 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     def double_click_enter(self, QModelIndex):
         column = QModelIndex.column()
-        path = self.model.itemFromIndex(
-            QModelIndex.child(QModelIndex.row(), 0)).path
+        row = QModelIndex.row()
+        item = self.model.itemFromIndex(row, column)
+
+        path = item._fullpath
+        parent_dir = item._parent_dir
+        is_dir = (True if item._is_dir == '1' else False)
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
@@ -767,19 +799,32 @@ class Gui_MainWindow(Qw.QMainWindow):
         if column == 0:
             subprocess.Popen(['xdg-open', path])
         if column == 1:
-            fm = self.set['file_manager']
-            if 'dolphin' in fm:
-                cmd = ['dolphin', '--select', path]
-            elif 'nemo' in fm:
-                cmd = ['nemo', path]
-            elif 'nautilus' in fm:
-                cmd = ['nautilus', path]
-            elif 'doublecmd' in fm:
-                cmd = ['doublecmd', path]
+            if is_dir is True:
+                fm = self.set['file_manager']
+                if 'dolphin' in fm:
+                    cmd = ['dolphin', '--select', path]
+                elif 'nemo' in fm:
+                    cmd = ['nemo', parent_dir]
+                elif 'nautilus' in fm:
+                    cmd = ['nautilus', parent_dir]
+                elif 'doublecmd' in fm:
+                    cmd = ['doublecmd', parent_dir]
+                else:
+                    cmd = [fm, parent_dir]
+                subprocess.Popen(cmd)
             else:
-                parent_dir = os.path.abspath(os.path.join(path, os.pardir))
-                cmd = [fm, parent_dir]
-            subprocess.Popen(cmd)
+                fm = self.set['file_manager']
+                if 'dolphin' in fm:
+                    cmd = ['dolphin', '--select', path]
+                elif 'nemo' in fm:
+                    cmd = ['nemo', path]
+                elif 'nautilus' in fm:
+                    cmd = ['nautilus', path]
+                elif 'doublecmd' in fm:
+                    cmd = ['doublecmd', path]
+                else:
+                    cmd = [fm, parent_dir]
+                subprocess.Popen(cmd)
 
     def checkbox_fts_click(self, state):
         if state == Qc.Qt.Checked:
