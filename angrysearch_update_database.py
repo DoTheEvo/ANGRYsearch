@@ -5,13 +5,12 @@
 THIS SCRIPT WILL INDEX THE DRIVES AND CREATE NEW DATABASE
 REPLACING THE OLD ONE, IT RESPECTS IGNORED DIRECTORIES
 
-USE CRONTAB TO RUN THIS UPDATE PERIODICALLY, 3 TIMES A DAY SOUNDS ABOUT RIGHT
-CRONTAB EXAMPLE THAT EXECUTES AT NOON, AT 18:00(6pm) AND AT MIDNIGHT
+USE CRONTAB TO RUN THIS UPDATE PERIODICALLY, 2 TIMES A DAY SOUNDS ABOUT RIGHT
+CRONTAB EXAMPLE THAT EXECUTES AT NOON AND AT MIDNIGHT
 
-00 00,12,18 * * * /opt/angrysearch/angrysearch_update_database.py
+00 00,12 * * * /opt/angrysearch/angrysearch_update_database.py
 '''
 
-from datetime import datetime
 import os
 from PyQt5.QtCore import QSettings
 import sqlite3
@@ -69,18 +68,16 @@ def crawling_drives():
             path = os.path.join(root, dname)
             utf_path = path.decode(encoding='utf-8', errors='ignore')
             stats = os.lstat(path)
-            readable_date = datetime.fromtimestamp(
-                stats.st_mtime.__trunc__())
-            dir_list.append(('1', utf_path, '', readable_date))
+            epoch_time = stats.st_mtime.__trunc__()
+            dir_list.append(('1', utf_path, '', epoch_time))
         for fname in files:
             path = os.path.join(root, fname)
             utf_path = path.decode(encoding='utf-8', errors='ignore')
             stats = os.lstat(path)
             size = stats.st_size
-            readable_date = datetime.fromtimestamp(
-                stats.st_mtime.__trunc__())
+            epoch_time = stats.st_mtime.__trunc__()
             file_list.append(
-                ('0', utf_path, size, readable_date))
+                ('0', utf_path, size, epoch_time))
 
     table = dir_list + file_list
     new_database(table)

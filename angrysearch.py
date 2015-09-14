@@ -99,6 +99,8 @@ class Thread_database_update(Qc.QThread):
         self.exclude = [x.encode() for x in dirs_excluded]
         self.exclude.append(b'proc')
 
+        self.directories_timestamp = {}
+
     def run(self):
         self.db_update_signal.emit('label_1', None)
         if self.lite is True:
@@ -144,18 +146,16 @@ class Thread_database_update(Qc.QThread):
                 path = os.path.join(root, dname)
                 utf_path = path.decode(encoding='utf-8', errors='ignore')
                 stats = os.lstat(path)
-                readable_date = datetime.fromtimestamp(
-                    stats.st_mtime.__trunc__())
-                dir_list.append(('1', utf_path, '', readable_date))
+                epoch_time = stats.st_mtime.__trunc__()
+                dir_list.append(('1', utf_path, '', epoch_time))
             for fname in files:
                 path = os.path.join(root, fname)
                 utf_path = path.decode(encoding='utf-8', errors='ignore')
                 stats = os.lstat(path)
                 size = stats.st_size
-                readable_date = datetime.fromtimestamp(
-                    stats.st_mtime.__trunc__())
+                epoch_time = stats.st_mtime.__trunc__()
                 file_list.append(
-                    ('0', utf_path, size, readable_date))
+                    ('0', utf_path, size, epoch_time))
 
         self.table = dir_list + file_list
 
@@ -264,6 +264,24 @@ class Thread_database_update(Qc.QThread):
         p.wait()
 
         con = sqlite3.connect(db_path, check_same_thread=False)
+
+    def load_previous_run_directory_mtime_data(self):
+        cur = con.cursor()
+        cur.execute('''PRAGMA table_info(angry_table);''')
+        total_columns = len(cur.fetchall())
+        if total_columns != 4:
+            return
+
+        cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
+        total_rows_numb = cur.fetchone()[0]
+        if total_rows_numb < 1:
+            return
+
+        cur.execute('''SELECT * FROM angry_table WHERE directory="1"''')
+        all_directories_tuple = cur.fetchall()
+
+        for x in all_directories_tuple:
+            self.directories_timestamp[x[1]] = x[3]
 
     def time_difference(self, nseconds):
         mins, secs = divmod(nseconds, 60)
@@ -428,7 +446,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         if self.settings.value('Last_Run/geometry'):
             self.restoreGeometry(self.settings.value('Last_Run/geometry'))
         else:
-            self.resize(640, 480)
+            self.resize(720, 540)
             qr = self.frameGeometry()
             cp = Qw.QDesktopWidget().availableGeometry().center()
             qr.moveCenter(cp)
@@ -705,7 +723,10 @@ class Gui_MainWindow(Qw.QMainWindow):
                     file_size = self.readable_filesize(bytesize)
                 o = Qg.QStandardItem(file_size)
                 o._bytes = bytesize
-                item = [n, m, o, tup[3]]
+
+                p = datetime.fromtimestamp(tup[3])
+
+                item = [n, m, o, str(p)]
 
             model_data.append(item)
 
@@ -756,17 +777,17 @@ class Gui_MainWindow(Qw.QMainWindow):
         cur.execute('''PRAGMA table_info(angry_table);''')
         d = len(cur.fetchall())
 
-        if d is 0:
+        if d == 0:
             self.status_bar.showMessage('0')
             self.tutorial()
             return
 
-        if self.set['angrysearch_lite'] is True and d is 4:
+        if self.set['angrysearch_lite'] is True and d == 4:
             self.status_bar.showMessage('0')
             self.tutorial()
             return
 
-        if self.set['angrysearch_lite'] is False and d is 2:
+        if self.set['angrysearch_lite'] is False and d == 2:
             self.status_bar.showMessage('0')
             self.tutorial()
             return
