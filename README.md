@@ -12,9 +12,9 @@ Done in python 3 using PyQt5 for GUI, PyQt4 branch exists
 
 ANGRYsearch can be set to two different modes in its config, default being `lite`
 * **lite mode** will not index size of files and date of last modification, it shows only items name and path
-* **full mode** shows size and date of modification, the drawback is that indexing takes roughly two times longer since every file and folder has gets additional stats calls during indexing.
+* **full mode** shows size and date of the last modification, the drawback is that indexing takes roughly two times longer since every file and folder gets additional stats calls during indexing
 
-in `~/.config/angrysearch/angrysearch.conf` you control mode witht `angrysearch_lite` being set to true or false, default is true
+in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysearch_lite` being set to true or false
 
 ![lite version png](http://i.imgur.com/TS1fgTr.png)
 
@@ -26,12 +26,12 @@ in `~/.config/angrysearch/angrysearch.conf` you control mode witht `angrysearch_
 * unchecking the checkbox in the top right corner fixes this, but searching gets slower
 * database is in `~/.cache/angrysearch/angry_database.db`
 * config file is in `~/.config/angrysearch/angrysearch.conf`
-* **IF YOU HAVE TROUBLE STARTING UP THE APPLICATION, DELETE THE DATABASE AND CONFIG FILES, NEW ONES ARE CREATED ON THE NEXT RUN**
+* **IF YOU HAVE TROUBLE STARTING UP THE APPLICATION, RESTART THE PC, DELETE THE DATABASE AND THE CONFIG FILE, NEW ONES ARE CREATED ON THE NEXT RUN**
 * it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB in size in lite mode
 * it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
 * [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, default applications can be set in `~/.local/share/applications/` in `mimeapps.list` and `defaults.list`
 
-### How to make it work on your system:
+### installation:
 
 * Arch has [AUR package](https://aur.archlinux.org/packages/angrysearch/), so we are done here
 
@@ -47,7 +47,9 @@ for other distros:
   * once you are done testing, remember to remove the database that is created in
     `~/.cache/angrysearch/angry_database.db`
 
-for a long term installation on your system for every day place the files in to `/opt/angrysearch/` and set the `angrysearch.py` and `angrysearch_update_database.py` as executable, and make some links to these files to integrate ANGRYsearch in to your system
+for a **long term installation** on your system for every day use, place the files in to `/opt/angrysearch/`
+and set the `angrysearch.py` and `angrysearch_update_database.py` as executable, and make some links to these
+files to integrate ANGRYsearch in to your system
 
 * create angrysearch folder in /opt
 
@@ -68,7 +70,7 @@ for a long term installation on your system for every day place the files in to 
 
 * would be nice if it would have some distinguishable icon, make a link to the icon
 
-        sudo ln -s /opt/angrysearch/icons/angrysearch.svg /usr/share/pixmaps
+        sudo ln -s /opt/angrysearch/angrysearch.svg /usr/share/pixmaps
 
 * to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
 
@@ -76,9 +78,11 @@ for a long term installation on your system for every day place the files in to 
 
 ### Periodic automatic update in the background
 
-among the files theres `angrysearch_update_database.py` when this file is run, theres no interface it just crawls through drives and updates the databse. This file is not necessary for normal functioning of the ANGRYsearch
+among the files theres `angrysearch_update_database.py` when this file is run,
+theres no interface it just crawls through drives(respecting ignored directories) and updates the databse.
+This file is not necessary for normal run of the ANGRYsearch
 
-Using crontab you can set this file to be executed periodicly at choosen intervals
+Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals
 
 `crontab -l` - list cronjobs
 `crontab -e` - open text editor so you can enter new cronjob
@@ -87,7 +91,7 @@ this crontab job will execute the update file at noon and at midnight every day
 
      00 00,12 * * * /opt/angrysearch/angrysearch_update_database.py
 
-Crontab does not try to catch up on a job if PC has been off during scheduled time
+Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
 
 ### How it works & additional details:
@@ -98,17 +102,18 @@ Crontab does not try to catch up on a job if PC has been off during scheduled ti
 * **double-click** on items in search results:
   * `Name` - the first column, opens the file in application associated with its mimetype in xdg-open
   * `Path` - the second column, open the item's location in the file manager
-* **config file** location: `~/.config/angrysearch/angrysearch.conf`. You can delete the config file whenever you wish, on the next run/close a new one will be created with default values.
-  * `angrysearch_lite` By default set to true. In lite mode theres only file name and path, no file size and no last modification date. Les informations but two times faster indexing of the drives
-  * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
-  *   `directories_excluded` By default empty. Which directories to be ignored, directory names(not slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to ignore
-  *   `fast_search_but_no_substring=true` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
-  *   `file_manager=xdg-open` By default set to xdg-open, meaning xdg-open tests which program is associated with inode/directory mime type and on double clicking the path of files/folders, it sends the path to that application. Can be set to any program. If it detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, making it highlighted - selected when opened in the filemanager. For other programs it just sends path to the containing foler.
-  *   `icon_theme=adwaita` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way.
-  *   `number_of_results=500` By default set to 500. Limit set in the database query. Lower number means search results would be faster.
-  *   `row_height=0` By default set to 0 which means auto-detect. Sets height of the row in pixels.
-  *   `[Last_Run]` The applications properties from the last time at the moment when it was closed - window size, position, state.
+* results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column
 
-* results can be sorted by clicking on columns, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column.
+* **config file** location: `~/.config/angrysearch/angrysearch.conf`. You can delete the config file whenever you wish, on the next run/close a new one will be created with default values.
+![config file screenshot](http://i.imgur.com/5YHI28b.png)
+  * `angrysearch_lite` By default set to true. In lite mode theres only file name and path, no file size and no last modification date. Less informations but two times faster indexing of the drives
+  * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
+  *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
+  *   `fast_search_but_no_substring=true` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
+  *   `file_manager=xdg-open` By default set to xdg-open, meaning [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) tests which program is associated with inode/directory mime type and on double clicking the path of files/folders, it sends the path to that application. Can be set to any program. If it detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, making it highlighted - selected when opened in the filemanager. For other programs it just sends path to the containing foler.
+  *   `icon_theme=adwaita` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
+  *   `number_of_results=500` By default set to 500. Limit set for searches in the database. Lower number means search results come faster
+  *   `row_height=0` By default set to 0 which means default. Sets height of the rows in pixels
+  *   `[Last_Run]` The applications properties from the last time at the moment when it was closed - window size, position, state
 
 ![dark theme screenshot](http://i.imgur.com/E3Bs5fx.png)
