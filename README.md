@@ -78,11 +78,12 @@ files to integrate ANGRYsearch in to your system
 
 ### Periodic automatic update in the background
 
-among the files theres `angrysearch_update_database.py` when this file is run,
-theres no interface it just crawls through drives(respecting ignored directories) and updates the databse.
+among the files there's `angrysearch_update_database.py` when this file is run,
+there's no interface, it just crawls through drives(respecting ignored directories) and updates the databse.
 This file is not necessary for normal run of the ANGRYsearch
 
-Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals
+Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
+keeping ANGRYsearch up to date with the changes on your system
 
 `crontab -l` - list cronjobs
 `crontab -e` - open text editor so you can enter new cronjob
@@ -105,7 +106,9 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 * results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column
 
 * **config file** location: `~/.config/angrysearch/angrysearch.conf`. You can delete the config file whenever you wish, on the next run/close a new one will be created with default values.
-![config file screenshot](http://i.imgur.com/5YHI28b.png)
+
+![config file screenshot](http://i.imgur.com/euOjrlj.png)
+
   * `angrysearch_lite` By default set to true. In lite mode theres only file name and path, no file size and no last modification date. Less informations but two times faster indexing of the drives
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
