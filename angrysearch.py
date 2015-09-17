@@ -640,7 +640,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         if self.last_keyboard_input == waiting_data:
             self.new_query_new_thread(waiting_data)
             if len(self.waiting_threads) > 40:
-                del self.queries_threads[0:20]
+                del self.waiting_threads[0:20]
 
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
