@@ -128,6 +128,8 @@ def new_database(table):
     cur.execute('''CREATE VIRTUAL TABLE angry_table
                     USING fts4(directory, path, size, date)''')
 
+    cur.execute('''PRAGMA user_version = 1;''')
+
     for x in table:
         cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
                     (x[0], x[1], x[2], x[3]))
@@ -146,6 +148,8 @@ def new_database_lite(table):
     cur = con.cursor()
     cur.execute('''CREATE VIRTUAL TABLE angry_table
                     USING fts4(directory, path)''')
+
+    cur.execute('''PRAGMA user_version = 1;''')
 
     for x in table:
         cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
