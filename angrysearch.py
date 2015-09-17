@@ -210,6 +210,8 @@ class Thread_database_update(Qc.QThread):
         cur.execute('''CREATE VIRTUAL TABLE angry_table
                         USING fts4(directory, path, size, date)''')
 
+        cur.execute('''PRAGMA user_version = 1;''')
+
         self.tstart = datetime.now()
 
         for x in self.table:
@@ -231,6 +233,8 @@ class Thread_database_update(Qc.QThread):
         cur = con.cursor()
         cur.execute('''CREATE VIRTUAL TABLE angry_table
                         USING fts4(directory, path)''')
+
+        cur.execute('''PRAGMA user_version = 1;''')
 
         self.tstart = datetime.now()
 
@@ -774,21 +778,24 @@ class Gui_MainWindow(Qw.QMainWindow):
     # CHECKS THE DATABASE AGAINST SETTINGS AND IF ITS NOT EMPTY
     def show_first_500(self):
         cur = con.cursor()
+
+        cur.execute('''PRAGMA user_version;''')
+        if cur.fetchone()[0] != 1:
+            self.tutorial()
+            return
+
         cur.execute('''PRAGMA table_info(angry_table);''')
         d = len(cur.fetchall())
 
         if d == 0:
-            self.status_bar.showMessage('0')
             self.tutorial()
             return
 
         if self.set['angrysearch_lite'] is True and d == 4:
-            self.status_bar.showMessage('0')
             self.tutorial()
             return
 
         if self.set['angrysearch_lite'] is False and d == 2:
-            self.status_bar.showMessage('0')
             self.tutorial()
             return
 
