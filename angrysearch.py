@@ -437,7 +437,9 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.settings = Qc.QSettings('angrysearch', 'angrysearch')
         self.set = {'angrysearch_lite': True,
                     'fts4': True,
+                    'typing_delay': False,
                     'darktheme': False,
+                    'fm_path_doubleclick_selects': False,
                     'icon_theme': 'adwaita',
                     'file_manager': 'xdg-open',
                     'row_height': 0,
@@ -461,7 +463,9 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         self.read_qsettings_item('angrysearch_lite', 'bool')
         self.read_qsettings_item('fast_search_but_no_substring', 'bool')
+        self.read_qsettings_item('typing_delay', 'bool')
         self.read_qsettings_item('darktheme', 'bool')
+        self.read_qsettings_item('fm_path_doubleclick_selects', 'bool')
         self.read_qsettings_item('icon_theme', 'str')
         self.read_qsettings_item('row_height', 'int')
         self.read_qsettings_item('number_of_results', 'int')
@@ -499,7 +503,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             fm = subprocess.check_output(['xdg-mime', 'query',
                                           'default', 'inode/directory'])
             detected_fm = fm.decode('utf-8').strip().lower()
-            known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd']
+            known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd',
+                        'thunar', 'pcmanfm']
             if any(item in detected_fm for item in known_fm):
                 print('autodetected file manager: ' + detected_fm)
                 return detected_fm
@@ -516,8 +521,12 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.settings.setValue('angrysearch_lite', True)
         if not self.settings.contains('fast_search_but_no_substring'):
             self.settings.setValue('fast_search_but_no_substring', True)
+        if not self.settings.contains('typing_delay'):
+            self.settings.setValue('typing_delay', False)
         if not self.settings.contains('darktheme'):
             self.settings.setValue('darktheme', False)
+        if not self.settings.contains('fm_path_doubleclick_selects'):
+            self.settings.setValue('fm_path_doubleclick_selects', False)
         if not self.settings.contains('icon_theme'):
             self.settings.setValue('icon_theme', 'adwaita')
         if not self.settings.contains('file_manager'):
@@ -596,7 +605,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v0.9.4')
+            menu.addAction('v0.9.5')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)
@@ -613,7 +622,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                 reason == Qw.QSystemTrayIcon.Trigger):
             self.show()
         elif (reason == Qw.QSystemTrayIcon.MiddleClick):
-            Qg.QCoreApplication.instance().quit()
+            Qc.QCoreApplication.instance().quit()
 
     def get_tray_icon(self):
         base64_data = '''iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHN
@@ -632,8 +641,12 @@ class Gui_MainWindow(Qw.QMainWindow):
         i.addPixmap(pm)
         return i
 
-    # 0.2 SEC DELAY TO LET USER FINISH TYPING BEFORE INPUT BECOMES DB QUERY
+    # OFF BY DEFAULT
+    # 0.2 SEC DELAY TO LET USER FINISH TYPING BEFORE INPUT BECOMES A DB QUERY
     def wait_for_finishing_typing(self, input):
+        if self.set['typing_delay'] is False:
+            self.new_query_new_thread(input)
+            return
         self.last_keyboard_input = input
         self.waiting_threads.append(Thread_delay_db_query(input))
         self.waiting_threads[-1].delay_signal.connect(
@@ -714,6 +727,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             m = Qg.QStandardItem(path)
             m._parent_dir = _path
             m._fullpath = tup[1]
+            m._name = n._name
             m._is_dir = tup[0]
 
             if self.set['angrysearch_lite'] is True:
@@ -839,6 +853,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         path = item._fullpath
         parent_dir = item._parent_dir
+        last_item = item._name
         is_dir = (True if item._is_dir == '1' else False)
 
         if not os.path.exists(path):
@@ -852,28 +867,70 @@ class Gui_MainWindow(Qw.QMainWindow):
                 fm = self.set['file_manager']
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
+                    subprocess.Popen(cmd)
                 elif 'nemo' in fm:
-                    cmd = ['nemo', parent_dir]
+                    self.fm_highlight_nemo('nemo', parent_dir, last_item)
                 elif 'nautilus' in fm:
-                    cmd = ['nautilus', parent_dir]
+                    self.fm_highlight_nemo('nautilus', parent_dir, last_item)
                 elif 'doublecmd' in fm:
                     cmd = ['doublecmd', parent_dir]
+                    subprocess.Popen(cmd)
+                elif 'thunar' in fm:
+                    self.fm_highlight('thunar', parent_dir, last_item)
+                elif 'pcmanfm' in fm:
+                    self.fm_highlight('pcmanfm', parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
-                subprocess.Popen(cmd)
+                    subprocess.Popen(cmd)
             else:
                 fm = self.set['file_manager']
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
+                    subprocess.Popen(cmd)
                 elif 'nemo' in fm:
                     cmd = ['nemo', path]
+                    subprocess.Popen(cmd)
                 elif 'nautilus' in fm:
                     cmd = ['nautilus', path]
+                    subprocess.Popen(cmd)
                 elif 'doublecmd' in fm:
                     cmd = ['doublecmd', path]
+                    subprocess.Popen(cmd)
+                elif 'thunar' in fm:
+                    self.fm_highlight('thunar', parent_dir, last_item)
+                elif 'pcmanfm' in fm:
+                    self.fm_highlight('pcmanfm', parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
-                subprocess.Popen(cmd)
+                    subprocess.Popen(cmd)
+
+    def fm_highlight(self, fm, parent_dir, last_item):
+        if self.set['fm_path_doubleclick_selects'] is False:
+            cmd = [fm, parent_dir]
+            subprocess.Popen(cmd)
+            return
+        cmd = [fm, parent_dir]
+        subprocess.Popen(cmd)
+        time.sleep(0.5)
+        cmd = ['xdotool', 'key', 'ctrl+f', 'type', last_item]
+        subprocess.Popen(cmd)
+        time.sleep(0.2)
+        cmd = ['xdotool', 'key', 'Escape']
+        subprocess.Popen(cmd)
+
+    def fm_highlight_nemo(self, fm, parent_dir, last_item):
+        if self.set['fm_path_doubleclick_selects'] is False:
+            cmd = [fm, parent_dir]
+            subprocess.Popen(cmd)
+            return
+        cmd = [fm, parent_dir]
+        subprocess.Popen(cmd)
+        time.sleep(0.5)
+        cmd = ['xdotool', 'type', last_item]
+        subprocess.Popen(cmd)
+        time.sleep(0.2)
+        cmd = ['xdotool', 'key', 'Escape']
+        subprocess.Popen(cmd)
 
     # USE OR DO NOT USE FTS EXTENSION TABLES IN THE DATABASE
     # FAST SEARCH OR SEARCH WITH SUBSTRINGS
