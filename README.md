@@ -38,7 +38,7 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 
 for other distros:
 
-**dependencies** - `python-pyqt5`, `libxkbcommon-x11`, `xdg-utils`
+**dependencies** - `python-pyqt5`, `libxkbcommon-x11`, `xdg-utils`, `xdotool`
   * most of these you very likely have, except PyQt5, so get it
   * for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
 
@@ -113,11 +113,12 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
   * `angrysearch_lite` By default set to true. In lite mode theres only file name and path, no file size and no last modification date. Less informations but two times faster indexing of the drives
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
-  *   `fast_search_but_no_substring=true` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
-  *   `file_manager=xdg-open` By default set to xdg-open, meaning [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) tests which program is associated with inode/directory mime type and on double clicking the path of files/folders, it sends the path to that application. Can be set to any program. If it detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, making it highlighted - selected when opened in the filemanager. For other programs it just sends path to the containing foler.
-  *   `icon_theme=adwaita` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
-  *   `number_of_results=500` By default set to 500. Limit set for searches in the database. Lower number means search results come faster
-  *   `row_height=0` By default set to 0 which means default. Sets height of the rows in pixels
+  *   `fast_search_but_no_substring` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
+  *   `file_manager` By default set to xdg-open, meaning [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) tests which program is associated with inode/directory mime type and on double clicking the path column, it sends path to the parent directory to that application. file_manager can be set to any application or a script. If ANGRYsearch detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, highlighting the target file when opened in a filemanager.
+  *   `fm_path_doubleclick_selects` By default set to false. When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to highlight the target file/directories on double click of path columnm. Additionally this setting also affects nemo & nautilus which only highlight files but not directories when they get double clicked in path column. This setting needs xdotool package present on the system.
+  *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
+  *   `number_of_results` By default set to 500. Limit set for searches in the database. Lower number means search results come faster
+  *   `row_height` By default set to 0 which means default. Sets height of the rows in pixels
   *   `[Last_Run]` The applications properties from the last time at the moment when it was closed - window size, position, state
 
 ![dark theme screenshot](http://i.imgur.com/E3Bs5fx.png)
