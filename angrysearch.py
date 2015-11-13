@@ -504,7 +504,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                                           'default', 'inode/directory'])
             detected_fm = fm.decode('utf-8').strip().lower()
             known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd',
-                        'thunar', 'pcmanfm']
+                        'thunar', 'pcmanfm', 'spacefm']
             if any(item in detected_fm for item in known_fm):
                 print('autodetected file manager: ' + detected_fm)
                 return detected_fm
@@ -879,6 +879,8 @@ class Gui_MainWindow(Qw.QMainWindow):
                     self.fm_highlight('thunar', parent_dir, last_item)
                 elif 'pcmanfm' in fm:
                     self.fm_highlight('pcmanfm', parent_dir, last_item)
+                elif 'spacefm' in fm:
+                    self.fm_highlight('spacefm', parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
@@ -900,10 +902,14 @@ class Gui_MainWindow(Qw.QMainWindow):
                     self.fm_highlight('thunar', parent_dir, last_item)
                 elif 'pcmanfm' in fm:
                     self.fm_highlight('pcmanfm', parent_dir, last_item)
+                elif 'spacefm' in fm:
+                    self.fm_highlight('spacefm', parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
 
+    # FOR THUNAR, PCMANFM, SPACEFM SO THAT THEY SELECT THE FILE/FOLDER
+    # NOT JUST OPEN ITS PARENT FOLDER
     def fm_highlight(self, fm, parent_dir, last_item):
         if self.set['fm_path_doubleclick_selects'] is False:
             cmd = [fm, parent_dir]
@@ -918,6 +924,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         cmd = ['xdotool', 'key', 'Escape']
         subprocess.Popen(cmd)
 
+    # FOR NAUTILUS AND NEMO TO SELECT FOLDERS
     def fm_highlight_nemo(self, fm, parent_dir, last_item):
         if self.set['fm_path_doubleclick_selects'] is False:
             cmd = [fm, parent_dir]
@@ -951,7 +958,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         chat = [
             '   • config file is in ~/.config/angrysearch/angrysearch.conf',
             '   • database is in ~/.cache/angrysearch/angry_database.db',
-            '   • ~1 mil files can take ~300MB and ~3 min to index',
+            '   • one million files can take ~300MB and ~3 min to index',
             '',
             '   • double-click on name opens it in associated application',
             '   • double-click on path opens the location in file manager',

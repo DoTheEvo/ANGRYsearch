@@ -29,11 +29,12 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 * **IF YOU HAVE TROUBLE STARTING UP THE APPLICATION, RESTART THE PC, DELETE THE DATABASE AND THE CONFIG FILE, NEW ONES ARE CREATED ON THE NEXT RUN**
 * it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB in size in lite mode
 * it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
-* [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/Xw7LHbv.png) can be set in `~/.local/share/applications/` in `mimeapps.list`
+* [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/` in `mimeapps.list`
 
 ### installation:
 
-* Arch has [AUR package](https://aur.archlinux.org/packages/angrysearch/), so we are done here
+* Arch - [AUR package](https://aur.archlinux.org/packages/angrysearch/)
+* openSUSE [package](https://software.opensuse.org/package/angrysearch)
 
 for other distros:
 
