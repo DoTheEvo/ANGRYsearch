@@ -555,6 +555,11 @@ class Gui_MainWindow(Qw.QMainWindow):
                 self.style_data = f.read()
                 f.close()
                 self.setStyleSheet(self.style_data)
+            elif os.path.isfile('/usr/share/angrysearch/qdarkstylesheet.qss'):
+                f = open('/usr/share/angrysearch/qdarkstylesheet.qss', 'r')
+                self.style_data = f.read()
+                f.close()
+                self.setStyleSheet(self.style_data)
 
         self.queries_threads = []
         self.waiting_threads = []
@@ -858,13 +863,19 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
+            self.center.table.setStyleSheet('selection-background-color:red;')
+
+            self.center.table.alarm = Qc.QTimer()
+            self.center.table.alarm.timeout.connect(self.row_color_back)
+            self.center.table.alarm.setSingleShot(True)
+            self.center.table.alarm.start(200)
             return
 
         if column == 0:
             subprocess.Popen(['xdg-open', path])
         if column == 1:
+            fm = self.set['file_manager']
             if is_dir is True:
-                fm = self.set['file_manager']
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
                     subprocess.Popen(cmd)
@@ -880,12 +891,11 @@ class Gui_MainWindow(Qw.QMainWindow):
                 elif 'pcmanfm' in fm:
                     self.fm_highlight('pcmanfm', parent_dir, last_item)
                 elif 'spacefm' in fm:
-                    self.fm_highlight('spacefm', parent_dir, last_item)
+                    self.fm_highlight_spacefm('spacefm', parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
             else:
-                fm = self.set['file_manager']
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
                     subprocess.Popen(cmd)
@@ -903,12 +913,12 @@ class Gui_MainWindow(Qw.QMainWindow):
                 elif 'pcmanfm' in fm:
                     self.fm_highlight('pcmanfm', parent_dir, last_item)
                 elif 'spacefm' in fm:
-                    self.fm_highlight('spacefm', parent_dir, last_item)
+                    self.fm_highlight_spacefm('spacefm', parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
 
-    # FOR THUNAR, PCMANFM, SPACEFM SO THAT THEY SELECT THE FILE/FOLDER
+    # FOR THUNAR AND PCMANFM SO THAT THEY SELECT THE FILE/FOLDER
     # NOT JUST OPEN ITS PARENT FOLDER
     def fm_highlight(self, fm, parent_dir, last_item):
         if self.set['fm_path_doubleclick_selects'] is False:
@@ -938,6 +948,21 @@ class Gui_MainWindow(Qw.QMainWindow):
         time.sleep(0.2)
         cmd = ['xdotool', 'key', 'Escape']
         subprocess.Popen(cmd)
+
+    # FOR SPACEFM
+    def fm_highlight_spacefm(self, fm, parent_dir, last_item):
+        if self.set['fm_path_doubleclick_selects'] is False:
+            cmd = [fm, parent_dir]
+            subprocess.Popen(cmd)
+            return
+        cmd = [fm, parent_dir]
+        subprocess.Popen(cmd)
+        time.sleep(0.5)
+        cmd = ['spacefm', '-s', 'set', 'selected_filenames', last_item]
+        subprocess.Popen(cmd)
+
+    def row_color_back(self):
+        self.center.table.setStyleSheet('')
 
     # USE OR DO NOT USE FTS EXTENSION TABLES IN THE DATABASE
     # FAST SEARCH OR SEARCH WITH SUBSTRINGS
