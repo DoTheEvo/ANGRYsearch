@@ -878,23 +878,15 @@ class Gui_MainWindow(Qw.QMainWindow):
             if is_dir is True:
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
-                    subprocess.Popen(cmd)
                 elif 'nemo' in fm:
-                    self.fm_highlight_nemo('nemo', parent_dir, last_item)
+                    cmd = ['nemo', parent_dir]
                 elif 'nautilus' in fm:
-                    self.fm_highlight_nemo('nautilus', parent_dir, last_item)
+                    cmd = ['nautilus', parent_dir]
                 elif 'doublecmd' in fm:
                     cmd = ['doublecmd', parent_dir]
-                    subprocess.Popen(cmd)
-                elif 'thunar' in fm:
-                    self.fm_highlight('thunar', parent_dir, last_item)
-                elif 'pcmanfm' in fm:
-                    self.fm_highlight('pcmanfm', parent_dir, last_item)
-                elif 'spacefm' in fm:
-                    self.fm_highlight_spacefm('spacefm', parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
-                    subprocess.Popen(cmd)
+                subprocess.Popen(cmd)
             else:
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
@@ -929,21 +921,6 @@ class Gui_MainWindow(Qw.QMainWindow):
         subprocess.Popen(cmd)
         time.sleep(0.5)
         cmd = ['xdotool', 'key', 'ctrl+f', 'type', last_item]
-        subprocess.Popen(cmd)
-        time.sleep(0.2)
-        cmd = ['xdotool', 'key', 'Escape']
-        subprocess.Popen(cmd)
-
-    # FOR NAUTILUS AND NEMO TO SELECT FOLDERS
-    def fm_highlight_nemo(self, fm, parent_dir, last_item):
-        if self.set['fm_path_doubleclick_selects'] is False:
-            cmd = [fm, parent_dir]
-            subprocess.Popen(cmd)
-            return
-        cmd = [fm, parent_dir]
-        subprocess.Popen(cmd)
-        time.sleep(0.5)
-        cmd = ['xdotool', 'type', last_item]
         subprocess.Popen(cmd)
         time.sleep(0.2)
         cmd = ['xdotool', 'key', 'Escape']

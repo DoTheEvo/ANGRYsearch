@@ -21,12 +21,12 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 
 ### What you should know:
 
-* by default the search results are bound to the beginning of the words presented in the names
-* it would not find "Pi<b>rate</b>s" or Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"
-* unchecking the checkbox in the top right corner fixes this, but searching gets slower
-* database is in `~/.cache/angrysearch/angry_database.db`
-* config file is in `~/.config/angrysearch/angrysearch.conf`
-* **IF YOU HAVE TROUBLE STARTING UP THE APPLICATION, RESTART THE PC, DELETE THE DATABASE AND THE CONFIG FILE, NEW ONES ARE CREATED ON THE NEXT RUN**
+* by default the search results are bound to the beginning of the words presented in the names  
+  it would not find "Pi<b>rate</b>s" or "Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"  
+  unchecking the checkbox in the top right corner fixes this, but searching gets slower
+* database is in `~/.cache/angrysearch/angry_database.db`  
+  config file is in `~/.config/angrysearch/angrysearch.conf`  
+  **IF YOU HAVE TROUBLE STARTING UP THE APPLICATION, RESTART THE PC, DELETE THE DATABASE AND THE CONFIG FILE, NEW ONES ARE CREATED ON THE NEXT RUN**
 * it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB in size in lite mode
 * it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
 * [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/` in `mimeapps.list`
@@ -38,8 +38,8 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 
 for other distros:
 
-**dependencies** - `python-pyqt5`, `libxkbcommon-x11`, `xdg-utils`, `xdotool`
-  * most of these you very likely have, except PyQt5, so get it
+**dependencies** - `python-pyqt5`, `xdg-utils`
+  * most of what you need you very likely have, except PyQt5, so get it
   * for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
 
 **download the latest release** of ANGRYsearch, unpack it, go in to the containing directory
@@ -115,7 +115,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
   *   `fast_search_but_no_substring` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
   *   `file_manager` By default set to xdg-open, meaning [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) tests which program is associated with inode/directory mime type and on double clicking the path column, it sends path to the parent directory to that application. file_manager can be set to any application or a script. If ANGRYsearch detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, highlighting the target file when opened in a filemanager.
-  *   `fm_path_doubleclick_selects` By default set to false. When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to highlight the target file/directories on double click of path columnm. Additionally this setting also affects nemo & nautilus which only highlight files but not directories when they get double clicked in path column. This setting needs xdotool package present on the system.
+  *   `fm_path_doubleclick_selects` By default set to false. Needs `xdotool` package! When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to highlight the target file on double click in path columnm.
   *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
   *   `number_of_results` By default set to 500. Limit set for searches in the database. Lower number means search results come faster
   *   `row_height` By default set to 0 which means default. Sets height of the rows in pixels
