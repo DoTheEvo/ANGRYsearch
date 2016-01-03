@@ -505,9 +505,10 @@ class Gui_MainWindow(Qw.QMainWindow):
             detected_fm = fm.decode('utf-8').strip().lower()
             known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd',
                         'thunar', 'pcmanfm', 'spacefm']
-            if any(item in detected_fm for item in known_fm):
-                print('autodetected file manager: ' + detected_fm)
-                return detected_fm
+            for x in known_fm:
+                if x in detected_fm:
+                    print('autodetected file manager: ' + x)
+                    return x
             else:
                 return 'xdg-open'
         except Exception as err:
