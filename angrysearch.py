@@ -444,7 +444,9 @@ class Gui_MainWindow(Qw.QMainWindow):
                     'file_manager': 'xdg-open',
                     'row_height': 0,
                     'number_of_results': 500,
-                    'directories_excluded': []}
+                    'directories_excluded': [],
+                    'conditional_mounts_for_autoupdate': [],
+                    'notifications': True}
         self.read_settings()
         self.init_GUI()
 
@@ -471,6 +473,8 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.read_qsettings_item('number_of_results', 'int')
         self.read_qsettings_item('directories_excluded', 'list')
         self.read_qsettings_item('file_manager', 'fm')
+        self.read_qsettings_item('conditional_mounts_for_autoupdate', 'list')
+        self.read_qsettings_item('notifications', 'bool')
 
     def read_qsettings_item(self, item, type):
         if self.settings.value(item):
@@ -538,6 +542,10 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.settings.setValue('number_of_results', 500)
         if not self.settings.contains('directories_excluded'):
             self.settings.setValue('directories_excluded', '')
+        if not self.settings.contains('conditional_mounts_for_autoupdate'):
+            self.settings.setValue('conditional_mounts_for_autoupdate', '')
+        if not self.settings.contains('notifications'):
+            self.settings.setValue('notifications', True)
         event.accept()
 
     def init_GUI(self):
@@ -1168,6 +1176,30 @@ class Update_dialog_window(Qw.QDialog):
 
     def clicked_OK_update_db(self):
         self.OK_button.setDisabled(True)
+
+        mounts_needed = self.parent().set['conditional_mounts_for_autoupdate']
+
+        missing_mount = False
+        missing_mounts_list = []
+
+        for x in mounts_needed:
+            if not os.path.ismount(x):
+                missing_mount = True
+                missing_mounts_list.append(x)
+
+        if missing_mount:
+            notify_text = 'Mounts missing: \n'
+            for x in missing_mounts_list:
+                notify_text = notify_text + x + '\n'
+            notify_text = notify_text + 'Do You want to update anyway?'
+            reply = Qw.QMessageBox.question(
+                        self, 'Message', notify_text,
+                        Qw.QMessageBox.Yes | Qw.QMessageBox.No)
+
+            if reply == Qw.QMessageBox.No:
+                self.accept()
+                return
+
         self.thread_updating = Thread_database_update(
             self.parent().set['angrysearch_lite'],
             self.parent().set['directories_excluded'])

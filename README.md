@@ -6,7 +6,7 @@ Everyone seems to be damn content with linux file searches which are slow, popul
 
 ![demonstration gif](http://i.imgur.com/BsjGoYz.gif)
 
-Done in python 3 using PyQt5 for GUI, PyQt4 branch exists
+Done in python 3 using PyQt5 for GUI
 
 ### Lite mode vs Full mode
 
@@ -45,11 +45,9 @@ for other distros:
 **download the latest release** of ANGRYsearch, unpack it, go in to the containing directory
 * **if you just want to test it, you can run it right away**
   * `python3 angrysearch.py`
-  * once you are done testing, remember to remove the database that is created in
-    `~/.cache/angrysearch/angry_database.db`
-
+  
 for a **long term installation** on your system for every day use, place the files in to `/opt/angrysearch/`
-and set the `angrysearch.py` and `angrysearch_update_database.py` as executable, and make some links to these
+and set the `angrysearch.py` and `angrysearch_update_database.py` as executable, and make few links to these
 files to integrate ANGRYsearch in to your system
 
 * create angrysearch folder in /opt
@@ -77,10 +75,9 @@ files to integrate ANGRYsearch in to your system
 
         sudo ln -s /opt/angrysearch/angrysearch.py /usr/bin/angrysearch
 
-### Periodic automatic update in the background
+### Automatic update in the background
 
-among the files there's `angrysearch_update_database.py` when this file is run,
-there's no interface, it just crawls through drives(respecting ignored directories) and updates the databse.
+Among the files there's `angrysearch_update_database.py` when this file is run there's no interface, it just crawls through drives(respecting ignored directories) and updates the databse.
 This file is not necessary for normal run of the ANGRYsearch
 
 Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
@@ -95,6 +92,8 @@ this crontab job will execute the update file at noon and at midnight every day
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
+`conditional_mounts_for_autoupdate` in the config can prevent autoupdate from running if set mount points are not present.
+
 
 ### How it works & additional details:
 
@@ -106,19 +105,25 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
   * `Path` - the second column, open the item's location in the file manager
 * results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column
 
-* **config file** location: `~/.config/angrysearch/angrysearch.conf`. You can delete the config file whenever you wish, on the next run/close a new one will be created with default values.
+### Configuration:
 
-![config file screenshot](http://i.imgur.com/euOjrlj.png)
+* **config file** location: `~/.config/angrysearch/angrysearch.conf`   
+  You can delete the config file whenever you wish, on the next run/close a new one will be created with default values
+
+![config file screenshot](https://i.imgur.com/MPmLhF2.png)
 
   * `angrysearch_lite` By default set to true. In lite mode theres only file name and path, no file size and no last modification date. Less informations but two times faster indexing of the drives
+  * `conditional_mounts_for_autoupdate` By default empty. Purpose is to hold mount points that should be present when database is being updated. If they are missing an additional confirmation dialog appears when updating database through regular interface, but automatic update will not run, but use system notification dialog to inform that paths set in this settings are not mounted. Values are system paths, space separated
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
   *   `fast_search_but_no_substring` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
   *   `file_manager` By default set to xdg-open, meaning [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) tests which program is associated with inode/directory mime type and on double clicking the path column, it sends path to the parent directory to that application. file_manager can be set to any application or a script. If ANGRYsearch detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, highlighting the target file when opened in a filemanager.
-  *   `fm_path_doubleclick_selects` By default set to false. Needs `xdotool` package! When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to highlight the target file on double click in path columnm.
-  *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figured out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
+  *   `fm_path_doubleclick_selects` By default set to false. Needs `xdotool` package! When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to open containing directory with the file selected - highlighted 
+  *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figure out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
+  *   `notifications` By default set to true. Automatic periodic updates that are run on background using crontab will use desktop notification system to inform when indexing is done or if the indexing was aborted because of missing mount points
   *   `number_of_results` By default set to 500. Limit set for searches in the database. Lower number means search results come faster
   *   `row_height` By default set to 0 which means default. Sets height of the rows in pixels
+  *   `typing_delay` By default set to false. If enabled, it introduces 0.2 second delay between the action of typing and searching the database. This will prevent unnecessary database queries when user is typing fast as there is waiting to finish typing. This can improve performance on slower machines, but on modern ones it might negatively affect the feel of instant responsiveness
   *   `[Last_Run]` The applications properties from the last time at the moment when it was closed - window size, position, state
 
 ![dark theme screenshot](http://i.imgur.com/E3Bs5fx.png)

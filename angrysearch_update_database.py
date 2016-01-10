@@ -15,6 +15,7 @@ import os
 from PyQt5.QtCore import QSettings
 import sqlite3
 import subprocess
+import sys
 
 try:
     import scandir
@@ -22,24 +23,70 @@ try:
 except ImportError:
     SCANDIR_AVAILABLE = False
 
-EXCLUDE = []
+try:
+    from gi import require_version
+    require_version("Gtk", "3.0")
+    require_version("Notify", "0.7")
+    from gi.repository import Notify
+    NOTIFY_AVAILABLE = True
+except ImportError:
+    NOTIFY_AVAILABLE = False
+
+
 LITE = True
+EXCLUDE = []
+MOUNTS_NEEDED = []
+NOTIFICATIONS_ENABLED = True
 
 
 def load_settings():
-    global EXCLUDE
     global LITE
+    global EXCLUDE
+    global MOUNTS_NEEDED
+    global NOTIFICATIONS_ENABLED
 
     settings = QSettings('angrysearch', 'angrysearch')
+
+    if settings.value('angrysearch_lite'):
+        q = settings.value('angrysearch_lite')
+        if q.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
+            LITE = False
 
     if settings.value('directories_excluded'):
         q = settings.value('directories_excluded').strip().split()
         EXCLUDE = [x.encode() for x in q]
     EXCLUDE.append(b'proc')
 
-    l = settings.value('angrysearch_lite')
-    if l.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
-        LITE = False
+    if settings.value('conditional_mounts_for_autoupdate'):
+        q = settings.value('conditional_mounts_for_autoupdate').strip().split()
+        MOUNTS_NEEDED = [x for x in q]
+
+    if settings.value('notifications'):
+        q = settings.value('notifications')
+        if q.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
+            NOTIFICATIONS_ENABLED = False
+
+
+def test_conditional_mounts_for_autoupdate():
+    for x in MOUNTS_NEEDED:
+        if not os.path.ismount(x):
+            t = '{} not present, aborting automatic update'.format(x)
+            show_notification(t)
+            print('angrysearch: ' + t)
+            sys.exit(0)
+
+
+def show_notification(text, ):
+    global NOTIFICATIONS_ENABLED
+
+    if not NOTIFICATIONS_ENABLED:
+        return
+
+    Notify.init('angrysearch')
+    done = Notify.Notification.new('ANGRYsearch:',
+                                   text,
+                                   'dialog-information')
+    done.show()
 
 
 def crawling_drives():
@@ -195,7 +242,9 @@ if __name__ == '__main__':
     con = open_database()
     with con:
         load_settings()
+        test_conditional_mounts_for_autoupdate()
         if LITE is True:
             crawling_drives_lite()
         else:
             crawling_drives()
+        show_notification('filesystem indexing done')
