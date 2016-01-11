@@ -31,12 +31,12 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 * it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
 * [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/` in `mimeapps.list`. If it feels like changes in that file have no effect, search for other `mimeapps.list` in your home.
 
-### installation:
+### Installation:
 
 * Arch Linux - [AUR package](https://aur.archlinux.org/packages/angrysearch/)
-* openSUSE [package](https://software.opensuse.org/package/angrysearch)
+* openSUSE & Fedora 22 [package](https://software.opensuse.org/package/angrysearch) (courtesy of [alanbortu](https://github.com/alanbortu))
 
-for other distros:
+There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting their permissions
 
 **dependencies** - `python-pyqt5`, `xdg-utils`
   * most of what you need you very likely have, except PyQt5, so get it
@@ -77,7 +77,7 @@ files to integrate ANGRYsearch in to your system
 
 ### Automatic update in the background
 
-Among the files there's `angrysearch_update_database.py` when this file is run there's no interface, it just crawls through drives(respecting ignored directories) and updates the databse.
+Among the files there's `angrysearch_update_database.py`, when this file is run there's no interface, it just crawls through drives(respecting ignored directories) and updates the databse.
 This file is not necessary for normal run of the ANGRYsearch
 
 Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
@@ -93,7 +93,6 @@ this crontab job will execute the update file at noon and at midnight every day
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
 `conditional_mounts_for_autoupdate` in the config can prevent autoupdate from running if set mount points are not present.
-
 
 ### How it works & additional details:
 
