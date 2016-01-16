@@ -80,7 +80,7 @@ files to integrate ANGRYsearch in to your system
 ![notifications png](http://i.imgur.com/dudkCvZ.png)
 
 Among the files there's `angrysearch_update_database.py`   
-When this file is run there's no interface, it just crawls through drives, respecting ignored directories in config, and updates the databse. It uses desktop notifications when it's done or if a conditional mount is not present.
+When this file is run there's no interface, it just crawls through drives, respecting ignored directories in the config, and updates the databse. It uses desktop notifications when it's done or if a conditional mount is not present.
 
 Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
 keeping ANGRYsearch up to date with the changes on your system
@@ -101,7 +101,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 ### How it works & additional details:
 
 * on update it crawls through your file system and creates database in `~/.cache/angrysearch/angry_database.db`
-* database uses FTS4 for indexing to provide instantaneous feel - results as you type
+* database uses [FTS4](https://sqlite.org/fts3.html) for indexing to provide instantaneous feel - results as you type
 * drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS4 tables and just do regular slow database search query with substrings as well
 * **double-click** on items in search results:
   * `Name` - the first column, opens the file in application associated with its mimetype in xdg-open
@@ -113,7 +113,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 * **config file** location: `~/.config/angrysearch/angrysearch.conf`   
   You can delete the config file whenever you wish, on the next run/close a new one will be created with default values
 
-![config file screenshot](https://i.imgur.com/MPmLhF2.png)
+![config file screenshot](http://i.imgur.com/KVPv3eV.png)
 
   * `angrysearch_lite` By default set to true. In lite mode theres only file name and path, no file size and no last modification date. Less informations but two times faster indexing of the drives
   * `conditional_mounts_for_autoupdate` By default empty. Purpose is to hold mount points that should be present when the database is being updated. If a mount is missing, automatic update through crontab will not run, but use system notification dialog to inform that paths set in this settings are not mounted. This prevents overwriting the databse when not all drives are present. Values are system mount points, space separated.
