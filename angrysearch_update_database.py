@@ -11,32 +11,40 @@ CRONTAB EXAMPLE THAT EXECUTES AT NOON AND AT MIDNIGHT
 00 00,12 * * * /opt/angrysearch/angrysearch_update_database.py
 '''
 
+from datetime import datetime
 import os
 from PyQt5.QtCore import QSettings
 import sqlite3
 import subprocess
 import sys
 
+# CHECK SCANDIR AVAILABILITY
 try:
     import scandir
     SCANDIR_AVAILABLE = True
 except ImportError:
     SCANDIR_AVAILABLE = False
 
+# CHECK IF NOTIFICATIONS CAN BE MADE
 try:
     from gi import require_version
     require_version("Gtk", "3.0")
     require_version("Notify", "0.7")
-    from gi.repository import Notify
+    from gi.repository import Notify, GdkPixbuf
     NOTIFY_AVAILABLE = True
 except ImportError:
     NOTIFY_AVAILABLE = False
 
+# FIX FOR CRONTAB
+if 'DISPLAY' not in os.environ:
+    os.environ['DISPLAY'] = ':0'
 
+# GLOBAL VARIABLES
 LITE = True
 EXCLUDE = []
 MOUNTS_NEEDED = []
 NOTIFICATIONS_ENABLED = True
+START_TIME = datetime.now()
 
 
 def load_settings():
@@ -68,25 +76,49 @@ def load_settings():
 
 
 def test_conditional_mounts_for_autoupdate():
+
+    missing_mount = False
+    missing_mounts_list = []
+
     for x in MOUNTS_NEEDED:
         if not os.path.ismount(x):
-            t = '{} not present, aborting automatic update'.format(x)
-            show_notification(t)
-            print('angrysearch: ' + t)
-            sys.exit(0)
+            missing_mount = True
+            missing_mounts_list.append(x)
+
+    if missing_mount is True:
+        notify_text = 'aborting automatic update'
+
+        for x in missing_mounts_list:
+            notify_text = notify_text + '\n<b>{}</b> missing'.format(x)
+
+        show_notification(notify_text)
+        print('angrysearch: ' + ', '.join(notify_text.split('\n')))
+
+        sys.exit(0)
 
 
-def show_notification(text, ):
+def show_notification(text):
     global NOTIFICATIONS_ENABLED
 
     if not NOTIFICATIONS_ENABLED:
         return
 
     Notify.init('angrysearch')
-    done = Notify.Notification.new('ANGRYsearch:',
-                                   text,
-                                   'dialog-information')
-    done.show()
+    n = Notify.Notification.new('ANGRYsearch:', text)
+
+    possible_image_locations = ['angrysearch.svg',
+                                '/usr/share/pixmaps/angrysearch.svg',
+                                '/opt/angrysearch/angrysearch.svg',
+                                '/usr/share/angrysearch/angrysearch.svg']
+    for x in possible_image_locations:
+        if os.path.exists(x):
+            icon = GdkPixbuf.Pixbuf.new_from_file(x)
+            n.set_image_from_pixbuf(icon)
+            break
+        else:
+            n.set_property('icon-name', 'drive-harddisk')
+
+    n.show()
 
 
 def crawling_drives():
@@ -226,6 +258,11 @@ def replace_old_db_with_new():
     p.wait()
 
 
+def time_difference(nseconds):
+    mins, secs = divmod(nseconds, 60)
+    return '{:0>2d}:{:0>2d}'.format(mins, secs)
+
+
 def open_database():
     home = os.path.expanduser('~')
     path = home + '/.cache/angrysearch/angry_database.db'
@@ -247,4 +284,7 @@ if __name__ == '__main__':
             crawling_drives_lite()
         else:
             crawling_drives()
-        show_notification('filesystem indexing done')
+        total_time = datetime.now() - START_TIME
+        noti_text = '{}  |  database updated'.format(
+                        time_difference(total_time.seconds))
+        show_notification(noti_text)

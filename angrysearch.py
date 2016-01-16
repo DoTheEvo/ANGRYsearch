@@ -16,6 +16,7 @@ import sys
 import time
 
 # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
+# IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
 try:
     import resource_file
     RESOURCE_AVAILABLE = True
@@ -1188,12 +1189,12 @@ class Update_dialog_window(Qw.QDialog):
                 missing_mounts_list.append(x)
 
         if missing_mount:
-            notify_text = 'Mounts missing: \n'
+            m = ''
             for x in missing_mounts_list:
-                notify_text = notify_text + x + '\n'
-            notify_text = notify_text + 'Do You want to update anyway?'
+                m = m + '&nbsp;&nbsp;&nbsp;&nbsp;<b>' + x + '</b><br>'
+            n = 'Mounts missing:<br>' + m + 'Do You want to update anyway?'
             reply = Qw.QMessageBox.question(
-                        self, 'Message', notify_text,
+                        self, 'Message', n,
                         Qw.QMessageBox.Yes | Qw.QMessageBox.No)
 
             if reply == Qw.QMessageBox.No:

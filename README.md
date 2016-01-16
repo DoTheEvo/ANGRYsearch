@@ -77,22 +77,26 @@ files to integrate ANGRYsearch in to your system
 
 ### Automatic update in the background
 
-Among the files there's `angrysearch_update_database.py`, when this file is run there's no interface, it just crawls through drives(respecting ignored directories) and updates the databse.
-This file is not necessary for normal run of the ANGRYsearch
+![notifications png](http://i.imgur.com/dudkCvZ.png)
+
+Among the files there's `angrysearch_update_database.py`   
+When this file is run there's no interface, it just crawls through drives, respecting ignored directories in config, and updates the databse. It uses desktop notifications when it's done or if a conditional mount is not present.
 
 Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
 keeping ANGRYsearch up to date with the changes on your system
 
-`crontab -l` - list cronjobs
-`crontab -e` - open text editor so you can enter new cronjob
+* `crontab -l` - list cronjobs
+* `crontab -e` - open text editor so you can enter new cronjob
 
-this crontab job will execute the update file at noon and at midnight every day
+this cronjob will execute the update file at noon and at midnight every day
 
      00 00,12 * * * /opt/angrysearch/angrysearch_update_database.py
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
 `conditional_mounts_for_autoupdate` in the config can prevent autoupdate from running if set mount points are not present.
+
+
 
 ### How it works & additional details:
 
@@ -112,7 +116,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 ![config file screenshot](https://i.imgur.com/MPmLhF2.png)
 
   * `angrysearch_lite` By default set to true. In lite mode theres only file name and path, no file size and no last modification date. Less informations but two times faster indexing of the drives
-  * `conditional_mounts_for_autoupdate` By default empty. Purpose is to hold mount points that should be present when database is being updated. If they are missing an additional confirmation dialog appears when updating database through regular interface, but automatic update will not run, but use system notification dialog to inform that paths set in this settings are not mounted. Values are system paths, space separated
+  * `conditional_mounts_for_autoupdate` By default empty. Purpose is to hold mount points that should be present when the database is being updated. If a mount is missing, automatic update through crontab will not run, but use system notification dialog to inform that paths set in this settings are not mounted. This prevents overwriting the databse when not all drives are present. Values are system mount points, space separated.
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
   *   `fast_search_but_no_substring` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
