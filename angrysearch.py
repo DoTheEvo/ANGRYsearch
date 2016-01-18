@@ -536,7 +536,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         if not self.settings.contains('icon_theme'):
             self.settings.setValue('icon_theme', 'adwaita')
         if not self.settings.contains('file_manager'):
-            self.settings.setValue('file_manager', 'xdg-open')
+            self.settings.setValue('file_manager', '')
         if not self.settings.contains('row_height'):
             self.settings.setValue('row_height', 0)
         if not self.settings.contains('number_of_results'):

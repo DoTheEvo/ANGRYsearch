@@ -79,7 +79,7 @@ files to integrate ANGRYsearch in to your system
 
 ![notifications png](http://i.imgur.com/dudkCvZ.png)
 
-Among the files there's `angrysearch_update_database.py`   
+Among the files there's `angrysearch_update_database.py`  
 When this file is run there's no interface, it just crawls through drives, respecting ignored directories in the config, and updates the databse. It uses desktop notifications when it's done or if a conditional mount is not present.
 
 Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
@@ -110,7 +110,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 
 ### Configuration:
 
-* **config file** location: `~/.config/angrysearch/angrysearch.conf`   
+* **config file** location: `~/.config/angrysearch/angrysearch.conf`  
   You can delete the config file whenever you wish, on the next run/close a new one will be created with default values
 
 ![config file screenshot](http://i.imgur.com/KVPv3eV.png)
@@ -120,7 +120,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
   *   `fast_search_but_no_substring` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
-  *   `file_manager` By default set to xdg-open, meaning [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) tests which program is associated with inode/directory mime type and on double clicking the path column, it sends path to the parent directory to that application. file_manager can be set to any application or a script. If ANGRYsearch detects one of the following file managers ['dolphin', 'nemo', 'nautilus', 'doublecmd'], it will change behaviour slightly, sending to those file managers full path to the file, highlighting the target file when opened in a filemanager.
+  *   `file_manager` By default empty. Whatever application/script is put there, it receives the path when the path column is double-clicked. If left empty ANGRYsearch will try to autodetect default file manager using xdg-utils. If one of the following file managers are set/detected: ['dolphin', 'nemo', 'nautilus', 'doublecmd'], the behaviour will change slightly, sending to those file managers full path to the file, highlighting the target file when opened in a filemanager.
   *   `fm_path_doubleclick_selects` By default set to false. Needs `xdotool` package! When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to open containing directory with the file selected - highlighted 
   *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figure out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
   *   `notifications` By default set to true. Automatic periodic updates that are run on background using crontab will use desktop notification system to inform when indexing is done or if the indexing was aborted because of missing mount points
