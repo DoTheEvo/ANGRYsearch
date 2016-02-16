@@ -285,6 +285,6 @@ if __name__ == '__main__':
         else:
             crawling_drives()
         total_time = datetime.now() - START_TIME
-        noti_text = '{}  |  database updated'.format(
+        noti_text = '{} | database updated'.format(
                         time_difference(total_time.seconds))
         show_notification(noti_text)

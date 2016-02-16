@@ -24,7 +24,7 @@ except ImportError:
     RESOURCE_AVAILABLE = False
 
 # SCANDIR ALLOWS MUCH FASTER INDEXING OF THE FILE SYSTEM, OBVIOUS IN LITE MODE
-# WILL BE PART OF PYTHON 3.5, FUNCTIONALI REPLACEING os.walk
+# IS NOW PART OF PYTHON 3.5, FUNCTIONALY REPLACING os.walk
 try:
     import scandir
     SCANDIR_AVAILABLE = True
@@ -871,15 +871,18 @@ class Gui_MainWindow(Qw.QMainWindow):
         last_item = item._name
         is_dir = (True if item._is_dir == '1' else False)
 
+        self.center.table.timeout = Qc.QTimer()
+        self.center.table.timeout.setSingleShot(True)
+        self.center.table.timeout.timeout.connect(self.row_color_back)
+
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
-            self.center.table.setStyleSheet('selection-background-color:red;')
-
-            self.center.table.alarm = Qc.QTimer()
-            self.center.table.alarm.timeout.connect(self.row_color_back)
-            self.center.table.alarm.setSingleShot(True)
-            self.center.table.alarm.start(200)
+            self.center.table.setStyleSheet('selection-color:red;')
+            self.center.table.timeout.start(200)
             return
+        else:
+            self.center.table.setStyleSheet('selection-color:blue;')
+            self.center.table.timeout.start(200)
 
         if column == 0:
             subprocess.Popen(['xdg-open', path])

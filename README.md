@@ -1,7 +1,7 @@
 # ANGRYsearch
 Linux file search, instant results as you type
 
-Attempt at making Linux version of Everything Search Engine, or MasterSeeker, or Hddb File Search, because no one else bothered.
+Attempt at making Linux version of [Everything Search Engine](https://www.voidtools.com/) because no one else bothered.
 Everyone seems to be damn content with linux file searches which are slow, populating results as they go, cli based only, heavily integrated with a file manager, limited to home directory, or are trying to be everything with full-text file's content search.
 
 ![demonstration gif](http://i.imgur.com/BsjGoYz.gif)
@@ -26,10 +26,10 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
   unchecking the checkbox in the top right corner fixes this, but searching gets slower
 * database is in `~/.cache/angrysearch/angry_database.db`  
   config file is in `~/.config/angrysearch/angrysearch.conf`  
-  **IF YOU HAVE TROUBLE STARTING UP THE APPLICATION, RESTART THE PC, DELETE THE DATABASE AND THE CONFIG FILE, NEW ONES ARE CREATED ON THE NEXT RUN**
+  **IF YOU HAVE TROUBLE STARTING THE APPLICATION, RESTART THE PC, DELETE THE DATABASE AND THE CONFIG FILE, NEW ONES ARE RECREATED ON THE NEXT RUN**
 * it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB
 * it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
-* [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/` in `mimeapps.list`. If it feels like changes in that file have no effect, search for other `mimeapps.list` in your home.
+* [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/` in `mimeapps.list`. If it feels like changes in that file have no effect, search for `mimeapps.list` in ~/.config
 
 ### Installation:
 
@@ -38,7 +38,7 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 
 There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting their permissions
 
-**dependencies** - `python-pyqt5`, `xdg-utils`
+**dependencies** - `python3-pyqt5`, `xdg-utils`
   * most of what you need you very likely have, except PyQt5, so get it
   * for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
 
@@ -88,13 +88,13 @@ keeping ANGRYsearch up to date with the changes on your system
 * `crontab -l` - list cronjobs
 * `crontab -e` - open text editor so you can enter new cronjob
 
-this cronjob will execute the update file at noon and at midnight every day
+this cronjob will execute the update at noon and at midnight every day
 
      00 00,12 * * * /opt/angrysearch/angrysearch_update_database.py
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
-`conditional_mounts_for_autoupdate` in the config can prevent autoupdate from running if set mount points are not present.
+`conditional_mounts_for_autoupdate` in the config can prevent autoupdate from runningif set mount points are not present.
 
 
 
