@@ -36,44 +36,43 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 * Arch Linux - [AUR package](https://aur.archlinux.org/packages/angrysearch/)
 * openSUSE & Fedora 22 [package](https://software.opensuse.org/package/angrysearch) (courtesy of [alanbortu](https://github.com/alanbortu))
 
-There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting their permissions
+There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting execution permissions
 
 **dependencies** - `python3-pyqt5`, `xdg-utils`
-  * most of what you need you very likely have, except PyQt5, so get it
-  * for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
+  * most of what you need you very likely have, except PyQt5 for python3, so get it  
+for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
 
-**download the latest release** of ANGRYsearch, unpack it, go in to the containing directory
-* **if you just want to test it, you can run it right away**
-  * `python3 angrysearch.py`
+**download the latest release** of ANGRYsearch, unpack it, go in to the containing directory  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*if you just want to test it, you can run it right away:* `python3 angrysearch.py`
   
-for a **long term installation** on your system for every day use, place the files in to `/opt/angrysearch/`
+for a **long term installation** on your system for every day use, place the files in to `/usr/share/angrysearch/`
 and set the `angrysearch.py` and `angrysearch_update_database.py` as executable, and make few links to these
 files to integrate ANGRYsearch in to your system
 
-* create angrysearch folder in /opt
+* create angrysearch folder in /usr/share/
 
-        sudo mkdir /opt/angrysearch
+        sudo mkdir /usr/share/angrysearch
 
-* go where you extracted the latest release, go deeper inside, copy all the files to /opt/angrysearch
+* go where you extracted the [latest release](https://github.com/DoTheEvo/ANGRYsearch/releases), copy all the files to /usr/share/angrysearch
 
-        sudo cp -r * /opt/angrysearch
+        sudo cp -r * /usr/share/angrysearch
 
 * set the main python file and the update file as executables
 
-        sudo chmod +x /opt/angrysearch/angrysearch.py
-        sudo chmod +x /opt/angrysearch/angrysearch_update_database.py
+        sudo chmod +x /usr/share/angrysearch/angrysearch.py
+        sudo chmod +x /usr/share/angrysearch/angrysearch_update_database.py
 
-* make a link in /usr/share/applications to the desktop file so that angrysearch appears in your launchers and start menus
+* make a link in /usr/share/applications to the desktop file so that angrysearch appears in your applications launcher
 
-        sudo ln -s /opt/angrysearch/angrysearch.desktop /usr/share/applications
+        sudo ln -s /usr/share/angrysearch/angrysearch.desktop /usr/share/applications
 
 * would be nice if it would have some distinguishable icon, make a link to the icon
 
-        sudo ln -s /opt/angrysearch/angrysearch.svg /usr/share/pixmaps
+        sudo ln -s /usr/share/angrysearch/angrysearch.svg /usr/share/pixmaps
 
 * to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
 
-        sudo ln -s /opt/angrysearch/angrysearch.py /usr/bin/angrysearch
+        sudo ln -s /usr/share/angrysearch/angrysearch.py /usr/bin/angrysearch
 
 ### Automatic update in the background
 
@@ -90,7 +89,7 @@ keeping ANGRYsearch up to date with the changes on your system
 
 this cronjob will execute the update at noon and at midnight every day
 
-     00 00,12 * * * /opt/angrysearch/angrysearch_update_database.py
+     00 00,12 * * * /usr/share/angrysearch/angrysearch_update_database.py
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 

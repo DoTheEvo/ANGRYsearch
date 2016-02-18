@@ -8,7 +8,7 @@ REPLACING THE OLD ONE, IT RESPECTS IGNORED DIRECTORIES
 USE CRONTAB TO RUN THIS UPDATE PERIODICALLY, 2 TIMES A DAY SOUNDS ABOUT RIGHT
 CRONTAB EXAMPLE THAT EXECUTES AT NOON AND AT MIDNIGHT
 
-00 00,12 * * * /opt/angrysearch/angrysearch_update_database.py
+00 00,12 * * * /usr/share/angrysearch/angrysearch_update_database.py
 '''
 
 from datetime import datetime
@@ -108,8 +108,8 @@ def show_notification(text):
 
     possible_image_locations = ['angrysearch.svg',
                                 '/usr/share/pixmaps/angrysearch.svg',
-                                '/opt/angrysearch/angrysearch.svg',
-                                '/usr/share/angrysearch/angrysearch.svg']
+                                '/usr/share/angrysearch/angrysearch.svg',
+                                '/opt/angrysearch/angrysearch.svg']
     for x in possible_image_locations:
         if os.path.exists(x):
             icon = GdkPixbuf.Pixbuf.new_from_file(x)

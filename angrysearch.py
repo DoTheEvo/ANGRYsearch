@@ -560,13 +560,13 @@ class Gui_MainWindow(Qw.QMainWindow):
                 self.style_data = f.read()
                 f.close()
                 self.setStyleSheet(self.style_data)
-            elif os.path.isfile('/opt/angrysearch/qdarkstylesheet.qss'):
-                f = open('/opt/angrysearch/qdarkstylesheet.qss', 'r')
+            elif os.path.isfile('/usr/share/angrysearch/qdarkstylesheet.qss'):
+                f = open('/usr/share/angrysearch/qdarkstylesheet.qss', 'r')
                 self.style_data = f.read()
                 f.close()
                 self.setStyleSheet(self.style_data)
-            elif os.path.isfile('/usr/share/angrysearch/qdarkstylesheet.qss'):
-                f = open('/usr/share/angrysearch/qdarkstylesheet.qss', 'r')
+            elif os.path.isfile('/opt/angrysearch/qdarkstylesheet.qss'):
+                f = open('/opt/angrysearch/qdarkstylesheet.qss', 'r')
                 self.style_data = f.read()
                 f.close()
                 self.setStyleSheet(self.style_data)
@@ -859,8 +859,8 @@ class Gui_MainWindow(Qw.QMainWindow):
         else:
             self.status_bar.showMessage('NOPE')
 
-    # IN THE FIRST COLUMN IT OPENS THE FILE IN ASSOCIATED PROGRAM
-    # IN THE SECOND ONE IT OPENS THE LOCATION, ATTEMPTING HIGHLIGHTING FILE
+    # THE FIRST COLUMN DOUBLECLICK OPENS THE FILE IN ASSOCIATED PROGRAM
+    # THE SECOND COLUMN OPENS THE LOCATION, ATTEMPTING HIGHLIGHTING FILE
     def double_click_enter(self, QModelIndex):
         column = QModelIndex.column()
         row = QModelIndex.row()
@@ -878,11 +878,11 @@ class Gui_MainWindow(Qw.QMainWindow):
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
             self.center.table.setStyleSheet('selection-color:red;')
-            self.center.table.timeout.start(200)
+            self.center.table.timeout.start(150)
             return
         else:
             self.center.table.setStyleSheet('selection-color:blue;')
-            self.center.table.timeout.start(200)
+            self.center.table.timeout.start(150)
 
         if column == 0:
             subprocess.Popen(['xdg-open', path])

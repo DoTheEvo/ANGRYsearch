@@ -2,8 +2,8 @@
 Name=ANGRYsearch
 Comment=Instant file search
 Categories=GNOME;Utility;
-Exec=python3 /opt/angrysearch/angrysearch.py
-Path=/opt/angrysearch/
+Exec=python3 /usr/share/angrysearch/angrysearch.py
+Path=/usr/share/angrysearch/
 Icon=angrysearch
 Terminal=false
 Type=Application
