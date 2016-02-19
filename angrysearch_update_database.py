@@ -39,7 +39,7 @@ except ImportError:
 if 'DISPLAY' not in os.environ:
     os.environ['DISPLAY'] = ':0'
 
-# GLOBAL VARIABLES
+# MORE GLOBAL VARIABLES
 LITE = True
 EXCLUDE = []
 MOUNTS_NEEDED = []
@@ -98,9 +98,11 @@ def test_conditional_mounts_for_autoupdate():
 
 
 def show_notification(text):
+    global NOTIFY_AVAILABLE
     global NOTIFICATIONS_ENABLED
 
-    if not NOTIFICATIONS_ENABLED:
+    if NOTIFY_AVAILABLE is False or NOTIFICATIONS_ENABLED is False:
+        print('angrysearch: Desktop notifications disabled or unavailable')
         return
 
     Notify.init('angrysearch')
