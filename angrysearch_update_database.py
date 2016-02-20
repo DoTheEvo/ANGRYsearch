@@ -117,8 +117,8 @@ def show_notification(text):
             icon = GdkPixbuf.Pixbuf.new_from_file(x)
             n.set_image_from_pixbuf(icon)
             break
-        else:
-            n.set_property('icon-name', 'drive-harddisk')
+    else:
+        n.set_property('icon-name', 'drive-harddisk')
 
     n.show()
 

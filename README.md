@@ -1,8 +1,8 @@
 # ANGRYsearch
 Linux file search, instant results as you type
 
-Attempt at making Linux version of [Everything Search Engine](https://www.voidtools.com/) because no one else bothered.
-Everyone seems to be damn content with linux file searches which are slow, populating results as they go, cli based only, heavily integrated with a file manager, limited to home directory, or are trying to be everything with full-text file's content search.
+Attempt at making Linux version of [Everything Search Engine](https://www.voidtools.com/) because no one else bothered.  
+Everyone seems to be damn content with linux file searches which feel slow, populating results as they go, or are cli based, or heavily integrated with a file manager, or limiting results to home, or are trying to be everything with full-text file's content search.
 
 ![demonstration gif](http://i.imgur.com/BsjGoYz.gif)
 
@@ -38,9 +38,10 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 
 There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting execution permissions
 
-**dependencies** - `python3-pyqt5`, `xdg-utils`
-  * most of what you need you very likely have, except PyQt5 for python3, so get it  
-for example for ubuntu based ditros: `sudo apt-get install python3-pyqt5`
+**dependencies** - `python3-pyqt5`, `xdg-utils`  
+
+Most of what's needed you very likely have, except PyQt5 for python3, so go get it  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for example ubuntu based ditros: `sudo apt-get install python3-pyqt5`
 
 **download the latest release** of ANGRYsearch, unpack it, go in to the containing directory  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*if you just want to test it, you can run it right away:* `python3 angrysearch.py`
@@ -57,7 +58,7 @@ files to integrate ANGRYsearch in to your system
 
         sudo cp -r * /usr/share/angrysearch
 
-* set the main python file and the update file as executables
+* set the main python file and the automatic update file as executables
 
         sudo chmod +x /usr/share/angrysearch/angrysearch.py
         sudo chmod +x /usr/share/angrysearch/angrysearch_update_database.py
@@ -73,6 +74,11 @@ files to integrate ANGRYsearch in to your system
 * to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
 
         sudo ln -s /usr/share/angrysearch/angrysearch.py /usr/bin/angrysearch
+        
+
+* **optional-dependancies**
+    * `python3-gobject` - desktop notifications for background automatic update, most DE have it
+    * `xdotool` - config option *fm_path_doubleclick_selects* to work in Thunar and PCmanFM
 
 ### Automatic update in the background
 
@@ -93,9 +99,8 @@ this cronjob will execute the update at noon and at midnight every day
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
-`conditional_mounts_for_autoupdate` in the config can prevent autoupdate from runningif set mount points are not present.
-
-
+`conditional_mounts_for_autoupdate` in the config can prevent autoupdate from runningif set mount points are not present.  
+`notifications` setting in the config allows desktop notifications informing about background automatic update finishing, needs [python3 gobject](https://wiki.gnome.org/action/show/Projects/PyGObject?action=show&redirect=PyGObject) package which most of DEs have out of the box
 
 ### How it works & additional details:
 
