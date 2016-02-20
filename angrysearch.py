@@ -611,6 +611,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.wait_for_finishing_typing)
         self.center.upd_button.clicked.connect(self.clicked_button_updatedb)
 
+        self.database_age()
+
         self.show()
         self.show_first_500()
         self.make_sys_tray()
@@ -1006,12 +1008,45 @@ class Gui_MainWindow(Qw.QMainWindow):
         if text == 'update_win_ok':
             self.center.search_input.setText('')
             self.show_first_500()
+            self.database_age()
 
     def theme_change_icon(self, text):
         self.settings.setValue('icon_theme', text)
         self.set['icon_theme'] = text
         self.icon_dictionary = self.get_mime_icons()
         self.new_query_new_thread(self.center.search_input.text())
+
+    # SHOW AGE OF DATABASE IN TOOLTIP OF THE UPDATE BUTTON
+    def database_age(self):
+        home = os.path.expanduser('~')
+        path = home + '/.cache/angrysearch/angry_database.db'
+
+        def readable_time():
+            if os.path.exists(path):
+                seconds = int(time.time() - os.path.getmtime(path))
+
+                if seconds < 3600:
+                    rounded = round(seconds / 60)
+                    if rounded == 1:
+                        return '1 minute old'
+                    else:
+                        return '{} minutes old'.format(rounded)
+                if seconds < 172800:
+                    rounded = round(seconds / 3600)
+                    if rounded == 1:
+                        return '1 hour old'
+                    else:
+                        return '{} hours old'.format(rounded)
+                else:
+                    rounded = round(seconds / 86400)
+                    if rounded == 1:
+                        return '1 day old'
+                    else:
+                        return '{} days old'.format(rounded)
+            else:
+                return 'No Database Age'
+
+        self.center.upd_button.setToolTip(readable_time())
 
     # CUSTOM DELEGATE TO GET HTML RICH TEXT IN LISTVIEW
     # ALLOWS USE OF <b></b> TAGS TO HIGHLIGHT SEARCHED PHRASE IN RESULTS
