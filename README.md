@@ -26,7 +26,7 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
   unchecking the checkbox in the top right corner fixes this, but searching gets slower
 * database is in `~/.cache/angrysearch/angry_database.db`  
   config file is in `~/.config/angrysearch/angrysearch.conf`  
-  **IF YOU HAVE TROUBLE STARTING THE APPLICATION, RESTART THE PC, DELETE THE DATABASE AND THE CONFIG FILE, NEW ONES ARE RECREATED ON THE NEXT RUN**
+* if you have trouble starting the application, restart the pc, delete the database and the config file, new ones are recreated on the next run
 * it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB
 * it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
 * [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/` in `mimeapps.list`. If it feels like changes in that file have no effect, search for `mimeapps.list` in ~/.config
@@ -36,48 +36,41 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 * Arch Linux - [AUR package](https://aur.archlinux.org/packages/angrysearch/)
 * openSUSE & Fedora 22 [package](https://software.opensuse.org/package/angrysearch) (courtesy of [alanbortu](https://github.com/alanbortu))
 
-There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting execution permissions
+There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting execution permissions  
 
 **dependencies** - `python3-pyqt5`, `xdg-utils`  
 
-Most of what's needed you very likely have, except PyQt5 for python3, so go get it  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Usually you only need PyQt5 for python3, so go get it  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for example ubuntu based ditros: `sudo apt-get install python3-pyqt5`
-
-**download the latest release** of ANGRYsearch, unpack it, go in to the containing directory  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*if you just want to test it, you can run it right away:* `python3 angrysearch.py`
-  
-for a **long term installation** on your system for every day use, place the files in to `/usr/share/angrysearch/`
-and set the `angrysearch.py` and `angrysearch_update_database.py` as executable, and make few links to these
-files to integrate ANGRYsearch in to your system
 
 * create angrysearch folder in /usr/share/
 
-      sudo mkdir /usr/share/angrysearch
+        sudo mkdir /usr/share/angrysearch
 
 * go where you extracted the [latest release](https://github.com/DoTheEvo/ANGRYsearch/releases), copy all the files to /usr/share/angrysearch
 
-      sudo cp -r * /usr/share/angrysearch
+        sudo cp -r * /usr/share/angrysearch
 
 * set the main python file and the automatic update file as executables
 
-      sudo chmod +x /usr/share/angrysearch/angrysearch.py
-      sudo chmod +x /usr/share/angrysearch/angrysearch_update_database.py
+        sudo chmod +x /usr/share/angrysearch/angrysearch.py
+        sudo chmod +x /usr/share/angrysearch/angrysearch_update_database.py
 
 * make a link in /usr/share/applications to the desktop file so that angrysearch appears in your applications launcher
 
-      sudo ln -s /usr/share/angrysearch/angrysearch.desktop /usr/share/applications
+        sudo ln -s /usr/share/angrysearch/angrysearch.desktop /usr/share/applications
 
 * would be nice if it would have some distinguishable icon, make a link to the icon
 
-      sudo ln -s /usr/share/angrysearch/angrysearch.svg /usr/share/pixmaps
+        sudo ln -s /usr/share/angrysearch/angrysearch.svg /usr/share/pixmaps
 
 * to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
 
-      sudo ln -s /usr/share/angrysearch/angrysearch.py /usr/bin/angrysearch
+        sudo ln -s /usr/share/angrysearch/angrysearch.py /usr/bin/angrysearch
         
 
 * **optional-dependancies**
-    * [python3-gobject](https://wiki.gnome.org/Projects/PyGObject) - desktop notifications for background automatic update, most DE have it
+    * [python3-gobject](https://wiki.gnome.org/Projects/PyGObject) - desktop notifications for automatic update, most DEs have it
     * [xdotool](https://www.semicomplete.com/projects/xdotool/xdotool.xhtml) - config option *fm_path_doubleclick_selects* to work in Thunar and PCmanFM
 
 ### Automatic update in the background
@@ -85,7 +78,7 @@ files to integrate ANGRYsearch in to your system
 ![notifications png](http://i.imgur.com/dudkCvZ.png)
 
 Among the files there's `angrysearch_update_database.py`  
-When this file is run there's no interface, it just crawls through drives, respecting ignored directories in the config, and updates the databse. It uses desktop notifications when it's done or if a conditional mount is not present.
+When this file is run there's no interface, it just crawls through drives, respecting ignored directories in the config, and updates the databse
 
 Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
 keeping ANGRYsearch up to date with the changes on your system
@@ -93,14 +86,14 @@ keeping ANGRYsearch up to date with the changes on your system
 * `crontab -l` - list cronjobs
 * `crontab -e` - open text editor so you can enter new cronjob
 
-this cronjob will execute the update at noon and at midnight every day
+this cronjob will execute the update every 6 hours
 
-      0 00,12 * * * /usr/share/angrysearch/angrysearch_update_database.py
+    0 */6 * * * /usr/share/angrysearch/angrysearch_update_database.py
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
-`conditional_mounts_for_autoupdate` in the config can prevent autoupdate from runningif set mount points are not present.  
-`notifications` setting in the config allows desktop notifications informing about background automatic update finishing, needs [python3 gobject](https://wiki.gnome.org/action/show/Projects/PyGObject?action=show&redirect=PyGObject) package which most of DEs have out of the box
+`notifications` setting in the config allows desktop notifications informing about background automatic update finishing  
+`conditional_mounts_for_autoupdate` in the config can prevent autoupdate from running if set mount points are not present
 
 ### How it works & additional details:
 
