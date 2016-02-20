@@ -52,33 +52,33 @@ files to integrate ANGRYsearch in to your system
 
 * create angrysearch folder in /usr/share/
 
-        sudo mkdir /usr/share/angrysearch
+      sudo mkdir /usr/share/angrysearch
 
 * go where you extracted the [latest release](https://github.com/DoTheEvo/ANGRYsearch/releases), copy all the files to /usr/share/angrysearch
 
-        sudo cp -r * /usr/share/angrysearch
+      sudo cp -r * /usr/share/angrysearch
 
 * set the main python file and the automatic update file as executables
 
-        sudo chmod +x /usr/share/angrysearch/angrysearch.py
-        sudo chmod +x /usr/share/angrysearch/angrysearch_update_database.py
+      sudo chmod +x /usr/share/angrysearch/angrysearch.py
+      sudo chmod +x /usr/share/angrysearch/angrysearch_update_database.py
 
 * make a link in /usr/share/applications to the desktop file so that angrysearch appears in your applications launcher
 
-        sudo ln -s /usr/share/angrysearch/angrysearch.desktop /usr/share/applications
+      sudo ln -s /usr/share/angrysearch/angrysearch.desktop /usr/share/applications
 
 * would be nice if it would have some distinguishable icon, make a link to the icon
 
-        sudo ln -s /usr/share/angrysearch/angrysearch.svg /usr/share/pixmaps
+      sudo ln -s /usr/share/angrysearch/angrysearch.svg /usr/share/pixmaps
 
 * to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
 
-        sudo ln -s /usr/share/angrysearch/angrysearch.py /usr/bin/angrysearch
+      sudo ln -s /usr/share/angrysearch/angrysearch.py /usr/bin/angrysearch
         
 
 * **optional-dependancies**
-    * `python3-gobject` - desktop notifications for background automatic update, most DE have it
-    * `xdotool` - config option *fm_path_doubleclick_selects* to work in Thunar and PCmanFM
+    * [python3-gobject](https://wiki.gnome.org/Projects/PyGObject) - desktop notifications for background automatic update, most DE have it
+    * [xdotool](https://www.semicomplete.com/projects/xdotool/xdotool.xhtml) - config option *fm_path_doubleclick_selects* to work in Thunar and PCmanFM
 
 ### Automatic update in the background
 
@@ -95,7 +95,7 @@ keeping ANGRYsearch up to date with the changes on your system
 
 this cronjob will execute the update at noon and at midnight every day
 
-     00 00,12 * * * /usr/share/angrysearch/angrysearch_update_database.py
+      0 00,12 * * * /usr/share/angrysearch/angrysearch_update_database.py
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
