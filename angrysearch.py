@@ -146,15 +146,24 @@ class Thread_database_update(Qc.QThread):
             for dname in dirs:
                 path = os.path.join(root, dname)
                 utf_path = path.decode(encoding='utf-8', errors='ignore')
-                stats = os.lstat(path)
-                epoch_time = stats.st_mtime.__trunc__()
+                try:
+                    stats = os.lstat(path)
+                    epoch_time = stats.st_mtime.__trunc__()
+                except:
+                    print('Cant access: ' + str(path))
+                    epoch_time = 0
                 dir_list.append(('1', utf_path, '', epoch_time))
             for fname in files:
                 path = os.path.join(root, fname)
                 utf_path = path.decode(encoding='utf-8', errors='ignore')
-                stats = os.lstat(path)
-                size = stats.st_size
-                epoch_time = stats.st_mtime.__trunc__()
+                try:
+                    stats = os.lstat(path)
+                    size = stats.st_size
+                    epoch_time = stats.st_mtime.__trunc__()
+                except:
+                    print('Cant access: ' + str(path))
+                    size = 0
+                    epoch_time = 0
                 file_list.append(
                     ('0', utf_path, size, epoch_time))
 
