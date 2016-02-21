@@ -759,6 +759,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                 o = Qg.QStandardItem(file_size)
                 o._bytes = bytesize
 
+                # DATE IN THE FOURTH COLUMN
                 p = datetime.fromtimestamp(tup[3])
 
                 item = [n, m, o, str(p)]
@@ -866,7 +867,10 @@ class Gui_MainWindow(Qw.QMainWindow):
     def double_click_enter(self, QModelIndex):
         column = QModelIndex.column()
         row = QModelIndex.row()
-        item = self.model.itemFromIndex(row, column)
+        if column == 0:
+            item = self.model.itemFromIndex(row, 0)
+        else:
+            item = self.model.itemFromIndex(row, 1)
 
         path = item._fullpath
         parent_dir = item._parent_dir
@@ -888,7 +892,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         if column == 0:
             subprocess.Popen(['xdg-open', path])
-        if column == 1:
+        else:
             fm = self.set['file_manager']
             if is_dir is True:
                 if 'dolphin' in fm:
