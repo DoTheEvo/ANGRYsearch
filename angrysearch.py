@@ -941,7 +941,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         time.sleep(0.5)
         cmd = ['xdotool', 'key', 'ctrl+f', 'type', last_item]
         subprocess.Popen(cmd)
-        time.sleep(0.2)
+        time.sleep(0.5)
         cmd = ['xdotool', 'key', 'Escape']
         subprocess.Popen(cmd)
 
