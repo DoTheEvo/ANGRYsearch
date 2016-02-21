@@ -28,8 +28,8 @@ except ImportError:
 # CHECK IF NOTIFICATIONS CAN BE MADE
 try:
     from gi import require_version
-    require_version("Gtk", "3.0")
-    require_version("Notify", "0.7")
+    require_version('Gtk', '3.0')
+    require_version('Notify', '0.7')
     from gi.repository import Notify, GdkPixbuf
     NOTIFY_AVAILABLE = True
 except ImportError:
@@ -148,15 +148,24 @@ def crawling_drives():
         for dname in dirs:
             path = os.path.join(root, dname)
             utf_path = path.decode(encoding='utf-8', errors='ignore')
-            stats = os.lstat(path)
-            epoch_time = stats.st_mtime.__trunc__()
+            try:
+                stats = os.lstat(path)
+                epoch_time = stats.st_mtime.__trunc__()
+            except:
+                print('Cant access: ' + str(path))
+                epoch_time = 0
             dir_list.append(('1', utf_path, '', epoch_time))
         for fname in files:
             path = os.path.join(root, fname)
             utf_path = path.decode(encoding='utf-8', errors='ignore')
-            stats = os.lstat(path)
-            size = stats.st_size
-            epoch_time = stats.st_mtime.__trunc__()
+            try:
+                stats = os.lstat(path)
+                size = stats.st_size
+                epoch_time = stats.st_mtime.__trunc__()
+            except:
+                print('Cant access: ' + str(path))
+                size = 0
+                epoch_time = 0
             file_list.append(
                 ('0', utf_path, size, epoch_time))
 
@@ -289,4 +298,10 @@ if __name__ == '__main__':
         total_time = datetime.now() - START_TIME
         noti_text = '{} | database updated'.format(
                         time_difference(total_time.seconds))
-        show_notification(noti_text)
+        try:
+            show_notification(noti_text)
+        except Exception as err:
+            print(err)
+            with open('/tmp/angrysearch_cron.log', 'a') as log:
+                t = '{:%Y-%b-%d | %H:%M | } '.format(datetime.now())
+                log.write(t + str(err) + '\n')
