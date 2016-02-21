@@ -890,10 +890,16 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.center.table.setStyleSheet('selection-color:blue;')
             self.center.table.timeout.start(150)
 
+        fm = self.set['file_manager']
         if column == 0:
-            subprocess.Popen(['xdg-open', path])
+            if is_dir is True:
+                if fm != 'xdg-open':
+                    subprocess.Popen([fm, path])
+                else:
+                    subprocess.Popen(['xdg-open', path])
+            else:
+                subprocess.Popen(['xdg-open', path])
         else:
-            fm = self.set['file_manager']
             if is_dir is True:
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
