@@ -25,16 +25,6 @@ try:
 except ImportError:
     SCANDIR_AVAILABLE = False
 
-# CHECK IF NOTIFICATIONS CAN BE MADE
-try:
-    from gi import require_version
-    require_version('Gtk', '3.0')
-    require_version('Notify', '0.7')
-    from gi.repository import Notify, GdkPixbuf
-    NOTIFY_AVAILABLE = True
-except ImportError:
-    NOTIFY_AVAILABLE = False
-
 # FIX FOR CRONTAB
 if 'DISPLAY' not in os.environ:
     os.environ['DISPLAY'] = ':0'
@@ -98,29 +88,14 @@ def test_conditional_mounts_for_autoupdate():
 
 
 def show_notification(text):
-    global NOTIFY_AVAILABLE
     global NOTIFICATIONS_ENABLED
 
-    if NOTIFY_AVAILABLE is False or NOTIFICATIONS_ENABLED is False:
-        print('angrysearch: Desktop notifications disabled or unavailable')
+    if NOTIFICATIONS_ENABLED is False:
         return
+    notify-send -i /usr/share/angrysearch/angrysearch.svg  summary test
 
-    Notify.init('angrysearch')
-    n = Notify.Notification.new('ANGRYsearch:', text)
-
-    possible_image_locations = ['angrysearch.svg',
-                                '/usr/share/pixmaps/angrysearch.svg',
-                                '/usr/share/angrysearch/angrysearch.svg',
-                                '/opt/angrysearch/angrysearch.svg']
-    for x in possible_image_locations:
-        if os.path.exists(x):
-            icon = GdkPixbuf.Pixbuf.new_from_file(x)
-            n.set_image_from_pixbuf(icon)
-            break
-    else:
-        n.set_property('icon-name', 'drive-harddisk')
-
-    n.show()
+    cmd = ['notify-send', '-i', '/usr/share/pixmaps/angrysearch.svg', 'summary', 'test' ]
+    subprocess.Popen(cmd)
 
 
 def crawling_drives():

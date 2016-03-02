@@ -10,7 +10,7 @@ Done in python 3 using PyQt5 for GUI
 
 ### Lite mode vs Full mode
 
-ANGRYsearch can be set to two different modes in its config, default being `lite`
+angrysearch can be set to two different modes in its config, default being `lite`
 * **lite mode** will not index size of files and date of last modification, it shows only items name and path
 * **full mode** shows size and date of the last modification, the drawback is that indexing takes roughly two times longer since every file and folder gets additional stats calls during indexing
 
@@ -47,7 +47,7 @@ There's no compilation with python, installation process is trivial and consist 
 
         sudo mkdir /usr/share/angrysearch
 
-* go where you extracted the [latest release](https://github.com/DoTheEvo/ANGRYsearch/releases), copy all the files to /usr/share/angrysearch
+* go where you extracted the [latest release](https://github.com/DoTheEvo/angrysearch/releases), copy all the files to /usr/share/angrysearch
 
         sudo cp -r * /usr/share/angrysearch
 
@@ -81,7 +81,7 @@ Among the files there's `angrysearch_update_database.py`
 When this file is run there's no interface, it just crawls through drives, respecting ignored directories in the config, and updates the databse
 
 Using [crontab](https://www.youtube.com/watch?v=UlVqobmcPuM) you can set this file to be executed periodicly at choosen intervals,
-keeping ANGRYsearch up to date with the changes on your system
+keeping angrysearch up to date with the changes on your system
 
 * `crontab -l` - list cronjobs
 * `crontab -e` - open text editor so you can enter new cronjob
@@ -117,7 +117,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `proc` is hardcoded to be ignored
   *   `fast_search_but_no_substring` By default set to true. It holds the last set value of the checkbox affecting the speed of search and substrings, see FTS4 in the section above
-  *   `file_manager` By default empty. Whatever application/script is put there, it receives the path when the path column is double-clicked. If left empty ANGRYsearch will try to autodetect default file manager using xdg-utils. If one of the following file managers are set/detected: ['dolphin', 'nemo', 'nautilus', 'doublecmd'], the behaviour will change slightly, sending to those file managers full path to the file, highlighting the target file when opened in a filemanager.
+  *   `file_manager` By default empty. Whatever application/script is put there, it receives the path when the path column is double-clicked. If left empty angrysearch will try to autodetect default file manager using xdg-utils. If one of the following file managers are set/detected: ['dolphin', 'nemo', 'nautilus', 'doublecmd'], the behaviour will change slightly, sending to those file managers full path to the file, highlighting the target file when opened in a filemanager.
   *   `fm_path_doubleclick_selects` By default set to false. Needs `xdotool` package, and preferably manualy set file manager in config. When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to open containing directory with the file selected
   *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figure out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
   *   `notifications` By default set to true. Automatic periodic updates that are run on background using crontab will use desktop notification system to inform when indexing is done or if the indexing was aborted because of missing mount points

@@ -410,6 +410,18 @@ class My_table_view(Qw.QTableView):
             self.setColumnWidth(2, width * 0.10)
             self.setColumnWidth(3, width * 0.22)
 
+    # ENTER KEY AND SHIFT+ENTER KEY CATCHING
+    def keyPressEvent(self, event):
+        if event.key() == 16777220:
+            index = self.currentIndex()
+            if event.modifiers() == Qc.Qt.ShiftModifier:
+                self.parent().parent().key_press_Enter(index, shift=True)
+                return
+            self.parent().parent().key_press_Enter(index, shift=False)
+            return
+
+        Qw.QTableView.keyPressEvent(self, event)
+
 
 # THE PRIMARY GUI DEFINING INTERFACE WIDGETS, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(Qw.QWidget):
@@ -631,7 +643,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v0.9.5')
+            menu.addAction('v0.9.6')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)
@@ -852,6 +864,12 @@ class Gui_MainWindow(Qw.QMainWindow):
         total = locale.format('%d', total_rows_numb, grouping=True)
         self.status_bar.showMessage(total)
 
+    def key_press_Enter(self, QModelIndex, shift=False):
+        if shift:
+            self.double_click_enter(QModelIndex, True, True)
+        else:
+            self.double_click_enter(QModelIndex, True, False)
+
     # SHOWS SELECTED ITEMS MIME TYPE
     def single_click(self, QModelIndex):
         path = self.model.itemFromIndex(QModelIndex.row(), 0)._fullpath
@@ -873,7 +891,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # THE FIRST COLUMN DOUBLECLICK OPENS THE FILE IN ASSOCIATED PROGRAM
     # THE SECOND COLUMN OPENS THE LOCATION, ATTEMPTING HIGHLIGHTING FILE
-    def double_click_enter(self, QModelIndex):
+    def double_click_enter(self, QModelIndex, from_enter=False, shift=False):
         column = QModelIndex.column()
         row = QModelIndex.row()
         if column == 0:
@@ -885,6 +903,11 @@ class Gui_MainWindow(Qw.QMainWindow):
         parent_dir = item._parent_dir
         last_item = item._name
         is_dir = (True if item._is_dir == '1' else False)
+
+        if from_enter:
+            column = 0
+            if shift:
+                column = 1
 
         self.center.table.timeout = Qc.QTimer()
         self.center.table.timeout.setSingleShot(True)
@@ -1083,7 +1106,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.doc.setHtml(options.text)
             options.text = ""
 
-            style = Qg.QApplication.style() if options.widget is None \
+            style = Qw.QApplication.style() if options.widget is None \
                 else options.widget.style()
             style.drawControl(Qw.QStyle.CE_ItemViewItem, options, painter)
 
