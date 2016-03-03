@@ -34,7 +34,7 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 ### Installation:
 
 * Arch Linux - [AUR package](https://aur.archlinux.org/packages/angrysearch/)
-* openSUSE & Fedora 22 [package](https://software.opensuse.org/package/angrysearch) (courtesy of [alanbortu](https://github.com/alanbortu))
+* openSUSE & Fedora [package](https://software.opensuse.org/package/angrysearch) (courtesy of [alanbortu](https://github.com/alanbortu))
 
 There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting execution permissions  
 

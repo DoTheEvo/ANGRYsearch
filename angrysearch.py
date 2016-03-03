@@ -422,8 +422,11 @@ class My_table_view(Qw.QTableView):
 
         Qw.QTableView.keyPressEvent(self, event)
 
+    # STRANGE SOLUTION TO GET TAB MOVE NEXT ROW
     def focusNextPrevChild(self, next):
-        Qw.QTableView.focusNextPrevChild(self, next)
+        numb_columns = self.model().columnCount(self)
+        for x in range(numb_columns - 1):
+            Qw.QTableView.focusNextPrevChild(self, next)
         return False
 
 
