@@ -422,6 +422,10 @@ class My_table_view(Qw.QTableView):
 
         Qw.QTableView.keyPressEvent(self, event)
 
+    def focusNextPrevChild(self, next):
+        Qw.QTableView.focusNextPrevChild(self, next)
+        return False
+
 
 # THE PRIMARY GUI DEFINING INTERFACE WIDGETS, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(Qw.QWidget):
