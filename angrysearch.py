@@ -429,6 +429,20 @@ class My_table_view(Qw.QTableView):
             Qw.QTableView.focusNextPrevChild(self, next)
         return False
 
+    def contextMenuEvent(self, event):
+        right_click_menu = Qw.QMenu(self)
+
+        act_open = right_click_menu.addAction('Open')
+        act_open.triggered.connect(self.parent().parent().right_clk_open)
+
+        act_open_path = right_click_menu.addAction('Open Path')
+        act_open_path.triggered.connect(self.parent().parent().right_clk_path)
+
+        act_copy_path = right_click_menu.addAction('Copy Path')
+        act_copy_path.triggered.connect(self.parent().parent().right_clk_copy)
+
+        right_click_menu.exec_(event.globalPos())
+
 
 # THE PRIMARY GUI DEFINING INTERFACE WIDGETS, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(Qw.QWidget):
@@ -876,6 +890,20 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.double_click_enter(QModelIndex, True, True)
         else:
             self.double_click_enter(QModelIndex, True, False)
+
+    def right_clk_open(self):
+        qmodel_index = self.center.table.currentIndex()
+        self.double_click_enter(qmodel_index, True, False)
+
+    def right_clk_path(self):
+        qmodel_index = self.center.table.currentIndex()
+        self.double_click_enter(qmodel_index, True, True)
+
+    def right_clk_copy(self):
+        qmodel_index = self.center.table.currentIndex()
+        path = self.model.itemFromIndex(qmodel_index.row(), 0)._fullpath
+        clipboard = Qw.QApplication.clipboard()
+        clipboard.setText(path)
 
     # SHOWS SELECTED ITEMS MIME TYPE
     def single_click(self, QModelIndex):
