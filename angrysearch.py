@@ -36,10 +36,11 @@ except ImportError:
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
 # fts4 VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
 class Thread_db_query(Qc.QThread):
-    db_query_signal = Qc.pyqtSignal(str, list)
+    db_query_signal = Qc.pyqtSignal(str, list, bool)
 
     def __init__(self, db_query, set, parent=None):
         super().__init__()
+        self.quotes = False
         self.number_of_results = set['number_of_results']
         self.fts4 = set['fts4']
         self.db_query = db_query
@@ -48,17 +49,31 @@ class Thread_db_query(Qc.QThread):
     def run(self):
         cur = con.cursor()
         if self.fts4 is False:
-            cur.execute(
-                '''SELECT * FROM angry_table WHERE path LIKE ? LIMIT ?''',
-                (self.sql_query, self.number_of_results))
+            q = 'SELECT * FROM angry_table WHERE path LIKE \'{}\' LIMIT {}'.format(
+                self.sql_query, self.number_of_results)
+            cur.execute(q)
         else:
-            cur.execute(
-                '''SELECT * FROM angry_table WHERE path MATCH ? LIMIT ?''',
-                (self.sql_query, self.number_of_results))
+            q = 'SELECT * FROM angry_table WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
+                self.sql_query, self.number_of_results, self.quotes)
+            cur.execute(q)
         db_query_result = cur.fetchall()
-        self.db_query_signal.emit(self.db_query, db_query_result)
+        self.db_query_signal.emit(self.db_query, db_query_result, self.quotes)
 
     def query_adjustment_for_sqlite(self, input):
+        if '\"' in input or '\'' in input:
+            if (input.count('\"') > 1 and
+                    input.startswith('\"') and
+                    input.endswith('\"')):
+                        self.quotes = True
+                        input = input.replace('\"', '')
+                        return '{}'.format(input)
+            if (input.count('\'') > 1 and
+                    input.startswith('\'') and
+                    input.endswith('\'')):
+                        self.quotes = True
+                        input = input.replace('\'', '')
+                        return '{}'.format(input)
+            input = input.replace('\"', '').replace('\'', '')
         if self.fts4 is False:
             joined = '%'.join(input.split())
             return '%{0}%'.format(joined)
@@ -438,6 +453,8 @@ class My_table_view(Qw.QTableView):
         act_open_path = right_click_menu.addAction('Open Path')
         act_open_path.triggered.connect(self.parent().parent().right_clk_path)
 
+        right_click_menu.addSeparator()
+
         act_copy_path = right_click_menu.addAction('Copy Path')
         act_copy_path.triggered.connect(self.parent().parent().right_clk_copy)
 
@@ -737,17 +754,23 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.queries_threads[-1]['thread'].start()
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
-    def database_query_done(self, db_query, db_query_result):
+    def database_query_done(self, db_query, db_query_result, qmarks):
         if (db_query != self.queries_threads[-1]['input']):
             return
-        self.process_database_resuls(db_query, db_query_result)
+        self.process_database_resuls(db_query, db_query_result, qmarks)
 
     # FORMAT DATA FOR THE MODEL
-    def process_database_resuls(self, db_query, db_query_result):
+    def process_database_resuls(self, db_query, db_query_result, qmarks=False):
         model_data = []
 
-        strip_and_split = db_query.strip().split()
-        rx = '('+'|'.join(map(re.escape, strip_and_split))+')'
+        no_quotes = db_query.replace('"', '').replace('\'', '')
+        if qmarks:
+            strip = no_quotes.strip()
+            rx = '(\\b{}\\b)'.format(re.escape(strip))
+        else:
+            strip_and_split = no_quotes.strip().split()
+            joined_by_pipe = '|'.join(map(re.escape, strip_and_split))
+            rx = '({})'.format(joined_by_pipe)
         self.regex_queries = re.compile(rx, re.IGNORECASE)
 
         for tup in db_query_result:
