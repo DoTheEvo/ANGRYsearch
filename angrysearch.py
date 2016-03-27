@@ -510,6 +510,22 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.read_settings()
         self.init_GUI()
 
+    def keyPressEvent(self, event):
+        if type(event) == Qg.QKeyEvent:
+            if event.key() == 16777269:
+                self.center.search_input.selectAll()
+                self.center.search_input.setFocus()
+            if event.key() == 68 and event.modifiers() == Qc.Qt.AltModifier:
+                self.center.search_input.selectAll()
+                self.center.search_input.setFocus()
+            if event.key() == 76:
+                if event.modifiers() == Qc.Qt.ControlModifier:
+                    self.center.search_input.selectAll()
+                    self.center.search_input.setFocus()
+            event.accept()
+        else:
+            event.ignore()
+
     def read_settings(self):
         if self.settings.value('Last_Run/geometry'):
             self.restoreGeometry(self.settings.value('Last_Run/geometry'))
