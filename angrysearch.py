@@ -280,8 +280,6 @@ class Thread_database_update(Qc.QThread):
         def error(err):
             print(err)
 
-        global SCANDIR_AVAILABLE
-
         root_dir = b'/'
         self.tstart = datetime.now()
 
@@ -331,8 +329,6 @@ class Thread_database_update(Qc.QThread):
     def crawling_drives_lite(self):
         def error(err):
             print(err)
-
-        global SCANDIR_AVAILABLE
 
         root_dir = b'/'
         self.tstart = datetime.now()
@@ -658,12 +654,22 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     def keyPressEvent(self, event):
         if type(event) == Qg.QKeyEvent:
+            # ESC
+            if event.key() == 16777216:
+                sys.exit(app.exec_())
+            # CTRL + Q
+            if event.key() == 81:
+                if event.modifiers() == Qc.Qt.ControlModifier:
+                    sys.exit(app.exec_())
+            # F6 KEY
             if event.key() == 16777269:
                 self.center.search_input.selectAll()
                 self.center.search_input.setFocus()
+            # ALT + D
             if event.key() == 68 and event.modifiers() == Qc.Qt.AltModifier:
                 self.center.search_input.selectAll()
                 self.center.search_input.setFocus()
+            # CTRL + L
             if event.key() == 76:
                 if event.modifiers() == Qc.Qt.ControlModifier:
                     self.center.search_input.selectAll()
