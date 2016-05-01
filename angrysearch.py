@@ -31,16 +31,19 @@ try:
 except ImportError:
     SCANDIR_AVAILABLE = False
 
+# THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3 OR NOT
+FTS5_AVAILABLE = False
+
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
 # fts4 VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
 class Thread_db_query(Qc.QThread):
-    db_query_signal = Qc.pyqtSignal(str, list, bool)
+    db_query_signal = Qc.pyqtSignal(str, list, list)
 
     def __init__(self, db_query, set, parent=None):
         super().__init__()
-        self.quotes = False
+        self.words_quoted = []
         self.number_of_results = set['number_of_results']
         self.fts4 = set['fts4']
         self.db_query = db_query
@@ -49,37 +52,175 @@ class Thread_db_query(Qc.QThread):
     def run(self):
         cur = con.cursor()
         if self.fts4 is False:
-            q = 'SELECT * FROM angry_table WHERE path LIKE \'{}\' LIMIT {}'.format(
-                self.sql_query, self.number_of_results)
+            q = 'SELECT * FROM angry_table '\
+                'WHERE path LIKE \'{}\' LIMIT {}'.format(
+                    self.sql_query, self.number_of_results)
             cur.execute(q)
         else:
-            q = 'SELECT * FROM angry_table WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
-                self.sql_query, self.number_of_results, self.quotes)
+            q = 'SELECT * FROM angry_table '\
+                'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
+                    self.sql_query, self.number_of_results, self.words_quoted)
             cur.execute(q)
         db_query_result = cur.fetchall()
-        self.db_query_signal.emit(self.db_query, db_query_result, self.quotes)
+        self.db_query_signal.emit(self.db_query,
+                                  db_query_result,
+                                  self.words_quoted)
 
     def query_adjustment_for_sqlite(self, input):
-        if '\"' in input or '\'' in input:
-            if (input.count('\"') > 1 and
-                    input.startswith('\"') and
-                    input.endswith('\"')):
-                        self.quotes = True
-                        input = input.replace('\"', '')
-                        return '{}'.format(input)
-            if (input.count('\'') > 1 and
-                    input.startswith('\'') and
-                    input.endswith('\'')):
-                        self.quotes = True
-                        input = input.replace('\'', '')
-                        return '{}'.format(input)
-            input = input.replace('\"', '').replace('\'', '')
+        # NO BACKSLASH
+        if '\\' in input:
+            input = input.replace('\\', '')
+            if input == '':
+                input = ' '
+
+        if '?' in input:
+            input = input.replace('?', '')
+            if input == '':
+                input = ' '
+
+        query_words = input.strip().split()
+
+        # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
         if self.fts4 is False:
-            joined = '%'.join(input.split())
+            input = input.replace('\'', '').replace('\"', '')
+
+            if input == '':
+                input = ' '
+
+            joined = '%'.join(query_words)
             return '%{0}%'.format(joined)
+
+        # MINUS SIGN MARKS PHRASES THAT MUST NOT APPEAR IN RESULTS
+        words_no_minus = []
+        excluded_words = []
+        for x in query_words:
+            if x.startswith('-'):
+                if len(x) > 1:
+                    excluded_words.append(x[1:])
+            else:
+                words_no_minus.append(x)
+
+        if not words_no_minus:
+            words_no_minus.append('1')
+
+        # QUOTED PHRASES ARE SEARCHED WITHOUT WILD CARD * AT THE END
+        final_query = ''
+        words_quoted = []
+        for x in words_no_minus:
+            if '\"' in x:
+                if x.startswith('\"') and x.endswith('\"'):
+                    x = x.replace('\"', '')
+                    final_query += '"{}" '.format(x)
+                    words_quoted.append(x)
+                    continue
+                x = x.replace('\"', '')
+            if '\'' in x:
+                if x.startswith('\'') and x.endswith('\''):
+                    x = x.replace('\'', '')
+                    final_query += '"{}" '.format(x)
+                    words_quoted.append(x)
+                    continue
+                x = x.replace('\'', '')
+            final_query += '"{}"* '.format(x)
+
+        if len(excluded_words) > 0:
+            exclude_query_part = ''
+            for x in excluded_words:
+                x_is_quoted = False
+                if '\"' in x:
+                    if x.startswith('\"') and x.endswith('\"'):
+                        x_is_quoted = True
+                    x = x.replace('\"', '')
+                if '\'' in x:
+                    if x.startswith('\'') and x.endswith('\''):
+                        x_is_quoted = True
+                    x = x.replace('\'', '')
+                if x_is_quoted:
+                    if len(x) > 1:
+                        exclude_query_part += 'NOT {} '.format(x)
+                else:
+                    exclude_query_part += 'NOT {}* '.format(x)
+
+            final_query = '{} {}'.format(final_query, exclude_query_part)
+
+        self.words_quoted = words_quoted
+        return final_query
+
+
+# FOR OLD VERSION 4 OF SQLITE EXTENSION FTS
+class Thread_db_query_old(Qc.QThread):
+    db_query_signal = Qc.pyqtSignal(str, list, list)
+
+    def __init__(self, db_query, set, parent=None):
+        super().__init__()
+        self.words_quoted = []
+        self.number_of_results = set['number_of_results']
+        self.fts4 = set['fts4']
+        self.db_query = db_query
+        self.sql_query = self.query_adjustment_for_sqlite(db_query)
+
+    def run(self):
+        cur = con.cursor()
+        if self.fts4 is False:
+            q = 'SELECT * FROM angry_table '\
+                'WHERE path LIKE \'{}\' LIMIT {}'.format(
+                    self.sql_query, self.number_of_results)
+            cur.execute(q)
         else:
-            joined = '*'.join(input.split())
-            return '*{0}*'.format(joined)
+            q = 'SELECT * FROM angry_table '\
+                'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
+                    self.sql_query, self.number_of_results, self.words_quoted)
+            cur.execute(q)
+        db_query_result = cur.fetchall()
+        self.db_query_signal.emit(self.db_query,
+                                  db_query_result,
+                                  self.words_quoted)
+
+    def query_adjustment_for_sqlite(self, input):
+        # NO BACKSLASH
+        if '\\' in input:
+            input = input.replace('\\', '')
+            if input == '':
+                input = ' '
+
+        if '?' in input:
+            input = input.replace('?', '')
+            if input == '':
+                input = ' '
+
+        query_words = input.strip().split()
+
+        if self.fts4 is False:
+            input = input.replace('\'', '').replace('\"', '')
+
+            if input == '':
+                input = ' '
+
+            joined = '%'.join(query_words)
+            return '%{0}%'.format(joined)
+
+        final_query = ''
+        words_quoted = []
+        for x in query_words:
+            if '\"' in x:
+                if x.startswith('\"') and x.endswith('\"'):
+                    x = x.replace('\"', '')
+                    final_query += '"{}" '.format(x)
+                    words_quoted.append(x)
+                    continue
+                x = x.replace('\"', '')
+            if '\'' in x:
+                if x.startswith('\'') and x.endswith('\''):
+                    x = x.replace('\'', '')
+                    final_query += '"{}" '.format(x)
+                    words_quoted.append(x)
+                    continue
+                x = x.replace('\'', '')
+
+            final_query += '{}* '.format(x)
+
+        self.words_quoted = words_quoted
+        return final_query
 
 
 # THREAD FOR PREVENTING DATABASE QUERY BEING DONE ON EVERY SINGLE KEYPRESS
@@ -232,10 +373,15 @@ class Thread_database_update(Qc.QThread):
 
         con = sqlite3.connect(temp_db_path, check_same_thread=False)
         cur = con.cursor()
-        cur.execute('''CREATE VIRTUAL TABLE angry_table
-                        USING fts4(directory, path, size, date)''')
 
-        cur.execute('''PRAGMA user_version = 1;''')
+        if self.fts5_pragma_check():
+            cur.execute('''CREATE VIRTUAL TABLE angry_table
+                            USING fts5(directory, path, size, date)''')
+            cur.execute('''PRAGMA user_version = 2;''')
+        else:
+            cur.execute('''CREATE VIRTUAL TABLE angry_table
+                            USING fts4(directory, path, size, date)''')
+            cur.execute('''PRAGMA user_version = 1;''')
 
         self.tstart = datetime.now()
 
@@ -256,10 +402,15 @@ class Thread_database_update(Qc.QThread):
 
         con = sqlite3.connect(temp_db_path, check_same_thread=False)
         cur = con.cursor()
-        cur.execute('''CREATE VIRTUAL TABLE angry_table
-                        USING fts4(directory, path)''')
 
-        cur.execute('''PRAGMA user_version = 1;''')
+        if self.fts5_pragma_check():
+            cur.execute('''CREATE VIRTUAL TABLE angry_table
+                            USING fts5(directory, path)''')
+            cur.execute('''PRAGMA user_version = 2;''')
+        else:
+            cur.execute('''CREATE VIRTUAL TABLE angry_table
+                            USING fts4(directory, path)''')
+            cur.execute('''PRAGMA user_version = 1;''')
 
         self.tstart = datetime.now()
 
@@ -294,27 +445,22 @@ class Thread_database_update(Qc.QThread):
 
         con = sqlite3.connect(db_path, check_same_thread=False)
 
-    def load_previous_run_directory_mtime_data(self):
-        cur = con.cursor()
-        cur.execute('''PRAGMA table_info(angry_table);''')
-        total_columns = len(cur.fetchall())
-        if total_columns != 4:
-            return
-
-        cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
-        total_rows_numb = cur.fetchone()[0]
-        if total_rows_numb < 1:
-            return
-
-        cur.execute('''SELECT * FROM angry_table WHERE directory="1"''')
-        all_directories_tuple = cur.fetchall()
-
-        for x in all_directories_tuple:
-            self.directories_timestamp[x[1]] = x[3]
-
     def time_difference(self, nseconds):
         mins, secs = divmod(nseconds, 60)
         return '{:0>2d}:{:0>2d}'.format(mins, secs)
+
+    # FTS5 IS A NEW EXTENSION OF SQLITE
+    # SQLITE NEEDS TO BE COMPILED WITH FTS5 ENABLED
+    def fts5_pragma_check(self):
+        with sqlite3.connect(':memory:') as conn:
+            cur = conn.cursor()
+            cur.execute('pragma compile_options;')
+            available_pragmas = cur.fetchall()
+
+        if ('ENABLE_FTS5',) in available_pragmas:
+            return True
+        else:
+            return False
 
 
 # CUSTOM TABLE MODEL TO HAVE FINE CONTROL OVER THE CONTENT AND PRESENTATION
@@ -762,31 +908,44 @@ class Gui_MainWindow(Qw.QMainWindow):
         if len(self.queries_threads) > 40:
             del self.queries_threads[0:20]
 
-        self.queries_threads.append(
-            {'input': input, 'thread': Thread_db_query(input, self.set)})
+        if FTS5_AVAILABLE:
+            self.queries_threads.append(
+                {'input': input,
+                 'thread': Thread_db_query(input, self.set)})
+        else:
+            self.queries_threads.append(
+                {'input': input,
+                 'thread': Thread_db_query_old(input, self.set)})
 
         self.queries_threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qc.Qt.QueuedConnection)
         self.queries_threads[-1]['thread'].start()
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
-    def database_query_done(self, db_query, db_query_result, qmarks):
+    def database_query_done(self, db_query, db_query_result, words_quoted):
         if (db_query != self.queries_threads[-1]['input']):
             return
-        self.process_database_resuls(db_query, db_query_result, qmarks)
+        self.process_q_resuls(db_query, db_query_result, words_quoted)
 
     # FORMAT DATA FOR THE MODEL
-    def process_database_resuls(self, db_query, db_query_result, qmarks=False):
+    def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        no_quotes = db_query.replace('"', '').replace('\'', '')
-        if qmarks:
-            strip = no_quotes.strip()
-            rx = '(\\b{}\\b)'.format(re.escape(strip))
-        else:
-            strip_and_split = no_quotes.strip().split()
-            joined_by_pipe = '|'.join(map(re.escape, strip_and_split))
-            rx = '({})'.format(joined_by_pipe)
+        for x in ['\"', '\'', '\\', '?']:
+            db_query = db_query.replace(x, '')
+
+        strip_and_split = db_query.strip().split()
+        preparation_list = []
+
+        for x in strip_and_split:
+            if x in words_quoted:
+                z = '\\b{}\\b'.format(x)
+                preparation_list.append(z)
+            else:
+                preparation_list.append(x)
+        joined_by_pipe = '|'.join(preparation_list)
+        rx = '({})'.format(joined_by_pipe)
+
         self.regex_queries = re.compile(rx, re.IGNORECASE)
 
         for tup in db_query_result:
@@ -890,10 +1049,14 @@ class Gui_MainWindow(Qw.QMainWindow):
     # RUNS ON START OR ON EMPTY INPUT, SHOWS TOP OF THE FILESYSTEM
     # CHECKS THE DATABASE AGAINST SETTINGS AND IF ITS NOT EMPTY
     def show_first_500(self):
+        global FTS5_AVAILABLE
         cur = con.cursor()
 
         cur.execute('''PRAGMA user_version;''')
-        if cur.fetchone()[0] != 1:
+        pragma_user_version = cur.fetchone()[0]
+        if pragma_user_version == 2:
+            FTS5_AVAILABLE = True
+        if pragma_user_version == 0:
             self.tutorial()
             return
 
@@ -917,7 +1080,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     (self.set['number_of_results'],))
         tuppled_500 = cur.fetchall()
 
-        self.process_database_resuls('', tuppled_500)
+        self.process_q_resuls('', tuppled_500)
 
         cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
         total_rows_numb = cur.fetchone()[0]

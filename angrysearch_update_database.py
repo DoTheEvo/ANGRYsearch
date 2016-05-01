@@ -215,10 +215,15 @@ def new_database(table):
 
     con = sqlite3.connect(temp_db_path, check_same_thread=False)
     cur = con.cursor()
-    cur.execute('''CREATE VIRTUAL TABLE angry_table
-                    USING fts4(directory, path, size, date)''')
 
-    cur.execute('''PRAGMA user_version = 1;''')
+    if fts5_pragma_check():
+        cur.execute('''CREATE VIRTUAL TABLE angry_table
+                        USING fts5(directory, path, size, date)''')
+        cur.execute('''PRAGMA user_version = 2;''')
+    else:
+        cur.execute('''CREATE VIRTUAL TABLE angry_table
+                        USING fts4(directory, path, size, date)''')
+        cur.execute('''PRAGMA user_version = 1;''')
 
     for x in table:
         cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
@@ -236,10 +241,15 @@ def new_database_lite(table):
 
     con = sqlite3.connect(temp_db_path, check_same_thread=False)
     cur = con.cursor()
-    cur.execute('''CREATE VIRTUAL TABLE angry_table
-                    USING fts4(directory, path)''')
 
-    cur.execute('''PRAGMA user_version = 1;''')
+    if fts5_pragma_check():
+        cur.execute('''CREATE VIRTUAL TABLE angry_table
+                        USING fts5(directory, path)''')
+        cur.execute('''PRAGMA user_version = 2;''')
+    else:
+        cur.execute('''CREATE VIRTUAL TABLE angry_table
+                        USING fts4(directory, path)''')
+        cur.execute('''PRAGMA user_version = 1;''')
 
     for x in table:
         cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
@@ -272,6 +282,18 @@ def replace_old_db_with_new():
 def time_difference(nseconds):
     mins, secs = divmod(nseconds, 60)
     return '{:0>2d}:{:0>2d}'.format(mins, secs)
+
+
+def fts5_pragma_check():
+    with sqlite3.connect(':memory:') as conn:
+        cur = conn.cursor()
+        cur.execute('pragma compile_options;')
+        available_pragmas = cur.fetchall()
+
+    if ('ENABLE_FTS5',) in available_pragmas:
+        return True
+    else:
+        return False
 
 
 def open_database():
