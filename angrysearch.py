@@ -37,7 +37,7 @@ FTS5_AVAILABLE = False
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
-# fts4 VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
+# fts VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
 class Thread_db_query(Qc.QThread):
     db_query_signal = Qc.pyqtSignal(str, list, list)
 
@@ -45,13 +45,13 @@ class Thread_db_query(Qc.QThread):
         super().__init__()
         self.words_quoted = []
         self.number_of_results = set['number_of_results']
-        self.fts4 = set['fts4']
+        self.fts = set['fts']
         self.db_query = db_query
         self.sql_query = self.query_adjustment_for_sqlite(db_query)
 
     def run(self):
         cur = con.cursor()
-        if self.fts4 is False:
+        if self.fts is False:
             q = 'SELECT * FROM angry_table '\
                 'WHERE path LIKE \'{}\' LIMIT {}'.format(
                     self.sql_query, self.number_of_results)
@@ -81,7 +81,7 @@ class Thread_db_query(Qc.QThread):
         query_words = input.strip().split()
 
         # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
-        if self.fts4 is False:
+        if self.fts is False:
             input = input.replace('\'', '').replace('\"', '')
 
             if input == '':
@@ -155,13 +155,13 @@ class Thread_db_query_old(Qc.QThread):
         super().__init__()
         self.words_quoted = []
         self.number_of_results = set['number_of_results']
-        self.fts4 = set['fts4']
+        self.fts = set['fts']
         self.db_query = db_query
         self.sql_query = self.query_adjustment_for_sqlite(db_query)
 
     def run(self):
         cur = con.cursor()
-        if self.fts4 is False:
+        if self.fts is False:
             q = 'SELECT * FROM angry_table '\
                 'WHERE path LIKE \'{}\' LIMIT {}'.format(
                     self.sql_query, self.number_of_results)
@@ -190,7 +190,7 @@ class Thread_db_query_old(Qc.QThread):
 
         query_words = input.strip().split()
 
-        if self.fts4 is False:
+        if self.fts is False:
             input = input.replace('\'', '').replace('\"', '')
 
             if input == '':
@@ -615,13 +615,13 @@ class Center_widget(Qw.QWidget):
         self.table = My_table_view(self.set['angrysearch_lite'],
                                    self.set['row_height'])
         self.upd_button = Qw.QPushButton('update')
-        self.fts4_checkbox = Qw.QCheckBox()
+        self.fts_checkbox = Qw.QCheckBox()
 
         grid = Qw.QGridLayout()
         grid.setSpacing(10)
 
         grid.addWidget(self.search_input, 1, 1)
-        grid.addWidget(self.fts4_checkbox, 1, 3)
+        grid.addWidget(self.fts_checkbox, 1, 3)
         grid.addWidget(self.upd_button, 1, 4)
         grid.addWidget(self.table, 2, 1, 4, 4)
         self.setLayout(grid)
@@ -638,7 +638,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         super().__init__()
         self.settings = Qc.QSettings('angrysearch', 'angrysearch')
         self.set = {'angrysearch_lite': True,
-                    'fts4': True,
+                    'fts': True,
                     'typing_delay': False,
                     'darktheme': False,
                     'fm_path_doubleclick_selects': False,
@@ -710,7 +710,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             if type == 'bool':
                 if k.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
                     if item == 'fast_search_but_no_substring':
-                        item = 'fts4'
+                        item = 'fts'
                     self.set[item] = False
                 else:
                     self.set[item] = True
@@ -811,13 +811,13 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.status_bar = Qw.QStatusBar(self)
         self.setStatusBar(self.status_bar)
 
-        self.center.fts4_checkbox.setToolTip(
-            'check = fts4 indexing, fast\n'
-            'uncheck = substrings work, slower')
+        self.center.fts_checkbox.setToolTip(
+            'check = fast search but no substrings\n'
+            'uncheck = slower but substrings work')
 
-        if self.set['fts4'] is True:
-            self.center.fts4_checkbox.setChecked(True)
-        self.center.fts4_checkbox.stateChanged.connect(self.checkbox_fts_click)
+        if self.set['fts'] is True:
+            self.center.fts_checkbox.setChecked(True)
+        self.center.fts_checkbox.stateChanged.connect(self.checkbox_fts_click)
 
         self.center.table.setGridStyle(0)
         self.center.table.setSortingEnabled(True)
@@ -905,7 +905,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
-        if self.set['fts4'] is False:
+        if self.set['fts'] is False:
             self.status_bar.showMessage(' ...')
         if input == '':
             self.show_first_500()
@@ -1245,10 +1245,10 @@ class Gui_MainWindow(Qw.QMainWindow):
     # FAST SEARCH OR SEARCH WITH SUBSTRINGS
     def checkbox_fts_click(self, state):
         if state == Qc.Qt.Checked:
-            self.set['fts4'] = True
+            self.set['fts'] = True
             self.settings.setValue('fast_search_but_no_substring', True)
         else:
-            self.set['fts4'] = False
+            self.set['fts'] = False
             self.settings.setValue('fast_search_but_no_substring', False)
         current_search = self.center.search_input.text()
         self.new_query_new_thread(current_search)
@@ -1347,7 +1347,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             self.initStyleOption(options, index)
             self.doc.setHtml(options.text)
-            options.text = ""
+            options.text = ''
 
             style = Qw.QApplication.style() if options.widget is None \
                 else options.widget.style()
@@ -1436,7 +1436,7 @@ class Update_dialog_window(Qw.QDialog):
 
         if self.exclud_dirs == '':
             self.excluded_dirs_btn.setText('none')
-            self.excluded_dirs_btn.setStyleSheet("color:#888;font: italic;")
+            self.excluded_dirs_btn.setStyleSheet('color:#888;font: italic;')
 
         if FTS5_AVAILABLE:
             self.label_2.setToolTip('FTS5 Available')
