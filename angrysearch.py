@@ -1438,6 +1438,11 @@ class Update_dialog_window(Qw.QDialog):
             self.excluded_dirs_btn.setText('none')
             self.excluded_dirs_btn.setStyleSheet("color:#888;font: italic;")
 
+        if FTS5_AVAILABLE:
+            self.label_2.setToolTip('FTS5 Available')
+        else:
+            self.label_2.setToolTip('FTS4 Available')
+
         self.label_1.setIndent(70)
         self.label_2.setIndent(70)
         self.label_3.setIndent(70)
@@ -1570,8 +1575,7 @@ def open_database():
 
 
 if __name__ == '__main__':
-    con = open_database()
-    with con:
+    with open_database() as con:
         app = Qw.QApplication(sys.argv)
         ui = Gui_MainWindow()
         sys.exit(app.exec_())
