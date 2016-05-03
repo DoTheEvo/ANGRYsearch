@@ -3,6 +3,7 @@
 
 import base64
 from datetime import datetime
+from itertools import permutations
 import locale
 import mimetypes
 import os
@@ -53,7 +54,7 @@ class Thread_db_query(Qc.QThread):
         cur = con.cursor()
         if self.fts is False:
             q = 'SELECT * FROM angry_table '\
-                'WHERE path LIKE \'{}\' LIMIT {}'.format(
+                'WHERE path LIKE {} LIMIT {}'.format(
                     self.sql_query, self.number_of_results)
             cur.execute(q)
         else:
@@ -67,6 +68,18 @@ class Thread_db_query(Qc.QThread):
                                   self.words_quoted)
 
     def query_adjustment_for_sqlite(self, input):
+        # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
+        # PERMUTATION OF GIVEN PHRASES IS USED SO THAT ORDER DOES NOT MATTER
+        if self.fts is False:
+            input = input.replace('"', '""')
+
+            o = []
+            p = permutations(input.strip().split())
+            for x in p:
+                o.append('"%{0}%"'.format('%'.join(x)))
+
+            return ' OR path LIKE '.join(o)
+
         # NO BACKSLASH
         if '\\' in input:
             input = input.replace('\\', '')
@@ -79,16 +92,6 @@ class Thread_db_query(Qc.QThread):
                 input = ' '
 
         query_words = input.strip().split()
-
-        # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
-        if self.fts is False:
-            input = input.replace('\'', '').replace('\"', '')
-
-            if input == '':
-                input = ' '
-
-            joined = '%'.join(query_words)
-            return '%{0}%'.format(joined)
 
         # MINUS SIGN MARKS PHRASES THAT MUST NOT APPEAR IN RESULTS
         words_no_minus = []
@@ -177,6 +180,18 @@ class Thread_db_query_old(Qc.QThread):
                                   self.words_quoted)
 
     def query_adjustment_for_sqlite(self, input):
+        # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
+        # PERMUTATION OF GIVEN PHRASES IS USED SO THAT ORDER DOES NOT MATTER
+        if self.fts is False:
+            input = input.replace('"', '""')
+
+            o = []
+            p = permutations(input.strip().split())
+            for x in p:
+                o.append('"%{0}%"'.format('%'.join(x)))
+
+            return ' OR path LIKE '.join(o)
+
         # NO BACKSLASH
         if '\\' in input:
             input = input.replace('\\', '')
@@ -189,15 +204,6 @@ class Thread_db_query_old(Qc.QThread):
                 input = ' '
 
         query_words = input.strip().split()
-
-        if self.fts is False:
-            input = input.replace('\'', '').replace('\"', '')
-
-            if input == '':
-                input = ' '
-
-            joined = '%'.join(query_words)
-            return '%{0}%'.format(joined)
 
         final_query = ''
         words_quoted = []
@@ -937,7 +943,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        for x in ['\"', '\'', '\\', '?']:
+        for x in ['\"', '\'', '\\', '?', '+']:
             db_query = db_query.replace(x, '')
 
         strip_and_split = db_query.strip().split()
