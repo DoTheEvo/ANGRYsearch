@@ -48,185 +48,129 @@ class Thread_db_query(Qc.QThread):
         self.number_of_results = set['number_of_results']
         self.fts = set['fts']
         self.db_query = db_query
-        self.sql_query = self.query_adjustment_for_sqlite(db_query)
 
     def run(self):
         cur = con.cursor()
-        if self.fts is False:
-            q = 'SELECT * FROM angry_table '\
-                'WHERE path LIKE {} LIMIT {}'.format(
-                    self.sql_query, self.number_of_results)
-            cur.execute(q)
-        else:
+
+        if self.fts:
+            sql_query = self.match_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
-                    self.sql_query, self.number_of_results, self.words_quoted)
+                    sql_query, self.number_of_results)
             cur.execute(q)
+        else:
+            sql_query = self.like_query_adjustment(self.db_query)
+            q = 'SELECT * FROM angry_table '\
+                'WHERE path LIKE {} LIMIT {}'.format(
+                    sql_query, self.number_of_results)
+            cur.execute(q)
+
         db_query_result = cur.fetchall()
         self.db_query_signal.emit(self.db_query,
                                   db_query_result,
                                   self.words_quoted)
 
-    def query_adjustment_for_sqlite(self, input):
-        # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
-        # PERMUTATION OF GIVEN PHRASES IS USED SO THAT ORDER DOES NOT MATTER
-        if self.fts is False:
-            input = input.replace('"', '""')
+    # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
+    # PERMUTATION OF GIVEN PHRASES IS USED SO THAT ORDER DOES NOT MATTER
+    def like_query_adjustment(self, input):
+        input = input.replace('"', '""')
 
-            o = []
-            p = permutations(input.strip().split())
-            for x in p:
-                o.append('"%{0}%"'.format('%'.join(x)))
+        o = []
+        p = permutations(input.strip().split())
+        for x in p:
+            o.append('"%{0}%"'.format('%'.join(x)))
 
-            return ' OR path LIKE '.join(o)
+        return ' OR path LIKE '.join(o)
 
-        # NO BACKSLASH
-        if '\\' in input:
-            input = input.replace('\\', '')
-            if input == '':
-                input = ' '
+    # FTS CHECKBOX IS CHECKED, VIRTUAL TABLES ARE USED
+    def match_query_adjustment(self, input):
 
-        if '?' in input:
-            input = input.replace('?', '')
-            if input == '':
-                input = ' '
+        if '?' in input or '\\' in input:
+            for x in ['\\', '?']:
+                input = input.replace(x, '')
 
         query_words = input.strip().split()
 
-        # MINUS SIGN MARKS PHRASES THAT MUST NOT APPEAR IN RESULTS
-        words_no_minus = []
-        excluded_words = []
-        for x in query_words:
-            if x.startswith('-'):
-                if len(x) > 1:
-                    excluded_words.append(x[1:])
-            else:
-                words_no_minus.append(x)
+        if FTS5_AVAILABLE:
+            # MINUS SIGN MARKS PHRASES THAT MUST NOT APPEAR IN RESULTS
+            words_no_minus = []
+            excluded_words = []
+            for x in query_words:
+                if x.startswith('-'):
+                    if len(x) > 1:
+                        excluded_words.append(x[1:])
+                else:
+                    words_no_minus.append(x)
 
-        if not words_no_minus:
-            words_no_minus.append('1')
+            if not words_no_minus:
+                words_no_minus.append('1')
 
-        # QUOTED PHRASES ARE SEARCHED WITHOUT WILD CARD * AT THE END
-        final_query = ''
-        words_quoted = []
-        for x in words_no_minus:
-            if '\"' in x:
-                if x.startswith('\"') and x.endswith('\"'):
-                    x = x.replace('\"', '')
-                    final_query += '"{}" '.format(x)
-                    words_quoted.append(x)
-                    continue
-                x = x.replace('\"', '')
-            if '\'' in x:
-                if x.startswith('\'') and x.endswith('\''):
-                    x = x.replace('\'', '')
-                    final_query += '"{}" '.format(x)
-                    words_quoted.append(x)
-                    continue
-                x = x.replace('\'', '')
-            final_query += '"{}"* '.format(x)
-
-        if len(excluded_words) > 0:
-            exclude_query_part = ''
-            for x in excluded_words:
-                x_is_quoted = False
+            # QUOTED PHRASES ARE SEARCHED WITHOUT WILD CARD * AT THE END
+            final_query = ''
+            words_quoted = []
+            for x in words_no_minus:
                 if '\"' in x:
                     if x.startswith('\"') and x.endswith('\"'):
-                        x_is_quoted = True
+                        x = x.replace('\"', '')
+                        final_query += '"{}" '.format(x)
+                        words_quoted.append(x)
+                        continue
                     x = x.replace('\"', '')
                 if '\'' in x:
                     if x.startswith('\'') and x.endswith('\''):
-                        x_is_quoted = True
+                        x = x.replace('\'', '')
+                        final_query += '"{}" '.format(x)
+                        words_quoted.append(x)
+                        continue
                     x = x.replace('\'', '')
-                if x_is_quoted:
-                    if len(x) > 1:
-                        exclude_query_part += 'NOT {} '.format(x)
-                else:
-                    exclude_query_part += 'NOT {}* '.format(x)
+                final_query += '"{}"* '.format(x)
 
-            final_query = '{} {}'.format(final_query, exclude_query_part)
+            if len(excluded_words) > 0:
+                exclude_query_part = ''
+                for x in excluded_words:
+                    x_is_quoted = False
+                    if '\"' in x:
+                        if x.startswith('\"') and x.endswith('\"'):
+                            x_is_quoted = True
+                        x = x.replace('\"', '')
+                    if '\'' in x:
+                        if x.startswith('\'') and x.endswith('\''):
+                            x_is_quoted = True
+                        x = x.replace('\'', '')
+                    if x_is_quoted:
+                        if len(x) > 1:
+                            exclude_query_part += 'NOT {} '.format(x)
+                    else:
+                        exclude_query_part += 'NOT {}* '.format(x)
 
-        self.words_quoted = words_quoted
-        return final_query
+                final_query = '{} {}'.format(final_query, exclude_query_part)
 
+            self.words_quoted = words_quoted
+            return final_query
 
-# FOR OLD VERSION 4 OF SQLITE EXTENSION FTS
-class Thread_db_query_old(Qc.QThread):
-    db_query_signal = Qc.pyqtSignal(str, list, list)
-
-    def __init__(self, db_query, set, parent=None):
-        super().__init__()
-        self.words_quoted = []
-        self.number_of_results = set['number_of_results']
-        self.fts = set['fts']
-        self.db_query = db_query
-        self.sql_query = self.query_adjustment_for_sqlite(db_query)
-
-    def run(self):
-        cur = con.cursor()
-        if self.fts is False:
-            q = 'SELECT * FROM angry_table '\
-                'WHERE path LIKE {} LIMIT {}'.format(
-                    self.sql_query, self.number_of_results)
-            cur.execute(q)
-        else:
-            q = 'SELECT * FROM angry_table '\
-                'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
-                    self.sql_query, self.number_of_results, self.words_quoted)
-            cur.execute(q)
-        db_query_result = cur.fetchall()
-        self.db_query_signal.emit(self.db_query,
-                                  db_query_result,
-                                  self.words_quoted)
-
-    def query_adjustment_for_sqlite(self, input):
-        # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
-        # PERMUTATION OF GIVEN PHRASES IS USED SO THAT ORDER DOES NOT MATTER
-        if self.fts is False:
-            input = input.replace('"', '""')
-
-            o = []
-            p = permutations(input.strip().split())
-            for x in p:
-                o.append('"%{0}%"'.format('%'.join(x)))
-
-            return ' OR path LIKE '.join(o)
-
-        # NO BACKSLASH
-        if '\\' in input:
-            input = input.replace('\\', '')
-            if input == '':
-                input = ' '
-
-        if '?' in input:
-            input = input.replace('?', '')
-            if input == '':
-                input = ' '
-
-        query_words = input.strip().split()
-
-        final_query = ''
-        words_quoted = []
-        for x in query_words:
-            if '\"' in x:
-                if x.startswith('\"') and x.endswith('\"'):
+        if not FTS5_AVAILABLE:
+            final_query = ''
+            words_quoted = []
+            for x in query_words:
+                if '\"' in x:
+                    if x.startswith('\"') and x.endswith('\"'):
+                        x = x.replace('\"', '')
+                        final_query += '"{}" '.format(x)
+                        words_quoted.append(x)
+                        continue
                     x = x.replace('\"', '')
-                    final_query += '"{}" '.format(x)
-                    words_quoted.append(x)
-                    continue
-                x = x.replace('\"', '')
-            if '\'' in x:
-                if x.startswith('\'') and x.endswith('\''):
+                if '\'' in x:
+                    if x.startswith('\'') and x.endswith('\''):
+                        x = x.replace('\'', '')
+                        final_query += '"{}" '.format(x)
+                        words_quoted.append(x)
+                        continue
                     x = x.replace('\'', '')
-                    final_query += '"{}" '.format(x)
-                    words_quoted.append(x)
-                    continue
-                x = x.replace('\'', '')
 
-            final_query += '{}* '.format(x)
+                final_query += '{}* '.format(x)
 
-        self.words_quoted = words_quoted
-        return final_query
+            self.words_quoted = words_quoted
+            return final_query
 
 
 # THREAD FOR PREVENTING DATABASE QUERY BEING DONE ON EVERY SINGLE KEYPRESS
@@ -920,14 +864,9 @@ class Gui_MainWindow(Qw.QMainWindow):
         if len(self.queries_threads) > 40:
             del self.queries_threads[0:20]
 
-        if FTS5_AVAILABLE:
-            self.queries_threads.append(
-                {'input': input,
-                 'thread': Thread_db_query(input, self.set)})
-        else:
-            self.queries_threads.append(
-                {'input': input,
-                 'thread': Thread_db_query_old(input, self.set)})
+        self.queries_threads.append(
+            {'input': input,
+             'thread': Thread_db_query(input, self.set)})
 
         self.queries_threads[-1]['thread'].db_query_signal.connect(
             self.database_query_done, Qc.Qt.QueuedConnection)
