@@ -166,7 +166,7 @@ class Thread_db_query_old(Qc.QThread):
         cur = con.cursor()
         if self.fts is False:
             q = 'SELECT * FROM angry_table '\
-                'WHERE path LIKE \'{}\' LIMIT {}'.format(
+                'WHERE path LIKE {} LIMIT {}'.format(
                     self.sql_query, self.number_of_results)
             cur.execute(q)
         else:
