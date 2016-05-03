@@ -882,13 +882,11 @@ class Gui_MainWindow(Qw.QMainWindow):
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        for x in ['\"', '\'', '\\', '?', '+']:
-            db_query = db_query.replace(x, '')
-
         strip_and_split = db_query.strip().split()
         preparation_list = []
 
         for x in strip_and_split:
+            x = re.escape(x)
             if x in words_quoted:
                 z = '\\b{}\\b'.format(x)
                 preparation_list.append(z)
