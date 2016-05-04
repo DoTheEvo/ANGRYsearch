@@ -517,9 +517,9 @@ class My_table_view(Qw.QTableView):
             self.setColumnWidth(2, width * 0.10)
             self.setColumnWidth(3, width * 0.22)
 
-    # ENTER KEY AND SHIFT+ENTER KEY CATCHING
     def keyPressEvent(self, event):
-        if event.key() == 16777220:
+        # ENTER KEY AND NUMLOCK ENTER, AND WITH SHIFT
+        if event.key() == 16777220 or event.key() == 16777221:
             index = self.currentIndex()
             if event.modifiers() == Qc.Qt.ShiftModifier:
                 self.parent().parent().key_press_Enter(index, shift=True)
@@ -527,14 +527,19 @@ class My_table_view(Qw.QTableView):
             self.parent().parent().key_press_Enter(index, shift=False)
             return
 
-        Qw.QTableView.keyPressEvent(self, event)
+        # TAB KEY GOES TO NEXT WIDGET NOT NEXT ROW IN THE TABLE
+        if event.key() == 16777217:
+            self.clearSelection()
+            self.parent().focusNextChild()
+            return
 
-    # STRANGE SOLUTION TO GET TAB MOVE NEXT ROW
-    def focusNextPrevChild(self, next):
-        numb_columns = self.model().columnCount(self)
-        for x in range(numb_columns - 1):
-            Qw.QTableView.focusNextPrevChild(self, next)
-        return False
+        # SHIFT + TAB KEY
+        if event.key() == 16777218:
+            self.clearSelection()
+            self.parent().focusPreviousChild()
+            return
+
+        Qw.QTableView.keyPressEvent(self, event)
 
     def contextMenuEvent(self, event):
         right_click_menu = Qw.QMenu(self)
