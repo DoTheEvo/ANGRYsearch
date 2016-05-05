@@ -896,7 +896,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         for x in strip_and_split:
             if x in words_quoted:
-                z = '\\b{}\\b'.format(x)
+                z = '(?<![0-9a-zA-Z]){}(?![0-9a-zA-Z])'.format(x)
                 preparation_list.append(z)
             else:
                 preparation_list.append(x)
