@@ -517,6 +517,14 @@ class My_table_view(Qw.QTableView):
             self.setColumnWidth(2, width * 0.10)
             self.setColumnWidth(3, width * 0.22)
 
+    # ROW IS HIGHLIGHTED THE MOMENT the TABLE IS FOCUSED
+    def focusInEvent(self, event):
+        row = self.currentIndex().row()
+        if row == -1:
+            row = 0
+        self.selectRow(row)
+        Qw.QTableView.focusInEvent(self, event)
+
     def keyPressEvent(self, event):
         # ENTER KEY AND NUMLOCK ENTER, AND WITH SHIFT
         if event.key() == 16777220 or event.key() == 16777221:
