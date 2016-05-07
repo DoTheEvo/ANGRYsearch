@@ -32,7 +32,7 @@ try:
     require_version('Notify', '0.7')
     from gi.repository import Notify, GdkPixbuf
     NOTIFY_AVAILABLE = True
-except ImportError:
+except:
     NOTIFY_AVAILABLE = False
 
 # FIX FOR CRONTAB
