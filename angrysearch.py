@@ -811,7 +811,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v0.9.6')
+            menu.addAction('v0.9.7')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(sys.exit)

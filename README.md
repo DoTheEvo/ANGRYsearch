@@ -33,45 +33,31 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 
 ### Installation:
 
+![xubuntu installation demonstration](http://i.imgur.com/H9Uuxvp.png)
+
 * Arch Linux - [AUR package](https://aur.archlinux.org/packages/angrysearch/)
 * openSUSE & Fedora [package](https://software.opensuse.org/package/angrysearch) (courtesy of [alanbortu](https://github.com/alanbortu))
 
-There's no compilation with python, installation process is trivial and consist of having dependencies, copying files somewhere and setting execution permissions  
+Manual installation is easy as there's no compilation with python, process consists of having dependencies, copying files somewhere and setting execution permissions  
 
 **dependencies** - `python3-pyqt5`, `xdg-utils`  
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Usually you only need PyQt5 for python3, so go get it  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for example ubuntu based ditros: `sudo apt-get install python3-pyqt5`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you need PyQt5 for python3, for example ubuntu based ditros: `sudo apt-get install python3-pyqt5`  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;most distros have xdg-utils out of the box  
 
-* create angrysearch folder in /usr/share/
+Now download the latest [relase of angrysearch](https://github.com/DoTheEvo/ANGRYsearch/releases) and unpack it somewhere. Along the files there's one called `install.sh`, it will copy files where they belong and set correct permissions. I recommend having a look at it as you will be running it with sudo.
 
-        sudo mkdir /usr/share/angrysearch
+* open terminal in the directory with the release files
+* set `install.sh` as executable and run it
 
-* go where you extracted the [latest release](https://github.com/DoTheEvo/angrysearch/releases), copy all the files to /usr/share/angrysearch
+        chmod +x install.sh
+        sudo ./install.sh
 
-        sudo cp -r * /usr/share/angrysearch
-
-* set the main python file and the automatic update file as executables
-
-        sudo chmod +x /usr/share/angrysearch/angrysearch.py
-        sudo chmod +x /usr/share/angrysearch/angrysearch_update_database.py
-
-* make a link in /usr/share/applications to the desktop file so that angrysearch appears in your applications launcher
-
-        sudo ln -s /usr/share/angrysearch/angrysearch.desktop /usr/share/applications
-
-* would be nice if it would have some distinguishable icon, make a link to the icon
-
-        sudo ln -s /usr/share/angrysearch/angrysearch.svg /usr/share/pixmaps
-
-* to be able to run angrysearch from terminal anywhere by just writing `angrysearch` , make this link
-
-        sudo ln -s /usr/share/angrysearch/angrysearch.py /usr/bin/angrysearch
-        
+* DONE, if you want to see more detailed instruction, [here](https://github.com/DoTheEvo/ANGRYsearch/tree/bf43e4e59da33ee3242d84074b0b4b3c9a6c9486#installation) is older version of this readme
 
 * **optional-dependancies**
     * [python3-gobject](https://wiki.gnome.org/Projects/PyGObject) - desktop notifications for automatic update, most DEs have it
-    * [xdotool](https://www.semicomplete.com/projects/xdotool/xdotool.xhtml) - config option *fm_path_doubleclick_selects* to work in Thunar and PCmanFM
+    * [xdotool](https://www.semicomplete.com/projects/xdotool/xdotool.xhtml) - needed if using Thunar or PCmanFM and making use of the config option `fm_path_doubleclick_selects`
 
 ### Automatic update in the background
 
@@ -92,14 +78,16 @@ this cronjob will execute the update every 6 hours
 
 Crontab does not try to catch up on a job if the PC has been off during scheduled time
 
-`notifications` setting in the config allows desktop notifications informing about background automatic update finishing  
+`notifications` setting in the config turns on/off desktop notifications informing about background automatic update finishing  
 `conditional_mounts_for_autoupdate` in the config can prevent autoupdate from running if set mount points are not present
 
 ### How it works & additional details:
 
-* on update it crawls through your file system and creates database in `~/.cache/angrysearch/angry_database.db`
-* database uses [FTS4](https://sqlite.org/fts3.html) for indexing to provide instantaneous feel - results as you type
-* drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS4 tables and just do regular slow database search query with substrings as well
+* on update angrysearch crawls through your file system and creates a database in `~/.cache/angrysearch/angry_database.db`
+* the database has two columns, one containing full path to every file or directory found, other column indicating if the path is to a file or a directory. If `full mode` is enabled then theres also column for the last modification and for the size of files
+* when typing in to the search input the full path column is searched for occurances of the searched terms and the one containing them are shown
+* the database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramaticly improve search speed and get the instantaneous feel - results as you type
+* drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slow database search query with substrings as well
 * **double-click** on items in search results:
   * `Name` - the first column, opens the file in application associated with its mimetype in xdg-open
   * `Path` - the second column, open the item's location in the file manager
