@@ -33,16 +33,16 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 
 ### Installation:
 
-![xubuntu installation demonstration](http://i.imgur.com/H9Uuxvp.png)
-
 * Arch Linux - [AUR package](https://aur.archlinux.org/packages/angrysearch/)
 * openSUSE & Fedora [package](https://software.opensuse.org/package/angrysearch) (courtesy of [alanbortu](https://github.com/alanbortu))
+
+![xubuntu installation demonstration](http://i.imgur.com/H9Uuxvp.png)
 
 Manual installation is easy as there's no compilation with python, process consists of having dependencies, copying files somewhere and setting execution permissions  
 
 **dependencies** - `python3-pyqt5`, `xdg-utils`  
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you need PyQt5 for python3, for example ubuntu based ditros: `sudo apt-get install python3-pyqt5`  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you need PyQt5 for python3, for example ubuntu based ditros: `sudo apt install python3-pyqt5`  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;most distros have xdg-utils out of the box  
 
 Now download the latest [relase of angrysearch](https://github.com/DoTheEvo/ANGRYsearch/releases) and unpack it somewhere. Along the files there's one called `install.sh`, it will copy files where they belong and set correct permissions. I recommend having a look at it as you will be running it with sudo.
@@ -83,8 +83,11 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 
 ### How it works & additional details:
 
+![look in to the database](http://i.imgur.com/LuHZa3g.png)
+
+
 * on update angrysearch crawls through your file system and creates a database in `~/.cache/angrysearch/angry_database.db`
-* the database has two columns, one containing full path to every file or directory found, other column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files
+* the database has two columns, one containing full path to every file or directory found, other column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files in bytes
 * when typing in to the search input the full path column is searched for occurances of the searched terms and the one containing them are shown
 * the database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramaticly improve search speed and get the instantaneous feel - results as you type
 * drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slow database search query
@@ -98,6 +101,7 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
     * `shift+Enter` - open items location
     * `Tab` - cycle through UI elements
     * `shift-Tab` - cycle backward through UI elements
+    * `arrow up` `arrow down` - navigate through search results
     * `Esc` `ctrl+Q` - exit the application
 
 ### Configuration:
