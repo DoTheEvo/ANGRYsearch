@@ -32,7 +32,7 @@ try:
 except ImportError:
     SCANDIR_AVAILABLE = False
 
-# THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3 OR NOT
+# THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3
 FTS5_AVAILABLE = False
 
 
@@ -70,8 +70,8 @@ class Thread_db_query(Qc.QThread):
                                   db_query_result,
                                   self.words_quoted)
 
-    # FTS CHECKBOX IS UNCHECKED, NO INDEXING IS USED
-    # PERMUTATION OF GIVEN PHRASES IS USED SO THAT ORDER DOES NOT MATTER
+    # FTS CHECKBOX IS UNCHECKED, SO NO INDEXING
+    # PERMUTATION OF INPUT PHRASES IS USED SO THAT ORDER DOES NOT MATTER
     def like_query_adjustment(self, input):
         input = input.replace('"', '""')
 
@@ -82,9 +82,8 @@ class Thread_db_query(Qc.QThread):
 
         return ' OR path LIKE '.join(o)
 
-    # FTS CHECKBOX IS CHECKED, VIRTUAL TABLES ARE USED
+    # FTS CHECKBOX IS CHECKED, FTS VIRTUAL TABLES ARE USED
     def match_query_adjustment(self, input):
-
         if '?' in input or '\\' in input:
             for x in ['\\', '?']:
                 input = input.replace(x, '')
@@ -174,7 +173,7 @@ class Thread_db_query(Qc.QThread):
 
 
 # THREAD FOR PREVENTING DATABASE QUERY BEING DONE ON EVERY SINGLE KEYPRESS
-# SHORT WAIT TIME LETS USER FINISH TYPING
+# SHORT WAIT TIME LETS USER FINISH TYPING, OFF BY DEFAULT
 class Thread_delay_db_query(Qc.QThread):
     delay_signal = Qc.pyqtSignal(str)
 
@@ -517,13 +516,13 @@ class My_table_view(Qw.QTableView):
             self.setColumnWidth(2, width * 0.10)
             self.setColumnWidth(3, width * 0.22)
 
-    # ROW IS HIGHLIGHTED THE MOMENT the TABLE IS FOCUSED
+    # ROW IS HIGHLIGHTED THE MOMENT THE TABLE IS FOCUSED
     def focusInEvent(self, event):
+        Qw.QTableView.focusInEvent(self, event)
         row = self.currentIndex().row()
         if row == -1:
             row = 0
         self.selectRow(row)
-        Qw.QTableView.focusInEvent(self, event)
 
     def keyPressEvent(self, event):
         # ENTER KEY AND NUMLOCK ENTER, AND WITH SHIFT
@@ -566,7 +565,7 @@ class My_table_view(Qw.QTableView):
         right_click_menu.exec_(event.globalPos())
 
 
-# THE PRIMARY GUI DEFINING INTERFACE WIDGETS, THE WIDGET WITHIN THE MAINWINDOW
+# THE PRIMARY GUI DEFINING INTERFACE WIDGET, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(Qw.QWidget):
     def __init__(self, set={}):
         super().__init__()
@@ -595,7 +594,7 @@ class Center_widget(Qw.QWidget):
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
 # LOADS AND SAVES QSETTINGS FROM ~/.config/angrysearch
-# INITIALIZES AND SETS INTERFACE, WAITING FOR USER INPUTS
+# INITIALIZES AND SETS GUI, WAITING FOR USER INPUTS
 class Gui_MainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
@@ -671,7 +670,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         if self.settings.value(item):
             k = self.settings.value(item)
             if type == 'bool':
-                if k.lower() in ['false', 'no', '0', 'n', 'none', 'nope']:
+                if k.lower() in ['false', 'no', '0', 'n', 'none']:
                     if item == 'fast_search_but_no_substring':
                         item = 'fts'
                     self.set[item] = False
@@ -895,7 +894,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        # INSTEAD OF re.escape() THE EXTRA CHARACTERS ARE REMOVED MANUALLY
+        # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
         for x in ['\"', '\'', '\\', '?', '+', '[', ']']:
             db_query = db_query.replace(x, '')
 
