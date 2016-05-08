@@ -2,7 +2,7 @@
 Linux file search, instant results as you type
 
 Attempt at making Linux version of [Everything Search Engine](https://www.voidtools.com/) because no one else bothered.  
-Everyone seems to be damn content with linux file searches which feel slow, populating results as they go, or are cli based, or heavily integrated with a file manager, or limiting results to home, or are trying to be everything with full-text file's content search.
+Everyone seems to be damn content with searches that are slow, populating results as they go, or are cli based, or heavily integrated with a file manager, or limiting results to home, or are trying to be everything with full-text file's content search.
 
 ![demonstration gif](http://i.imgur.com/BsjGoYz.gif)
 
@@ -11,8 +11,8 @@ Done in python 3 using PyQt5 for GUI
 ### Lite mode vs Full mode
 
 angrysearch can be set to two different modes in its config, default being `lite`
-* **lite mode** will not index size of files and date of last modification, it shows only items name and path
-* **full mode** shows size and date of the last modification, the drawback is that indexing takes roughly two times longer since every file and folder gets additional stats calls during indexing
+* **lite mode** shows only name and path
+* **full mode** shows also size and date of the last modification, the drawback is that indexing takes roughly twice as long since every file and directory gets additional stats calls during indexing
 
 in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysearch_lite` being set to true or false
 
@@ -24,12 +24,12 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysea
 * by default the search results are bound to the beginning of the words presented in the names  
   it would not find "Pi<b>rate</b>s" or "Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"  
   unchecking the checkbox in the top right corner fixes this, but searching gets slower
-* database is in `~/.cache/angrysearch/angry_database.db`  
-  config file is in `~/.config/angrysearch/angrysearch.conf`  
+* the database is in `~/.cache/angrysearch/angry_database.db`  
+  the config file is in `~/.config/angrysearch/angrysearch.conf`  
 * if you have trouble starting the application, restart the pc, delete the database and the config file, new ones are recreated on the next run
 * it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB
 * it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
-* [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/` in `mimeapps.list`. If it feels like changes in that file have no effect, search for `mimeapps.list` in ~/.config
+* [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/mimeapps.list` or `~/.config/mimeapps.list` 
 
 ### Installation:
 
@@ -55,9 +55,9 @@ Now download the latest [relase of angrysearch](https://github.com/DoTheEvo/ANGR
 
 * DONE, if you want to see more detailed instruction, [here](https://github.com/DoTheEvo/ANGRYsearch/tree/bf43e4e59da33ee3242d84074b0b4b3c9a6c9486#installation) is older version of this readme
 
-* **optional-dependancies**
-    * [python3-gobject](https://wiki.gnome.org/Projects/PyGObject) - desktop notifications for automatic update, most DEs have it
-    * [xdotool](https://www.semicomplete.com/projects/xdotool/xdotool.xhtml) - needed if using Thunar or PCmanFM and making use of the config option `fm_path_doubleclick_selects`
+**optional-dependancies**
+  * [python3-gobject](https://wiki.gnome.org/Projects/PyGObject) - desktop notifications for automatic update, most DEs have it
+  * [xdotool](https://www.semicomplete.com/projects/xdotool/xdotool.xhtml) - needed if using Thunar or PCmanFM and making use of the config option `fm_path_doubleclick_selects`
 
 ### Automatic update in the background
 
@@ -84,14 +84,21 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 ### How it works & additional details:
 
 * on update angrysearch crawls through your file system and creates a database in `~/.cache/angrysearch/angry_database.db`
-* the database has two columns, one containing full path to every file or directory found, other column indicating if the path is to a file or a directory. If `full mode` is enabled then theres also column for the last modification and for the size of files
+* the database has two columns, one containing full path to every file or directory found, other column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files
 * when typing in to the search input the full path column is searched for occurances of the searched terms and the one containing them are shown
 * the database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramaticly improve search speed and get the instantaneous feel - results as you type
-* drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slow database search query with substrings as well
+* drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slow database search query
 * **double-click** on items in search results:
   * `Name` - the first column, opens the file in application associated with its mimetype in xdg-open
   * `Path` - the second column, open the item's location in the file manager
 * results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column
+* hotkeys
+    * `F6` `ctrl+L` `alt+D` - focus search input
+    * `Enter` - open selected item in associated application
+    * `shift+Enter` - open items location
+    * `Tab` - cycle through UI elements
+    * `shift-Tab` - cycle backward through UI elements
+    * `Esc` `ctrl+Q` - exit the application
 
 ### Configuration:
 
