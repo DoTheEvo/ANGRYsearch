@@ -618,11 +618,11 @@ class Gui_MainWindow(Qw.QMainWindow):
         if type(event) == Qg.QKeyEvent:
             # ESC
             if event.key() == 16777216:
-                sys.exit(app.exec_())
+                self.close()
             # CTRL + Q
             if event.key() == 81:
                 if event.modifiers() == Qc.Qt.ControlModifier:
-                    sys.exit(app.exec_())
+                    self.close()
             # F6 KEY
             if event.key() == 16777269:
                 self.center.search_input.selectAll()
@@ -736,6 +736,9 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.settings.setValue('conditional_mounts_for_autoupdate', '')
         if not self.settings.contains('notifications'):
             self.settings.setValue('notifications', True)
+
+        # Tray icon needs to be hidden, so that the main window instance automatically deletes it when closing.
+        self.tray_icon.hide()
         event.accept()
 
     def init_GUI(self):
@@ -814,7 +817,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             menu.addAction('v0.9.7')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
-            exitAction.triggered.connect(sys.exit)
+            exitAction.triggered.connect(self.close)
 
             self.tray_icon = Qw.QSystemTrayIcon()
             self.tray_icon.setIcon(self.icon)
@@ -828,7 +831,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                 reason == Qw.QSystemTrayIcon.Trigger):
             self.show()
         elif (reason == Qw.QSystemTrayIcon.MiddleClick):
-            Qc.QCoreApplication.instance().quit()
+            self.close()
 
     def get_tray_icon(self):
         base64_data = '''iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHN
