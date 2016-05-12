@@ -35,6 +35,9 @@ except ImportError:
 # THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3
 FTS5_AVAILABLE = False
 
+# FOR REGEX MODE, WHEN REGEX QUERY CAN BE RUN SO ONLY ONE ACCESS DATABASE
+REGEX_QUERY_READY = True
+
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
@@ -47,18 +50,26 @@ class Thread_db_query(Qc.QThread):
         self.words_quoted = []
         self.number_of_results = set['number_of_results']
         self.fts = set['fts']
+        self.regex_mode = set['regex_mode']
         self.db_query = db_query
 
     def run(self):
         cur = con.cursor()
 
-        if self.fts:
+        if self.regex_mode is True:
+            q = 'SELECT * FROM angry_table '\
+                'WHERE path REGEXP \'{}\' LIMIT {}'.format(
+                    self.db_query, self.number_of_results)
+            cur.execute(q)
+
+        if self.regex_mode is False and self.fts is True:
             sql_query = self.match_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
                     sql_query, self.number_of_results)
             cur.execute(q)
-        else:
+
+        if self.regex_mode is False and self.fts is False:
             sql_query = self.like_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE path LIKE {} LIMIT {}'.format(
@@ -321,11 +332,15 @@ class Thread_database_update(Qc.QThread):
 
         if self.fts5_pragma_check():
             cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts5(directory, path, size, date)''')
+                            USING fts5(directory UNINDEXED,
+                                       path,
+                                       size UNINDEXED, date UNINDEXED)''')
             cur.execute('''PRAGMA user_version = 2;''')
         else:
             cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts4(directory, path, size, date)''')
+                            USING fts4(directory, path, size, date,
+                                       notindexed=directory, notindexed=size,
+                                       notindexed=date)''')
             cur.execute('''PRAGMA user_version = 1;''')
 
         self.tstart = datetime.now()
@@ -350,11 +365,12 @@ class Thread_database_update(Qc.QThread):
 
         if self.fts5_pragma_check():
             cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts5(directory, path)''')
+                            USING fts5(directory UNINDEXED, path)''')
             cur.execute('''PRAGMA user_version = 2;''')
         else:
             cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts4(directory, path)''')
+                            USING fts4(directory, path,
+                                       notindexed=directory)''')
             cur.execute('''PRAGMA user_version = 1;''')
 
         self.tstart = datetime.now()
@@ -525,7 +541,7 @@ class My_table_view(Qw.QTableView):
         self.selectRow(row)
 
     def keyPressEvent(self, event):
-        # ENTER KEY AND NUMLOCK ENTER, AND WITH SHIFT
+        # ENTER KEY AND NUMPAD ENTER, AND WITH SHIFT
         if event.key() == 16777220 or event.key() == 16777221:
             index = self.currentIndex()
             if event.modifiers() == Qc.Qt.ShiftModifier:
@@ -610,7 +626,8 @@ class Gui_MainWindow(Qw.QMainWindow):
                     'number_of_results': 500,
                     'directories_excluded': [],
                     'conditional_mounts_for_autoupdate': [],
-                    'notifications': True}
+                    'notifications': True,
+                    'regex_mode': True}
         self.read_settings()
         self.init_GUI()
 
@@ -636,9 +653,29 @@ class Gui_MainWindow(Qw.QMainWindow):
                 if event.modifiers() == Qc.Qt.ControlModifier:
                     self.center.search_input.selectAll()
                     self.center.search_input.setFocus()
+
+            # F8 FOR REGEX SEARCH MODE
+            if event.key() == 16777271:
+                self.set['regex_mode'] = not self.set['regex_mode']
+                self.regex_mode_color_indicator()
+                self.settings.setValue('regex_mode', self.set['regex_mode'])
+                if self.set['regex_mode'] is True:
+                    self.status_bar.showMessage('REGEX MODE ENABLED')
+                else:
+                    self.status_bar.showMessage('REGEX MODE DISABLED')
+
             event.accept()
         else:
             event.ignore()
+
+    def regex_mode_color_indicator(self):
+        if self.set['regex_mode'] is True:
+            if self.set['darktheme'] is True:
+                self.center.search_input.setStyleSheet('background: #543D00;')
+            else:
+                self.center.search_input.setStyleSheet('background: #FFEEAA;')
+        else:
+            self.center.search_input.setStyleSheet('')
 
     def read_settings(self):
         if self.settings.value('Last_Run/geometry'):
@@ -665,6 +702,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.read_qsettings_item('file_manager', 'fm')
         self.read_qsettings_item('conditional_mounts_for_autoupdate', 'list')
         self.read_qsettings_item('notifications', 'bool')
+        self.read_qsettings_item('regex_mode', 'bool')
 
     def read_qsettings_item(self, item, type):
         if self.settings.value(item):
@@ -736,8 +774,11 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.settings.setValue('conditional_mounts_for_autoupdate', '')
         if not self.settings.contains('notifications'):
             self.settings.setValue('notifications', True)
+        if not self.settings.contains('regex_mode'):
+            self.settings.setValue('regex_mode', False)
 
-        # Tray icon needs to be hidden, so that the main window instance automatically deletes it when closing.
+        # TRAY ICON NEEDS TO BE HIDDEN
+        # SO THAT THE MAIN WINDOW INSTANCE AUTOMATICALLY DELETES IT ON CLOSING
         self.tray_icon.hide()
         event.accept()
 
@@ -810,11 +851,14 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.make_sys_tray()
 
         self.center.search_input.setFocus()
+        self.center.search_input.returnPressed.connect(self.focusNextChild)
+
+        self.regex_mode_color_indicator()
 
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v0.9.7')
+            menu.addAction('v0.9.8')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(self.close)
@@ -870,9 +914,11 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
-        if self.set['fts'] is False:
+        global REGEX_QUERY_READY
+        if self.set['fts'] is False or self.set['regex_mode'] is True:
             self.status_bar.showMessage(' ...')
-        if input == '':
+
+        if input == '' and REGEX_QUERY_READY is True:
             self.show_first_500()
             return
 
@@ -883,12 +929,34 @@ class Gui_MainWindow(Qw.QMainWindow):
             {'input': input,
              'thread': Thread_db_query(input, self.set)})
 
-        self.queries_threads[-1]['thread'].db_query_signal.connect(
-            self.database_query_done, Qc.Qt.QueuedConnection)
-        self.queries_threads[-1]['thread'].start()
+        if self.set['regex_mode'] is True:
+            try:
+                re.compile(input)
+                is_valid = True
+            except re.error:
+                is_valid = False
+
+            if is_valid is False:
+                return
+
+            self.queries_threads[-1]['thread'].db_query_signal.connect(
+                self.database_query_done, Qc.Qt.QueuedConnection)
+            if REGEX_QUERY_READY is True:
+                self.queries_threads[-1]['thread'].start()
+                REGEX_QUERY_READY = False
+        else:
+            self.queries_threads[-1]['thread'].db_query_signal.connect(
+                self.database_query_done, Qc.Qt.QueuedConnection)
+            self.queries_threads[-1]['thread'].start()
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
     def database_query_done(self, db_query, db_query_result, words_quoted):
+        global REGEX_QUERY_READY
+        REGEX_QUERY_READY = True
+        if self.set['regex_mode'] is True:
+            if (db_query != self.queries_threads[-1]['input']):
+                self.new_query_new_thread(self.queries_threads[-1]['input'])
+
         if (db_query != self.queries_threads[-1]['input']):
             return
         self.process_q_resuls(db_query, db_query_result, words_quoted)
@@ -897,21 +965,24 @@ class Gui_MainWindow(Qw.QMainWindow):
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
-        for x in ['\"', '\'', '\\', '?', '+', '[', ']']:
-            db_query = db_query.replace(x, '')
+        if self.set['regex_mode'] is True:
+            rx = '({})'.format(db_query)
+        else:
+            # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
+            for x in ['\"', '\'', '\\', '?', '+', '[', ']']:
+                db_query = db_query.replace(x, '')
 
-        strip_and_split = db_query.strip().split()
-        preparation_list = []
+            strip_and_split = db_query.strip().split()
+            preparation_list = []
 
-        for x in strip_and_split:
-            if x in words_quoted:
-                z = '(?<![0-9a-zA-Z]){}(?![0-9a-zA-Z])'.format(x)
-                preparation_list.append(z)
-            else:
-                preparation_list.append(x)
-        joined_by_pipe = '|'.join(preparation_list)
-        rx = '({})'.format(joined_by_pipe)
+            for x in strip_and_split:
+                if x in words_quoted:
+                    z = '(?<![0-9a-zA-Z]){}(?![0-9a-zA-Z])'.format(x)
+                    preparation_list.append(z)
+                else:
+                    preparation_list.append(x)
+            joined_by_pipe = '|'.join(preparation_list)
+            rx = '({})'.format(joined_by_pipe)
 
         self.regex_queries = re.compile(rx, re.IGNORECASE)
 
@@ -1535,8 +1606,15 @@ def open_database():
         return sqlite3.connect(temp, check_same_thread=False)
 
 
+def regexp(expr, item):
+    name = item.split('/')[-1]
+    r = re.compile(expr, re.IGNORECASE)
+    return r.search(name) is not None
+
+
 if __name__ == '__main__':
     with open_database() as con:
+        con.create_function("regexp", 2, regexp)
         app = Qw.QApplication(sys.argv)
         ui = Gui_MainWindow()
         sys.exit(app.exec_())
