@@ -62,14 +62,14 @@ class Thread_db_query(Qc.QThread):
                     self.db_query, self.number_of_results)
             cur.execute(q)
 
-        if self.regex_mode is False and self.fts is True:
+        elif self.fts is True:
             sql_query = self.match_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
                     sql_query, self.number_of_results)
             cur.execute(q)
 
-        if self.regex_mode is False and self.fts is False:
+        elif self.fts is False:
             sql_query = self.like_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE path LIKE {} LIMIT {}'.format(
@@ -424,6 +424,33 @@ class Thread_database_update(Qc.QThread):
             return False
 
 
+# THREAD FOR GETTING MIMETYPE OF A FILE CURRENTLY SELECTED
+class Thread_get_mimetype(Qc.QThread):
+    mime_signal = Qc.pyqtSignal(str, str)
+
+    def __init__(self, path, parent=None):
+        super().__init__()
+        self.path = path
+
+    def run(self):
+        mimetype = ''
+        if not os.path.exists(self.path):
+            mimetype = 'NOT FOUND'
+        else:
+            mime = subprocess.Popen(['xdg-mime', 'query',
+                                     'filetype', self.path],
+                                    stdout=subprocess.PIPE)
+            mime.wait()
+            if mime.returncode == 0:
+                mimetype = str(mime.communicate()[0].decode('latin-1').strip())
+            elif mime.returncode == 5:
+                mimetype = 'NO PERMISSION'
+            else:
+                mimetype = 'NOPE'
+
+        self.mime_signal.emit(self.path, mimetype)
+
+
 # CUSTOM TABLE MODEL TO HAVE FINE CONTROL OVER THE CONTENT AND PRESENTATION
 class Custom_table_model(Qc.QAbstractTableModel):
     def __init__(self, table_data=[[]], lite=True, parent=None):
@@ -653,7 +680,6 @@ class Gui_MainWindow(Qw.QMainWindow):
                 if event.modifiers() == Qc.Qt.ControlModifier:
                     self.center.search_input.selectAll()
                     self.center.search_input.setFocus()
-
             # F8 FOR REGEX SEARCH MODE
             if event.key() == 16777271:
                 self.set['regex_mode'] = not self.set['regex_mode']
@@ -670,10 +696,8 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     def regex_mode_color_indicator(self):
         if self.set['regex_mode'] is True:
-            if self.set['darktheme'] is True:
-                self.center.search_input.setStyleSheet('background: #543D00;')
-            else:
-                self.center.search_input.setStyleSheet('background: #FFEEAA;')
+            self.center.search_input.setStyleSheet(
+               'background: #FF6A00; color: #000000;')
         else:
             self.center.search_input.setStyleSheet('')
 
@@ -806,7 +830,9 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         self.queries_threads = []
         self.waiting_threads = []
+        self.mime_type_threads = []
         self.last_keyboard_input = {'time': 0, 'input': ''}
+        self.last_number_of_results = 500
         self.file_list = []
         self.icon_dictionary = self.get_mime_icons()
 
@@ -834,10 +860,11 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.center.table.setAlternatingRowColors(True)
         self.center.table.verticalHeader().setVisible(False)
         self.center.table.setVerticalScrollBarPolicy(Qc.Qt.ScrollBarAlwaysOn)
+        self.center.table.setSelectionMode(
+                                       Qw.QAbstractItemView.SingleSelection)
 
         self.center.table.setItemDelegate(self.HTMLDelegate())
 
-        self.center.table.clicked.connect(self.single_click)
         self.center.table.activated.connect(self.double_click_enter)
 
         self.center.search_input.textChanged[str].connect(
@@ -909,8 +936,8 @@ class Gui_MainWindow(Qw.QMainWindow):
     def waiting_done(self, waiting_data):
         if self.last_keyboard_input == waiting_data:
             self.new_query_new_thread(waiting_data)
-            if len(self.waiting_threads) > 40:
-                del self.waiting_threads[0:20]
+            if len(self.waiting_threads) > 100:
+                del self.waiting_threads[0:80]
 
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
@@ -922,13 +949,6 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.show_first_500()
             return
 
-        if len(self.queries_threads) > 40:
-            del self.queries_threads[0:20]
-
-        self.queries_threads.append(
-            {'input': input,
-             'thread': Thread_db_query(input, self.set)})
-
         if self.set['regex_mode'] is True:
             try:
                 re.compile(input)
@@ -937,7 +957,12 @@ class Gui_MainWindow(Qw.QMainWindow):
                 is_valid = False
 
             if is_valid is False:
+                self.status_bar.showMessage('regex not valid')
                 return
+
+            self.queries_threads.append(
+                                {'input': input,
+                                 'thread': Thread_db_query(input, self.set)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -945,9 +970,16 @@ class Gui_MainWindow(Qw.QMainWindow):
                 self.queries_threads[-1]['thread'].start()
                 REGEX_QUERY_READY = False
         else:
+            self.queries_threads.append(
+                                {'input': input,
+                                 'thread': Thread_db_query(input, self.set)})
+
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
             self.queries_threads[-1]['thread'].start()
+
+        if len(self.queries_threads) > 100:
+            del self.queries_threads[0:80]
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
     def database_query_done(self, db_query, db_query_result, words_quoted):
@@ -1048,7 +1080,11 @@ class Gui_MainWindow(Qw.QMainWindow):
                                         self.set['angrysearch_lite'])
 
         self.center.table.setModel(self.model)
+        self.center.table.selectionModel().selectionChanged.connect(
+                                                        self.selection_happens)
+
         total = locale.format('%d', len(db_query_result), grouping=True)
+        self.last_number_of_results = total
         self.status_bar.showMessage(total)
 
     def bold_text(self, line):
@@ -1145,24 +1181,31 @@ class Gui_MainWindow(Qw.QMainWindow):
         clipboard = Qw.QApplication.clipboard()
         clipboard.setText(path)
 
-    # SHOWS SELECTED ITEMS MIME TYPE
-    def single_click(self, QModelIndex):
-        path = self.model.itemFromIndex(QModelIndex.row(), 0)._fullpath
+    # WHEN A ROW IS SELECTED IN TABLE VIEW, BY MOUSE OR KEYBOARD
+    # MIMETYPE IS GET IN A THREAD TO KEEP THE INTERFACE RESPONSIVE
+    def selection_happens(self, selected_item, deselected_item):
+        if selected_item.indexes():
+            row = selected_item.indexes()[0].row()
+            path = self.model.itemFromIndex(row, 0)._fullpath
 
-        if not os.path.exists(path):
-            self.status_bar.showMessage('NOT FOUND')
+            self.mime_type_threads.append(
+                {'path': path,
+                 'thread': Thread_get_mimetype(path)})
+
+            self.mime_type_threads[-1]['thread'].mime_signal.connect(
+                self.mime_type_thread_done, Qc.Qt.QueuedConnection)
+            self.mime_type_threads[-1]['thread'].start()
+        else:
+            self.status_bar.showMessage(self.last_number_of_results)
             return
 
-        mime = subprocess.Popen(['xdg-mime', 'query', 'filetype', path],
-                                stdout=subprocess.PIPE)
-        mime.wait()
-        if mime.returncode == 0:
-            mime_type = mime.communicate()[0].decode('latin-1').strip()
-            self.status_bar.showMessage(str(mime_type))
-        elif mime.returncode == 5:
-            self.status_bar.showMessage('NO PERMISSION')
-        else:
-            self.status_bar.showMessage('NOPE')
+    def mime_type_thread_done(self, path, selections_mimetype):
+        if (path != self.mime_type_threads[-1]['path']):
+            return
+        self.status_bar.showMessage(selections_mimetype)
+
+        if len(self.mime_type_threads) > 100:
+            del self.mime_type_threads[0:80]
 
     # THE FIRST COLUMN DOUBLECLICK OPENS THE FILE IN ASSOCIATED PROGRAM
     # THE SECOND COLUMN OPENS THE LOCATION, ATTEMPTING HIGHLIGHTING FILE
