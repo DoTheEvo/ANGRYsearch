@@ -405,6 +405,7 @@ class Thread_database_update(Qc.QThread):
         p.wait()
 
         con = sqlite3.connect(db_path, check_same_thread=False)
+        con.create_function("regexp", 2, regexp)
 
     def time_difference(self, nseconds):
         mins, secs = divmod(nseconds, 60)
@@ -1648,6 +1649,7 @@ def open_database():
         return sqlite3.connect(temp, check_same_thread=False)
 
 
+# CUSTOM REGEX FUNCTION FOR SQLITE TO ALLOW REGEX SEARCH MODE
 def regexp(expr, item):
     name = item.split('/')[-1]
     r = re.compile(expr, re.IGNORECASE)
