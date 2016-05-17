@@ -654,7 +654,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     'directories_excluded': [],
                     'conditional_mounts_for_autoupdate': [],
                     'notifications': True,
-                    'regex_mode': True}
+                    'regex_mode': False}
         self.read_settings()
         self.init_GUI()
 
@@ -683,8 +683,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             # F8 FOR REGEX SEARCH MODE
             if event.key() == 16777271:
                 self.set['regex_mode'] = not self.set['regex_mode']
-                self.regex_mode_color_indicator()
                 self.settings.setValue('regex_mode', self.set['regex_mode'])
+                self.regex_mode_color_indicator()
                 if self.set['regex_mode'] is True:
                     self.status_bar.showMessage('REGEX MODE ENABLED')
                 else:
@@ -986,12 +986,11 @@ class Gui_MainWindow(Qw.QMainWindow):
         global REGEX_QUERY_READY
         REGEX_QUERY_READY = True
         if self.set['regex_mode'] is True:
-            if (db_query != self.queries_threads[-1]['input']):
+            if db_query != self.queries_threads[-1]['input']:
                 self.new_query_new_thread(self.queries_threads[-1]['input'])
 
-        if (db_query != self.queries_threads[-1]['input']):
-            return
-        self.process_q_resuls(db_query, db_query_result, words_quoted)
+        if db_query == self.queries_threads[-1]['input']:
+            self.process_q_resuls(db_query, db_query_result, words_quoted)
 
     # FORMAT DATA FOR THE MODEL
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
@@ -1371,8 +1370,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.database_age()
 
     def theme_change_icon(self, text):
-        self.settings.setValue('icon_theme', text)
         self.set['icon_theme'] = text
+        self.settings.setValue('icon_theme', text)
         self.icon_dictionary = self.get_mime_icons()
         self.new_query_new_thread(self.center.search_input.text())
 
