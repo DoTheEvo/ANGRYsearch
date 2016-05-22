@@ -10,20 +10,31 @@ Done in python 3 using PyQt5 for GUI
 
 ### Lite mode vs Full mode
 
-angrysearch can be set to two different modes in its config, default being `lite`
+angrysearch database can be set to two different modes in its config, default being `lite`
 * **lite mode** shows only name and path
 * **full mode** shows also size and date of the last modification, the drawback is that indexing takes roughly twice as long since every file and directory gets additional stats calls during indexing
 
-in `~/.config/angrysearch/angrysearch.conf` you control the mode witht `angrysearch_lite` being set to true or false
+in `~/.config/angrysearch/angrysearch.conf` you control the mode with `angrysearch_lite` being set to true or false
 
 ![lite version png](http://i.imgur.com/TS1fgTr.png)
+
+### Search modes
+
+there are 3 search modes, default being `fast`
+* **fast mode** - enabled when the checkbox next to the input field is checked  
+extremely fast, but no substrings, meaning it would not find "Pi<b>rate</b>s" or "Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"
+* **slow mode** - enabled when the checkbox is unchecked, slightly slower but can find substrings
+* **regex mode** - activated by the **F8** key, indicated by orange color background  
+slowest search, used for very precise searches, set to case insensitive  
+unlike the previous search modes not entire path is searched, only the filename or a directory name 
+
+regex example:
+
+![regex in action gif](http://i.imgur.com/6dEFvat.gif)
 
 
 ### What you should know:
 
-* by default the search results are bound to the beginning of the words presented in the names  
-  it would not find "Pi<b>rate</b>s" or "Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"  
-  unchecking the checkbox in the top right corner fixes this, but searching gets slower
 * the database is in `~/.cache/angrysearch/angry_database.db`  
   the config file is in `~/.config/angrysearch/angrysearch.conf`  
 * if you have trouble starting the application, restart the pc, delete the database and the config file, new ones are recreated on the next run
@@ -45,7 +56,7 @@ Manual installation is easy as there's no compilation with python, process consi
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you need PyQt5 for python3, for example ubuntu based ditros: `sudo apt install python3-pyqt5`  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;most distros have xdg-utils out of the box  
 
-Now download the latest [relase of angrysearch](https://github.com/DoTheEvo/ANGRYsearch/releases) and unpack it somewhere. Along the files there's one called `install.sh`, it will copy files where they belong and set correct permissions. I recommend having a look at it as you will be running it with sudo.
+Now that you have the dependencies, download the latest [relase of angrysearch](https://github.com/DoTheEvo/ANGRYsearch/releases) and unpack it somewhere. Along the files there's one called `install.sh`, it will copy files where they belong and set correct permissions. I recommend having a look at it as you will be running it with sudo.
 
 * open terminal in the directory with the release files
 * set `install.sh` as executable and run it
@@ -81,28 +92,37 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
 `notifications` setting in the config turns on/off desktop notifications informing about background automatic update finishing  
 `conditional_mounts_for_autoupdate` in the config can prevent autoupdate from running if set mount points are not present
 
+*Desktop notifications from cronjob not always work, so on your distro you might be without them*
+
 ### How it works & additional details:
 
 ![look in to the database](http://i.imgur.com/LuHZa3g.png)
 
 
-* on update angrysearch crawls through your file system and creates a database in `~/.cache/angrysearch/angry_database.db`
-* the database has two columns, one containing full path to every file or directory found, other column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files in bytes
-* when typing in to the search input the full path column is searched for occurances of the searched terms and the one containing them are shown
-* the database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramaticly improve search speed and get the instantaneous feel - results as you type
-* drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slow database search query
+* on update angrysearch crawls through your file system and creates its database
+* the database has a column containing full path to every file and directory found, another column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files in bytes
+* when typing in to the search input the full path column is searched for occurances of the searched terms and the ones containing them are shown
+* the database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramaticly improve search speed and get the instantaneous feel - results as you type  
+drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slower database search query
+* hovering mouse over the update button will show how old the database is
 * **double-click** on items in search results:
   * `Name` - the first column, opens the file in application associated with its mimetype in xdg-open
   * `Path` - the second column, open the item's location in the file manager
 * results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column
 * hotkeys
     * `F6` `ctrl+L` `alt+D` - focus search input
-    * `Enter` - open selected item in associated application
+    * `Enter` in search input- jump to results
+    * `Enter` in search results - open selected item in associated application
     * `shift+Enter` - open items location
     * `Tab` - cycle through UI elements
     * `shift-Tab` - cycle backward through UI elements
     * `arrow up` `arrow down` - navigate through search results
     * `Esc` `ctrl+Q` - exit the application
+* FTS5 is the new version of the indexing extension of sqlite, most distros don't have it yet and are on FTS4, the systems that do have it have two additional benefits in `fast mode` search
+    * can exclude from search results by using the minus sign: search `wav -home` would show all paths containing the word `wav` except the ones also containing `home`
+    * ignorance of diacritic, search for `oko` would also show results like `ôko` `ókö` `Okǒ`  
+
+  to check if FTS5 is available on your system - in update dialog window, hover mouse over the text `• creating new database`
 
 ### Configuration:
 
@@ -121,7 +141,8 @@ Crontab does not try to catch up on a job if the PC has been off during schedule
   *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figure out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
   *   `notifications` By default set to true. Automatic periodic updates that are run on background using crontab will use desktop notification system to inform when indexing is done or if the indexing was aborted because of missing mount points
   *   `number_of_results` By default set to 500. Limit set for searches in the database. Lower number means search results come faster
-  *   `row_height` By default set to 0 which means default. Sets height of the rows in pixels
+  *   `regex_mode` By default set to false. Enables regex search mode. F8 key toggles between true/false when running the application
+  *   `row_height` By default set to 0 which means default system height. Sets height of the rows in pixels
   *   `typing_delay` By default set to false. If enabled, it introduces 0.2 second delay between the action of typing and searching the database. This will prevent unnecessary database queries when user is typing fast as there is waiting to finish typing. This can improve performance on slower machines, but on modern ones it might negatively affect the feel of instant responsiveness
   *   `[Last_Run]` The applications properties from the last time at the moment when it was closed - window size, position, state
 
