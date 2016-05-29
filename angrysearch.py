@@ -208,9 +208,8 @@ class Thread_database_update(Qc.QThread):
     def __init__(self, lite, dirs_excluded, parent=None):
         super().__init__()
         self.table = []
-        self.tstart = None
-        self.crawl_time = None
-        self.database_time = None
+        self.crawl_time = ''
+        self.database_time = ''
 
         self.lite = lite
         self.exclude = [x.encode() for x in dirs_excluded]
@@ -219,7 +218,7 @@ class Thread_database_update(Qc.QThread):
         self.directories_timestamp = {}
 
     def run(self):
-        self.db_update_signal.emit('label_1', None)
+        self.db_update_signal.emit('label_1', '0')
         if self.lite is True:
             self.crawling_drives_lite()
         else:
@@ -234,14 +233,14 @@ class Thread_database_update(Qc.QThread):
         self.db_update_signal.emit('label_3', self.database_time)
         self.replace_old_db_with_new()
 
-        self.db_update_signal.emit('the_end_of_the_update', None)
+        self.db_update_signal.emit('the_end_of_the_update', '0')
 
     def crawling_drives(self):
         def error(err):
             print(err)
 
         root_dir = b'/'
-        self.tstart = datetime.now()
+        tstart = datetime.now()
 
         dir_list = []
         file_list = []
@@ -282,16 +281,14 @@ class Thread_database_update(Qc.QThread):
                     ('0', utf_path, size, epoch_time))
 
         self.table = dir_list + file_list
-
-        self.crawl_time = datetime.now() - self.tstart
-        self.crawl_time = self.time_difference(self.crawl_time.seconds)
+        self.crawl_time = self.time_difference(tstart)
 
     def crawling_drives_lite(self):
         def error(err):
             print(err)
 
         root_dir = b'/'
-        self.tstart = datetime.now()
+        tstart = datetime.now()
 
         dir_list = []
         file_list = []
@@ -316,9 +313,7 @@ class Thread_database_update(Qc.QThread):
                     encoding='UTF-8', errors='ignore')))
 
         self.table = dir_list + file_list
-
-        self.crawl_time = datetime.now() - self.tstart
-        self.crawl_time = self.time_difference(self.crawl_time.seconds)
+        self.crawl_time = self.time_difference(tstart)
 
     def new_database(self):
         global con
@@ -343,15 +338,14 @@ class Thread_database_update(Qc.QThread):
                                        notindexed=date)''')
             cur.execute('''PRAGMA user_version = 1;''')
 
-        self.tstart = datetime.now()
+        tstart = datetime.now()
 
         for x in self.table:
             cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
                         (x[0], x[1], x[2], x[3]))
 
         con.commit()
-        self.database_time = datetime.now() - self.tstart
-        self.database_time = self.time_difference(self.database_time.seconds)
+        self.database_time = self.time_difference(tstart)
 
     def new_database_lite(self):
         global con
@@ -373,15 +367,14 @@ class Thread_database_update(Qc.QThread):
                                        notindexed=directory)''')
             cur.execute('''PRAGMA user_version = 1;''')
 
-        self.tstart = datetime.now()
+        tstart = datetime.now()
 
         for x in self.table:
             cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
                         (x[0], x[1]))
 
         con.commit()
-        self.database_time = datetime.now() - self.tstart
-        self.database_time = self.time_difference(self.database_time.seconds)
+        self.database_time = self.time_difference(tstart)
 
     def replace_old_db_with_new(self):
         global con
@@ -407,8 +400,9 @@ class Thread_database_update(Qc.QThread):
         con = sqlite3.connect(db_path, check_same_thread=False)
         con.create_function("regexp", 2, regexp)
 
-    def time_difference(self, nseconds):
-        mins, secs = divmod(nseconds, 60)
+    def time_difference(self, tstart):
+        time_diff = datetime.now() - tstart
+        mins, secs = divmod(time_diff.seconds, 60)
         return '{:0>2d}:{:0>2d}'.format(mins, secs)
 
     # FTS5 IS A NEW EXTENSION OF SQLITE
@@ -886,7 +880,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v0.9.8')
+            menu.addAction('v0.9.9')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(self.close)
@@ -1616,7 +1610,7 @@ class Update_dialog_window(Qw.QDialog):
 
         self.thread_updating.start()
 
-    def upd_dialog_receives_signal(self, message, time=''):
+    def upd_dialog_receives_signal(self, message, time):
         if message == 'the_end_of_the_update':
             self.window_close_signal.emit('update_win_ok')
             self.accept()
