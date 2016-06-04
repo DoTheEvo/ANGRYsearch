@@ -25,7 +25,7 @@ there are 3 search modes, default being `fast`
 extremely fast, but no substrings, meaning it would not find "Pi<b>rate</b>s" or "Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"
 * **slow mode** - enabled when the checkbox is unchecked, slightly slower but can find substrings
 * **regex mode** - activated by the **F8** key, indicated by orange color background  
-slowest search, used for very precise searches, set to case insensitive  
+slowest search, used for very precise searches using [regular expressions](http://www.aivosto.com/vbtips/regex.html), set to case insensitive  
 unlike the previous search modes not entire path is searched, only the filename or a directory name 
 
 regex example:
