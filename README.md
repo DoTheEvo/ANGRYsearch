@@ -99,20 +99,21 @@ crontab does not try to catch up on a job if the PC has been off during schedule
 ![look in to the database](http://i.imgur.com/LuHZa3g.png)
 
 
-* on update angrysearch crawls through your file system and creates its database
-* the database has a column containing full path to every file and directory found, another column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files in bytes
-* when typing in to the search input the path column is searched for the occurrences and the rows containing them are shown  
-this means there's no distinction between filename or directory name somewhere at the begging of the path, if it's somewhere on the path it is shown  
-exception is regex mode, where only the last item of the path is searched
-* the database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramatically improve search speed and get the instantaneous feel - results as you type  
-drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slower database search query
-* `angrysearch.py` file alone is all that is needed for full functionality
-* hovering mouse over the update button will show how old is the database
+* On update angrysearch crawls through your file system and creates its database.  
+The database has a column containing full path to every file and directory found, another column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files in bytes.
+* When typing in to the search input the path column is searched for the occurrences of typed text and the rows containing them are shown.  
+This is unlike other searches which usually look only through names of files/directories not their entire paths. This means that writing `books` will show all the items with the term "books" somewhere on their path instead of just in the name.  
+On typical slow searches this would be too broad of a search with too many results, but the instantaneous nature of angrysearch allows to continue typing until the search is narrow enough.
+* The database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramatically improve search speed and get the instantaneous feel - results as you type - `fast mode`  
+Drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slower database search query - `slow mode`
+* In the `fast mode` quotation marks can be used to make exact searches: `'torrent'` would not include "torrents" in the results.
+* `angrysearch.py` file alone is all that is needed for full functionality.
+* Hovering mouse over the update button will show how old is the database.
 * **double-click** on the items in search results:
   * `Name` - the first column, opens the file in application associated with its mimetype using xdg-open
   * `Path` - the second column, opens the item's location in the file manager
-* results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column
-* hotkeys
+* Results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column.
+* Hotkeys
     * `F6` `ctrl+L` `alt+D` - focus search input
     * `Enter` in search input- jump to results
     * `Enter` in search results - open selected item in associated application
@@ -121,16 +122,16 @@ drawback of this indexing is inability to do substring searches, but the checkbo
     * `shift-Tab` - cycle backward through UI elements
     * `arrow up` `arrow down` - navigate through search results
     * `Esc` `ctrl+Q` - exit the application
-* FTS5 is the new version of the indexing extension of sqlite, most distros don't have it yet and are on FTS4. The systems that do have it have two additional benefits in the `fast mode`
+* FTS5 is the new version of the indexing extension of sqlite, most distros don't have it yet and are on FTS4. The systems that do have it get two additional benefits in the `fast mode`
     * can exclude from search results by using the minus sign: search `wav -home` would show all paths containing the word `wav` except the ones also containing `home`
     * ignorance of diacritic, search for `oko` would also show results like `ôko` `ókö` `Okǒ`  
 
-  to check if FTS5 is available on your system - in update dialog window, hover mouse over the text `• creating new database`
+  To check if FTS5 is available on your system - in update dialog window, hover mouse over the text `• creating new database`
 
 ### Configuration:
 
 * **config file** location: `~/.config/angrysearch/angrysearch.conf`  
-  You can delete the config file whenever you wish, on the next run/close a new one will be created with default values
+  You can delete the config file whenever you wish, on the next run/close a new one will be created with the default values.
 
 ![config file screenshot](http://i.imgur.com/KVPv3eV.png)
 

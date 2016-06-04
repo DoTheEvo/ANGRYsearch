@@ -217,16 +217,10 @@ class Thread_database_update(Qc.QThread):
 
     def run(self):
         self.db_update_signal.emit('label_1', '0')
-        if self.lite is True:
-            self.crawling_drives_lite()
-        else:
-            self.crawling_drives()
+        self.crawling_drives()
 
         self.db_update_signal.emit('label_2', self.crawl_time)
-        if self.lite is True:
-            self.new_database_lite()
-        else:
-            self.new_database()
+        self.new_database()
 
         self.db_update_signal.emit('label_3', self.database_time)
         self.replace_old_db_with_new()
@@ -254,65 +248,40 @@ class Thread_database_update(Qc.QThread):
             if root == b'/' and b'proc' in dirs:
                 dirs.remove(b'proc')
             dirs = [d for d in dirs if d not in self.exclude]
-            self.crawl_signal.emit(root.decode(encoding='utf-8',
-                                               errors='ignore'))
-            for dname in dirs:
-                path = os.path.join(root, dname)
-                utf_path = path.decode(encoding='utf-8', errors='ignore')
-                try:
-                    stats = os.lstat(path)
-                    epoch_time = stats.st_mtime.__trunc__()
-                except:
-                    print('Cant access: ' + str(path))
-                    epoch_time = 0
-                dir_list.append(('1', utf_path, '', epoch_time))
-            for fname in files:
-                path = os.path.join(root, fname)
-                utf_path = path.decode(encoding='utf-8', errors='ignore')
-                try:
-                    stats = os.lstat(path)
-                    size = stats.st_size
-                    epoch_time = stats.st_mtime.__trunc__()
-                except:
-                    print('Cant access: ' + str(path))
-                    size = 0
-                    epoch_time = 0
-                file_list.append(
-                    ('0', utf_path, size, epoch_time))
+            self.crawl_signal.emit(
+                root.decode(encoding='utf-8', errors='ignore'))
 
-        self.table = dir_list + file_list
-        self.crawl_time = self.time_difference(tstart)
-
-    def crawling_drives_lite(self):
-        def error(err):
-            print(err)
-
-        root_dir = b'/'
-        tstart = datetime.now()
-
-        dir_list = []
-        file_list = []
-
-        if SCANDIR_AVAILABLE:
-            modul_var = scandir
-        else:
-            modul_var = os
-
-        for root, dirs, files in modul_var.walk(root_dir, onerror=error):
-            dirs.sort()
-            files.sort()
-            if root == b'/' and b'proc' in dirs:
-                dirs.remove(b'proc')
-            dirs = [d for d in dirs if d not in self.exclude]
-            self.crawl_signal.emit(root.decode(encoding='UTF-8',
-                                               errors='ignore'))
-
-            for dname in dirs:
-                dir_list.append(('1', os.path.join(root, dname).decode(
-                    encoding='UTF-8', errors='ignore')))
-            for fname in files:
-                file_list.append(('0', os.path.join(root, fname).decode(
-                    encoding='UTF-8', errors='ignore')))
+            if self.lite is True:
+                for dname in dirs:
+                    dir_list.append(('1', os.path.join(root, dname).decode(
+                        encoding='UTF-8', errors='ignore')))
+                for fname in files:
+                    file_list.append(('0', os.path.join(root, fname).decode(
+                        encoding='UTF-8', errors='ignore')))
+            else:
+                for dname in dirs:
+                    path = os.path.join(root, dname)
+                    utf_path = path.decode(encoding='utf-8', errors='ignore')
+                    try:
+                        stats = os.lstat(path)
+                        epoch_time = stats.st_mtime.__trunc__()
+                    except:
+                        print('Cant access: ' + str(path))
+                        epoch_time = 0
+                    dir_list.append(('1', utf_path, '', epoch_time))
+                for fname in files:
+                    path = os.path.join(root, fname)
+                    utf_path = path.decode(encoding='utf-8', errors='ignore')
+                    try:
+                        stats = os.lstat(path)
+                        size = stats.st_size
+                        epoch_time = stats.st_mtime.__trunc__()
+                    except:
+                        print('Cant access: ' + str(path))
+                        size = 0
+                        epoch_time = 0
+                    file_list.append(
+                        ('0', utf_path, size, epoch_time))
 
         self.table = dir_list + file_list
         self.crawl_time = self.time_difference(tstart)
@@ -320,6 +289,7 @@ class Thread_database_update(Qc.QThread):
     def new_database(self):
         global con
         temp_db_path = '/tmp/angry_database.db'
+        tstart = datetime.now()
 
         if os.path.exists(temp_db_path):
             os.remove(temp_db_path)
@@ -327,53 +297,38 @@ class Thread_database_update(Qc.QThread):
         con = sqlite3.connect(temp_db_path, check_same_thread=False)
         cur = con.cursor()
 
-        if self.fts5_pragma_check():
-            cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts5(directory UNINDEXED,
-                                       path,
-                                       size UNINDEXED, date UNINDEXED)''')
-            cur.execute('''PRAGMA user_version = 2;''')
+        if self.lite is True:
+            if self.fts5_pragma_check() is True:
+                cur.execute('''CREATE VIRTUAL TABLE angry_table
+                                USING fts5(directory UNINDEXED, path)''')
+                cur.execute('''PRAGMA user_version = 2;''')
+            else:
+                cur.execute('''CREATE VIRTUAL TABLE angry_table
+                                USING fts4(directory, path,
+                                           notindexed=directory)''')
+                cur.execute('''PRAGMA user_version = 1;''')
+
+            for x in self.table:
+                cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
+                            (x[0], x[1]))
         else:
-            cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts4(directory, path, size, date,
-                                       notindexed=directory, notindexed=size,
-                                       notindexed=date)''')
-            cur.execute('''PRAGMA user_version = 1;''')
+            if self.fts5_pragma_check() is True:
+                cur.execute('''CREATE VIRTUAL TABLE angry_table
+                                USING fts5(directory UNINDEXED,
+                                           path,
+                                           size UNINDEXED, date UNINDEXED)''')
+                cur.execute('''PRAGMA user_version = 2;''')
+            else:
+                cur.execute('''CREATE VIRTUAL TABLE angry_table
+                                USING fts4(directory, path, size, date,
+                                           notindexed=directory,
+                                           notindexed=size,
+                                           notindexed=date)''')
+                cur.execute('''PRAGMA user_version = 1;''')
 
-        tstart = datetime.now()
-
-        for x in self.table:
-            cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
-                        (x[0], x[1], x[2], x[3]))
-
-        con.commit()
-        self.database_time = self.time_difference(tstart)
-
-    def new_database_lite(self):
-        global con
-        temp_db_path = '/tmp/angry_database.db'
-
-        if os.path.exists(temp_db_path):
-            os.remove(temp_db_path)
-
-        con = sqlite3.connect(temp_db_path, check_same_thread=False)
-        cur = con.cursor()
-
-        if self.fts5_pragma_check():
-            cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts5(directory UNINDEXED, path)''')
-            cur.execute('''PRAGMA user_version = 2;''')
-        else:
-            cur.execute('''CREATE VIRTUAL TABLE angry_table
-                            USING fts4(directory, path,
-                                       notindexed=directory)''')
-            cur.execute('''PRAGMA user_version = 1;''')
-
-        tstart = datetime.now()
-
-        for x in self.table:
-            cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
-                        (x[0], x[1]))
+            for x in self.table:
+                cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
+                            (x[0], x[1], x[2], x[3]))
 
         con.commit()
         self.database_time = self.time_difference(tstart)
@@ -1077,7 +1032,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         self.center.table.setModel(self.model)
         self.center.table.selectionModel().selectionChanged.connect(
-                                                        self.selection_happens)
+            self.selection_happens)
 
         total = locale.format('%d', len(db_query_result), grouping=True)
         self.last_number_of_results = total
