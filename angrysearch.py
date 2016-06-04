@@ -213,8 +213,6 @@ class Thread_database_update(Qc.QThread):
 
         self.lite = lite
         self.exclude = [x.encode() for x in dirs_excluded]
-        self.exclude.append(b'proc')
-
         self.directories_timestamp = {}
 
     def run(self):
@@ -253,7 +251,9 @@ class Thread_database_update(Qc.QThread):
         for root, dirs, files in modul_var.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
-            dirs[:] = [d for d in dirs if d not in self.exclude]
+            if root == b'/' and b'proc' in dirs:
+                dirs.remove(b'proc')
+            dirs = [d for d in dirs if d not in self.exclude]
             self.crawl_signal.emit(root.decode(encoding='utf-8',
                                                errors='ignore'))
             for dname in dirs:
@@ -301,7 +301,9 @@ class Thread_database_update(Qc.QThread):
         for root, dirs, files in modul_var.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
-            dirs[:] = [d for d in dirs if d not in self.exclude]
+            if root == b'/' and b'proc' in dirs:
+                dirs.remove(b'proc')
+            dirs = [d for d in dirs if d not in self.exclude]
             self.crawl_signal.emit(root.decode(encoding='UTF-8',
                                                errors='ignore'))
 
@@ -880,7 +882,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v0.9.9')
+            menu.addAction('v1.0.0')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(self.close)
