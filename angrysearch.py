@@ -1435,8 +1435,9 @@ class Update_dialog_window(Qw.QDialog):
 
         self.icon_theme_label = Qw.QLabel('icon theme:')
         self.icon_theme_combobox = Qw.QComboBox(self)
-        self.icon_theme_combobox.addItems(['adwaita', 'elementary', 'faenza',
-                                           'numix', 'oxygen', 'ubuntu'])
+        self.icon_theme_combobox.addItems(
+            ['adwaita', 'elementary', 'faenza', 'numix',
+             'oxygen', 'paper', 'ubuntu'])
         self.icon_theme_combobox.setEditable(True)
         self.icon_theme_combobox.lineEdit().setReadOnly(True)
         self.icon_theme_combobox.lineEdit().setAlignment(Qc.Qt.AlignCenter)

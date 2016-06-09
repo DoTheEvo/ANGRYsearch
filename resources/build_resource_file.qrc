@@ -86,6 +86,15 @@
         <file>mimeicons/oxygen/video.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/paper/audio.png</file>
+        <file>mimeicons/paper/file.png</file>
+        <file>mimeicons/paper/folder.png</file>
+        <file>mimeicons/paper/image.png</file>
+        <file>mimeicons/paper/pdf.png</file>
+        <file>mimeicons/paper/text.png</file>
+        <file>mimeicons/paper/video.png</file>
+    </qresource>
+    <qresource>
         <file>mimeicons/ubuntu/audio.png</file>
         <file>mimeicons/ubuntu/file.png</file>
         <file>mimeicons/ubuntu/folder.png</file>

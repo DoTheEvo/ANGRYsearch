@@ -26,7 +26,7 @@ extremely fast, but no substrings, meaning it would not find "Pi<b>rate</b>s" or
 * **slow mode** - enabled when the checkbox is unchecked, slightly slower but can find substrings
 * **regex mode** - activated by the **F8** key, indicated by orange color background  
 slowest search, used for very precise searches using [regular expressions](http://www.aivosto.com/vbtips/regex.html), set to case insensitive  
-unlike the previous search modes not entire path is searched, only the filename or a directory name 
+unlike the previous search modes not entire path is searched, only the filenames/directory names
 
 regex example:
 
