@@ -952,7 +952,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             rx = '({})'.format(db_query)
         else:
             # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
-            for x in ['\"', '\'', '\\', '?', '+', '[', ']']:
+            for x in ['\"', '\'', '\\', '?', '+', '[', ']', '*']:
                 db_query = db_query.replace(x, '')
 
             strip_and_split = db_query.strip().split()
