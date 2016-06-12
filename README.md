@@ -4,6 +4,8 @@ Linux file search, instant results as you type
 Attempt at making Linux version of [Everything Search Engine](https://www.voidtools.com/) because no one else bothered.  
 Everyone seems to be damn content with searches that are slow, populating results as they go; or are cli based, making it difficult to comfortably make use of the results; or are heavily integrated with a file manager, often limiting search to just home; or are trying to be everything with full-text file's content search.
 
+*A similar project worth attention* - [FSearch](https://github.com/cboxdoerfer/fsearch)
+
 ![demonstration gif](http://i.imgur.com/BsjGoYz.gif)
 
 Done in python 3 using PyQt5 for GUI
@@ -56,7 +58,7 @@ Manual installation is easy as there's no compilation with python, process consi
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you need PyQt5 for python3, for example ubuntu based distros: `sudo apt install python3-pyqt5`  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;most distros have xdg-utils out of the box  
 
-Now that you have the dependencies, download the latest [release of angrysearch](https://github.com/DoTheEvo/ANGRYsearch/releases) and unpack it somewhere. Along the files there's one called `install.sh`, it will copy files where they belong and set correct permissions.
+Now that you have the dependencies, download the latest [release of angrysearch](https://github.com/DoTheEvo/ANGRYsearch/releases) and unpack it somewhere. Along the files there's one called `install.sh`, it will copy files where they belong and sets correct permissions.
 
 * open terminal in the directory with the release files
 * set `install.sh` as executable and run it
@@ -110,7 +112,7 @@ Drawback of this indexing is inability to do substring searches, but the checkbo
 * `angrysearch.py` file alone is all that is needed for full functionality.
 * Hovering mouse over the update button will show how old is the database.
 * **double-click** on the items in search results:
-  * `Name` - the first column, opens the file in application associated with its mimetype using xdg-open
+  * `Name` - the first column, opens the file in the application associated with its mimetype using xdg-open
   * `Path` - the second column, opens the item's location in the file manager
 * Results can be sorted by clicking on column's headers, only the presented results will be sorted, meaning that by default max 500 items. To return to the default sort, sort by path column.
 * Hotkeys
