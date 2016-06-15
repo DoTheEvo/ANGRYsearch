@@ -247,7 +247,8 @@ class Thread_database_update(Qc.QThread):
             files.sort()
             if root == b'/' and b'proc' in dirs:
                 dirs.remove(b'proc')
-            dirs = [d for d in dirs if d not in self.exclude]
+            # SLICING WITH [:] SO THAT THE LIST ID STAYS THE SAME
+            dirs[:] = [d for d in dirs if d not in self.exclude]
             self.crawl_signal.emit(
                 root.decode(encoding='utf-8', errors='ignore'))
 
