@@ -14,7 +14,7 @@ Done in python 3 using PyQt5 for GUI
 
 angrysearch database can be set to two different modes in its config, default being `lite`
 * **lite mode** shows only name and path
-* **full mode** shows also size and date of the last modification, the drawback is that indexing takes roughly twice as long since every file and directory gets additional stats calls during indexing
+* **full mode** shows also size and date of the last modification, the drawback is that crawling through drives takes roughly twice as long since every file and directory gets additional stats calls
 
 in `~/.config/angrysearch/angrysearch.conf` you control the mode with `angrysearch_lite` being set to true or false
 
@@ -39,9 +39,8 @@ regex example:
 
 * the database is in `~/.cache/angrysearch/angry_database.db`  
   the config file is in `~/.config/angrysearch/angrysearch.conf`  
-* if you have trouble starting the application, restart the pc, delete the database and the config file, new ones are recreated on the next run
 * it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB
-* it is not recommended to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
+* it is **not recommended** to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
 * [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/mimeapps.list` or `~/.config/mimeapps.list` 
 
 ### Installation:
@@ -137,7 +136,7 @@ Drawback of this indexing is inability to do substring searches, but the checkbo
 
 ![config file screenshot](http://i.imgur.com/KVPv3eV.png)
 
-  * `angrysearch_lite` By default set to true. In the lite mode theres only file name and path, no file size and no last modification date. Less informations but faster indexing of the drives
+  * `angrysearch_lite` By default set to true. In the lite mode theres only file name and path, no file size and no last modification date. Less informations but faster crawling through the drives
   * `conditional_mounts_for_autoupdate` By default empty. Purpose is to hold mount points that should be present when the database is being updated. If a mount is missing, automatic update through crontab will not run, but use system notification dialog to inform that paths set in this settings are not mounted. This prevents overwriting the database when not all drives are present. Values are system mount points, space separated.
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `/proc` is hard coded to be ignored
@@ -145,7 +144,7 @@ Drawback of this indexing is inability to do substring searches, but the checkbo
   *   `file_manager` By default empty. Whatever application/script is put there, it receives the path when the path column is double-clicked. If left empty angrysearch will try to autodetect default file manager using xdg-utils. If one of the following file managers are set/detected: ['dolphin', 'nemo', 'nautilus', 'doublecmd'], the behavior will change slightly, sending to those file managers full path to the file, highlighting the target file when opened in a file manager.
   *   `fm_path_doubleclick_selects` By default set to false. Needs `xdotool` package, and preferably manually set file manager in config. When set to true, Thunar, PCmanFM and SpaceFM file managers will be able to open containing directory with the file selected
   *   `icon_theme` By default set to adwaita. Which icon theme to use, can be set from program's interface in the update window. There are 6 icon types - folder, file, audio, image, video, text. Did not yet figure out how to get theme of the distro and reliably icon from file's mimetype, so packing icons with the angrysearch is the way
-  *   `notifications` By default set to true. Automatic periodic updates that are run on background using crontab will use desktop notification system to inform when indexing is done or if the indexing was aborted because of missing mount points
+  *   `notifications` By default set to true. Automatic periodic updates that are run on background using crontab will use desktop notification system to inform when crawling is done or if it was aborted because of missing mount points
   *   `number_of_results` By default set to 500. Limit set for searches in the database. Lower number means search results come faster
   *   `regex_mode` By default set to false. Enables regex search mode. F8 key toggles between true/false when running the application
   *   `row_height` By default set to 0 which means default system height. Sets height of the rows in pixels

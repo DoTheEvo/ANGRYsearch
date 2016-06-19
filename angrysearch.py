@@ -199,7 +199,6 @@ class Thread_delay_db_query(Qc.QThread):
 
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
-# TWO CRAWLING FUNCTIONS, FASTER LITE MODE IS WITHOUT FILE-SIZE AND MDATE
 # NEW DATABASE IS CREATED IN /tmp AND REPLACES ONE IN /.cache/angrysearch
 class Thread_database_update(Qc.QThread):
     db_update_signal = Qc.pyqtSignal(str, str)
@@ -207,12 +206,26 @@ class Thread_database_update(Qc.QThread):
 
     def __init__(self, lite, dirs_excluded, parent=None):
         super().__init__()
+        self.lite = lite
         self.table = []
+        self.exclude = []
         self.crawl_time = ''
         self.database_time = ''
 
-        self.lite = lite
-        self.exclude = [x.encode() for x in dirs_excluded]
+        for x in dirs_excluded:
+            ign = {}
+            y = [k.encode() for k in x.split('/') if k]
+
+            if len(y) == 1:
+                ign = {'case': 1, 'ign': y[-1], 'up': '', 'full': x}
+            elif len(y) == 2:
+                ign = {'case': 2, 'ign': y[-1], 'up': y[-2], 'full': x}
+            elif len(y) > 2:
+                local_root = b'/' + b'/'.join(y[:-1])
+                ign = {'case': 3, 'ign': y[-1], 'up': local_root, 'full': x}
+
+            self.exclude.append(ign)
+
         self.directories_timestamp = {}
 
     def run(self):
@@ -245,10 +258,12 @@ class Thread_database_update(Qc.QThread):
         for root, dirs, files in modul_var.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
+
             if root == b'/' and b'proc' in dirs:
                 dirs.remove(b'proc')
             # SLICING WITH [:] SO THAT THE LIST ID STAYS THE SAME
-            dirs[:] = [d for d in dirs if d not in self.exclude]
+            dirs[:] = self.exclude_ignored_dirs(dirs, root, self.exclude)
+
             self.crawl_signal.emit(
                 root.decode(encoding='utf-8', errors='ignore'))
 
@@ -362,6 +377,37 @@ class Thread_database_update(Qc.QThread):
         time_diff = datetime.now() - tstart
         mins, secs = divmod(time_diff.seconds, 60)
         return '{:0>2d}:{:0>2d}'.format(mins, secs)
+
+    def exclude_ignored_dirs(self, dirs, root, to_ignore):
+        after_exclusion = []
+
+        for x in dirs:
+            for z in to_ignore:
+                # IF ONLY SINGLE DIRECTORY NAME IS GIVEN
+                if z['case'] == 1:
+                    if x == z['ign']:
+                        print('Ignored Directory: {}'.format(z['full']))
+                        break
+                # IF PARENT FOLDER IS GIVEN AS WELL
+                elif z['case'] == 2:
+                    if x == z['ign']:
+                        y = [k for k in root.split(b'/') if k]
+                        if y[-1] == z['up']:
+                            print('Ignored Directory: {}'.format(z['full']))
+                            break
+                # IF FULL PATH IS GIVEN
+                elif z['case'] == 3:
+                    if x == z['ign']:
+                        print('found 3')
+                        print(root)
+                        print(z['up'])
+                        if root == z['up']:
+                            print('Ignored Directory: {}'.format(z['full']))
+                            break
+
+            else:
+                after_exclusion.append(x)
+        return after_exclusion
 
     # FTS5 IS A NEW EXTENSION OF SQLITE
     # SQLITE NEEDS TO BE COMPILED WITH FTS5 ENABLED
@@ -1476,6 +1522,7 @@ class Update_dialog_window(Qw.QDialog):
         self.label_3.setIndent(70)
 
         self.crawl_label.setMinimumWidth(170)
+        self.excluded_dirs_btn.setMaximumWidth(170)
 
         self.excluded_dirs_btn.clicked.connect(self.exclude_dialog)
 
