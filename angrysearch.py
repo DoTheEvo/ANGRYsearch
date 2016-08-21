@@ -398,8 +398,6 @@ class Thread_database_update(Qc.QThread):
                 # IF FULL PATH IS GIVEN
                 elif z['case'] == 3:
                     if x == z['ign']:
-                        print('found 3')
-                        print(root)
                         print(z['up'])
                         if root == z['up']:
                             print('Ignored Directory: {}'.format(z['full']))
@@ -562,9 +560,8 @@ class My_table_view(Qw.QTableView):
     def focusInEvent(self, event):
         Qw.QTableView.focusInEvent(self, event)
         row = self.currentIndex().row()
-        if row == -1:
-            row = 0
-        self.selectRow(row)
+        if row != -1:
+            self.selectRow(row)
 
     def keyPressEvent(self, event):
         # ENTER KEY AND NUMPAD ENTER, AND WITH SHIFT
