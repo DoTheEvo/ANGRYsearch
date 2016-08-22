@@ -685,6 +685,17 @@ class Gui_MainWindow(Qw.QMainWindow):
                     self.status_bar.showMessage('REGEX MODE ENABLED')
                 else:
                     self.status_bar.showMessage('REGEX MODE DISABLED')
+            # CTRL + W
+            if event.key() == 87:
+                if event.modifiers() == Qc.Qt.ControlModifier:
+                    input_text = self.center.search_input.text().split()
+                    if not input_text:
+                        return
+                    input_text.pop(-1)
+                    last_removed = ' '.join(input_text)
+                    if len(input_text) > 0:
+                        last_removed = last_removed + ' '
+                    self.center.search_input.setText(last_removed)
 
             event.accept()
         else:
