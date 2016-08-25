@@ -7,10 +7,12 @@ from itertools import permutations
 import locale
 import mimetypes
 import os
+import platform
 import PyQt5.QtCore as Qc
 import PyQt5.QtGui as Qg
 import PyQt5.QtWidgets as Qw
 import re
+import shlex
 import sqlite3
 import subprocess
 import sys
@@ -208,23 +210,27 @@ class Thread_database_update(Qc.QThread):
         super().__init__()
         self.lite = lite
         self.table = []
-        self.exclude = []
+        self.prep_excluded = []
         self.crawl_time = ''
         self.database_time = ''
 
         for x in dirs_excluded:
-            ign = {}
             y = [k.encode() for k in x.split('/') if k]
+            z = ''
 
-            if len(y) == 1:
-                ign = {'case': 1, 'ign': y[-1], 'up': '', 'full': x}
+            # IF FULL PATH
+            if x.startswith('/'):
+                up = b'/' + b'/'.join(y[:-1])
+                z = {'case': 1, 'ign': y[-1], 'up': up}
+            # IF ONLY SINGLE DIRECTORY NAME
+            elif len(y) == 1:
+                z = {'case': 2, 'ign': y[-1], 'up': ''}
+            # IF PARENT/TARGET
             elif len(y) == 2:
-                ign = {'case': 2, 'ign': y[-1], 'up': y[-2], 'full': x}
-            elif len(y) > 2:
-                local_root = b'/' + b'/'.join(y[:-1])
-                ign = {'case': 3, 'ign': y[-1], 'up': local_root, 'full': x}
+                z = {'case': 3, 'ign': y[-1], 'up': y[-2]}
 
-            self.exclude.append(ign)
+            if z:
+                self.prep_excluded.append(z)
 
         self.directories_timestamp = {}
 
@@ -262,7 +268,7 @@ class Thread_database_update(Qc.QThread):
             if root == b'/' and b'proc' in dirs:
                 dirs.remove(b'proc')
             # SLICING WITH [:] SO THAT THE LIST ID STAYS THE SAME
-            dirs[:] = self.exclude_ignored_dirs(dirs, root, self.exclude)
+            dirs[:] = self.remove_excluded_dirs(dirs, root, self.prep_excluded)
 
             self.crawl_signal.emit(
                 root.decode(encoding='utf-8', errors='ignore'))
@@ -378,34 +384,32 @@ class Thread_database_update(Qc.QThread):
         mins, secs = divmod(time_diff.seconds, 60)
         return '{:0>2d}:{:0>2d}'.format(mins, secs)
 
-    def exclude_ignored_dirs(self, dirs, root, to_ignore):
+    def remove_excluded_dirs(self, dirs, root, to_ignore):
         after_exclusion = []
 
         for x in dirs:
             for z in to_ignore:
-                # IF ONLY SINGLE DIRECTORY NAME IS GIVEN
-                if z['case'] == 1:
-                    if x == z['ign']:
-                        print('Ignored Directory: {}'.format(z['full']))
+                if x == z['ign']:
+                    if z['case'] == 1:
+                        if root == z['up']:
+                            self.print_ignored(root, z['ign'])
+                            break
+                    elif z['case'] == 2:
+                        self.print_ignored(root, z['ign'])
                         break
-                # IF PARENT FOLDER IS GIVEN AS WELL
-                elif z['case'] == 2:
-                    if x == z['ign']:
+                    elif z['case'] == 3:
                         y = [k for k in root.split(b'/') if k]
                         if y[-1] == z['up']:
-                            print('Ignored Directory: {}'.format(z['full']))
+                            self.print_ignored(root, z['ign'])
                             break
-                # IF FULL PATH IS GIVEN
-                elif z['case'] == 3:
-                    if x == z['ign']:
-                        print(z['up'])
-                        if root == z['up']:
-                            print('Ignored Directory: {}'.format(z['full']))
-                            break
-
             else:
                 after_exclusion.append(x)
         return after_exclusion
+
+    def print_ignored(self, root, item):
+        r = root.decode(encoding='utf-8', errors='ignore')
+        i = item.decode(encoding='utf-8', errors='ignore')
+        print('Ignoring directory: {}/{}'.format(r, i))
 
     # FTS5 IS A NEW EXTENSION OF SQLITE
     # SQLITE NEEDS TO BE COMPILED WITH FTS5 ENABLED
@@ -691,9 +695,8 @@ class Gui_MainWindow(Qw.QMainWindow):
                     input_text = self.center.search_input.text().split()
                     if not input_text:
                         return
-                    input_text.pop(-1)
-                    last_removed = ' '.join(input_text)
-                    if len(input_text) > 0:
+                    last_removed = ' '.join(input_text[:-1])
+                    if len(input_text) > 1:
                         last_removed = last_removed + ' '
                     self.center.search_input.setText(last_removed)
 
@@ -751,7 +754,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                 if k.isdigit():
                     self.set[item] = int(k)
             if type == 'list':
-                self.set[item] = k.strip().split()
+                self.set[item] = shlex.split(k.strip())
             if type == 'fm':
                 if k in ['', 'xdg-open']:
                     self.set[item] = self.detect_file_manager()
@@ -1239,7 +1242,11 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         if not os.path.exists(path):
             self.status_bar.showMessage('NOT FOUND')
-            self.center.table.setStyleSheet('selection-color:red;')
+            if platform.linux_distribution()[0].lower() == 'ubuntu':
+                self.center.table.setStyleSheet('selection-color:red;')
+            else:
+                self.center.table.setStyleSheet(
+                                            'selection-background-color:red;')
             self.center.table.timeout.start(150)
             return
         else:
