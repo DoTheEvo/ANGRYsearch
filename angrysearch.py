@@ -409,7 +409,10 @@ class Thread_database_update(Qc.QThread):
     def show_ignored(self, root, item):
         r = root.decode(encoding='utf-8', errors='ignore')
         i = item.decode(encoding='utf-8', errors='ignore')
-        print('Ignoring directory: {}/{}'.format(r, i))
+        if r == '/':
+            print('Ignoring directory: /{}'.format(i))
+        else:
+            print('Ignoring directory: {}/{}'.format(r, i))
 
     # FTS5 IS A NEW EXTENSION OF SQLITE
     # SQLITE NEEDS TO BE COMPILED WITH FTS5 ENABLED
