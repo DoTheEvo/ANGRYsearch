@@ -392,21 +392,21 @@ class Thread_database_update(Qc.QThread):
                 if x == z['ign']:
                     if z['case'] == 1:
                         if root == z['up']:
-                            self.print_ignored(root, z['ign'])
+                            self.show_ignored(root, z['ign'])
                             break
                     elif z['case'] == 2:
-                        self.print_ignored(root, z['ign'])
+                        self.show_ignored(root, z['ign'])
                         break
                     elif z['case'] == 3:
                         y = [k for k in root.split(b'/') if k]
                         if y[-1] == z['up']:
-                            self.print_ignored(root, z['ign'])
+                            self.show_ignored(root, z['ign'])
                             break
             else:
                 after_exclusion.append(x)
         return after_exclusion
 
-    def print_ignored(self, root, item):
+    def show_ignored(self, root, item):
         r = root.decode(encoding='utf-8', errors='ignore')
         i = item.decode(encoding='utf-8', errors='ignore')
         print('Ignoring directory: {}/{}'.format(r, i))

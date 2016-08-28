@@ -101,7 +101,7 @@ crontab does not try to catch up on a job if the PC has been off during schedule
 
 
 * On update angrysearch crawls through your file system and creates its database.  
-The database has a column containing full path to every file and directory found, another column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification and for the size of files in bytes.
+The database has a column containing full path to every file and directory found, another column indicates if the path is to a file or a directory. If `full mode` is enabled then there are also columns for the last modification date and for the size of files in bytes.
 * When typing in to the search input the path column is searched for the occurrences of typed text and the rows containing them are shown.  
 This is unlike other searches which usually look only through names of files/directories not their entire paths. This means that writing `books` will show all the items with the term "books" somewhere on their path instead of just in the name.  
 On typical slow searches this would be too broad of a search with too many results, but the instantaneous nature of angrysearch allows to continue typing until the search is narrow enough.
