@@ -1454,7 +1454,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     Qg.QPalette.Active, Qg.QPalette.Text))
 
             textRect = style.subElementRect(
-                Qw.QStyle.SE_ItemViewItemText, options)
+                Qw.QStyle.SE_ItemViewItemText, options, None)
 
             if index.column() != 0:
                 textRect.adjust(5, 0, 0, 0)
