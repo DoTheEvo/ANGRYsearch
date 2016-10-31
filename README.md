@@ -27,7 +27,7 @@ there are 3 search modes, default being `fast`
 extremely fast, but no substrings, meaning it would not find "Pi<b>rate</b>s" or "Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"
 * **slow mode** - enabled when the checkbox is unchecked, slightly slower but can find substrings
 * **regex mode** - activated by the **F8** key, indicated by orange color background  
-slowest search, used for very precise searches using [regular expressions](http://www.aivosto.com/vbtips/regex.html), set to case insensitive  
+slowest search, used for very precise searches using [regular expressions](http://www.aivosto.com/vbtips/regex.html), set to case insensitive,  
 unlike the previous search modes not entire path is searched, only the filenames/directory names
 
 regex example:
@@ -54,8 +54,8 @@ Manual installation is easy as there's no compilation with python, process consi
 
 **dependencies** - `python3-pyqt5`, `xdg-utils`  
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you need PyQt5 for python3, for example ubuntu based distros: `sudo apt install python3-pyqt5`  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;most distros have xdg-utils out of the box  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you need **PyQt5 for python3**, for example ubuntu based distros: `sudo apt install python3-pyqt5`  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;most distros have **xdg-utils** out of the box  
 
 Now that you have the dependencies, download the latest [release of angrysearch](https://github.com/DoTheEvo/ANGRYsearch/releases) and unpack it somewhere. Along the files there's one called `install.sh`, it will copy files where they belong and sets correct permissions.
 

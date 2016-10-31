@@ -657,7 +657,8 @@ class Gui_MainWindow(Qw.QMainWindow):
                     'directories_excluded': [],
                     'conditional_mounts_for_autoupdate': [],
                     'notifications': True,
-                    'regex_mode': False}
+                    'regex_mode': False,
+                    'close_on_open': False}
         self.read_settings()
         self.init_GUI()
 
@@ -740,6 +741,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.read_qsettings_item('conditional_mounts_for_autoupdate', 'list')
         self.read_qsettings_item('notifications', 'bool')
         self.read_qsettings_item('regex_mode', 'bool')
+        self.read_qsettings_item('close_on_open', 'bool')
 
     def read_qsettings_item(self, item, type):
         if self.settings.value(item):
@@ -813,6 +815,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.settings.setValue('notifications', True)
         if not self.settings.contains('regex_mode'):
             self.settings.setValue('regex_mode', False)
+        if not self.settings.contains('close_on_open'):
+            self.settings.setValue('close_on_open', False)
 
         # TRAY ICON NEEDS TO BE HIDDEN
         # SO THAT THE MAIN WINDOW INSTANCE AUTOMATICALLY DELETES IT ON CLOSING
@@ -898,7 +902,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v1.0.0')
+            menu.addAction('v1.0.1')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(self.close)
@@ -1300,6 +1304,9 @@ class Gui_MainWindow(Qw.QMainWindow):
                 else:
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
+
+        if self.set['close_on_open'] is True:
+            self.close()
 
     # FOR THUNAR AND PCMANFM SO THAT THEY SELECT THE FILE/FOLDER
     # NOT JUST OPEN ITS PARENT FOLDER
