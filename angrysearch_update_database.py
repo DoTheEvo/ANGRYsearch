@@ -41,7 +41,7 @@ if 'DISPLAY' not in os.environ:
 
 # MORE GLOBAL VARIABLES
 LITE = True
-EXCLUDE = []
+PREP_EXCLUDED = []
 MOUNTS_NEEDED = []
 NOTIFICATIONS_ENABLED = True
 START_TIME = datetime.now()
@@ -49,7 +49,7 @@ START_TIME = datetime.now()
 
 def load_settings():
     global LITE
-    global EXCLUDE
+    global PREP_EXCLUDED
     global MOUNTS_NEEDED
     global NOTIFICATIONS_ENABLED
 
@@ -61,9 +61,25 @@ def load_settings():
             LITE = False
 
     if settings.value('directories_excluded'):
-        q = settings.value('directories_excluded').strip().split()
-        EXCLUDE = [x.encode() for x in q]
-    EXCLUDE.append(b'proc')
+        dirs_excluded = settings.value('directories_excluded').strip().split()
+
+        for x in dirs_excluded:
+            y = [k.encode() for k in x.split('/') if k]
+            z = ''
+
+            # IF FULL PATH
+            if x.startswith('/'):
+                up = b'/' + b'/'.join(y[:-1])
+                z = {'case': 1, 'ign': y[-1], 'up': up}
+            # IF ONLY SINGLE DIRECTORY NAME
+            elif len(y) == 1:
+                z = {'case': 2, 'ign': y[-1], 'up': ''}
+            # IF PARENT/TARGET
+            elif len(y) == 2:
+                z = {'case': 3, 'ign': y[-1], 'up': y[-2]}
+
+            if z:
+                PREP_EXCLUDED.append(z)
 
     if settings.value('conditional_mounts_for_autoupdate'):
         q = settings.value('conditional_mounts_for_autoupdate').strip().split()
@@ -76,7 +92,6 @@ def load_settings():
 
 
 def test_conditional_mounts_for_autoupdate():
-
     missing_mount = False
     missing_mounts_list = []
 
@@ -143,7 +158,10 @@ def crawling_drives():
     for root, dirs, files in ror.walk(root_dir, onerror=error):
         dirs.sort()
         files.sort()
-        dirs[:] = [d for d in dirs if d not in EXCLUDE]
+
+        if root == b'/' and b'proc' in dirs:
+            dirs.remove(b'proc')
+        dirs[:] = remove_excluded_dirs(dirs, root, PREP_EXCLUDED)
 
         for dname in dirs:
             path = os.path.join(root, dname)
@@ -193,7 +211,10 @@ def crawling_drives_lite():
     for root, dirs, files in ror.walk(root_dir, onerror=error):
         dirs.sort()
         files.sort()
-        dirs[:] = [d for d in dirs if d not in EXCLUDE]
+
+        if root == b'/' and b'proc' in dirs:
+            dirs.remove(b'proc')
+        dirs[:] = remove_excluded_dirs(dirs, root, PREP_EXCLUDED)
 
         for dname in dirs:
             dir_list.append(('1', os.path.join(root, dname).decode(
@@ -204,6 +225,26 @@ def crawling_drives_lite():
 
     table = dir_list + file_list
     new_database_lite(table)
+
+
+def remove_excluded_dirs(dirs, root, to_ignore):
+    after_exclusion = []
+
+    for x in dirs:
+        for z in to_ignore:
+            if x == z['ign']:
+                if z['case'] == 1:
+                    if root == z['up']:
+                        break
+                elif z['case'] == 2:
+                    break
+                elif z['case'] == 3:
+                    y = [k for k in root.split(b'/') if k]
+                    if y[-1] == z['up']:
+                        break
+        else:
+            after_exclusion.append(x)
+    return after_exclusion
 
 
 def new_database(table):
