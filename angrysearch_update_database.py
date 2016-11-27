@@ -142,9 +142,6 @@ def crawling_drives():
     def error(err):
         print(err)
 
-    global SCANDIR_AVAILABLE
-    global EXCLUDE
-
     root_dir = b'/'
     table = []
     dir_list = []
@@ -194,9 +191,6 @@ def crawling_drives():
 def crawling_drives_lite():
     def error(err):
         print(err)
-
-    global SCANDIR_AVAILABLE
-    global EXCLUDE
 
     root_dir = b'/'
     table = []
