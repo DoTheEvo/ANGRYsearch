@@ -457,11 +457,12 @@ class Thread_get_mimetype(Qc.QThread):
 
 # CUSTOM TABLE MODEL TO HAVE FINE CONTROL OVER THE CONTENT AND PRESENTATION
 class Custom_table_model(Qc.QAbstractTableModel):
-    def __init__(self, table_data=[[]], lite=True, parent=None):
+    def __init__(self, table_data=[[]], set={}, parent=None):
         super().__init__()
         self.table_data = self.data_backup = table_data
         self.sort_ed = False
-        if lite is True:
+        self.last_sort = set['last_sort']
+        if set['angrysearch_lite'] is True:
             self.headers = ['Name', 'Path']
         else:
             self.headers = ['Name', 'Path', 'Size', 'Date Modified']
@@ -493,6 +494,7 @@ class Custom_table_model(Qc.QAbstractTableModel):
             return value.icon()
 
     def sort(self, column, order):
+        self.last_sort = [column, order]
         if column == 0:
             self.sort_ed = True
             self.layoutAboutToBeChanged.emit()
@@ -542,6 +544,9 @@ class Custom_table_model(Qc.QAbstractTableModel):
 
     def itemFromIndex(self, row, col):
         return self.table_data[row][col]
+
+    def curent_sort(self):
+        return self.last_sort
 
 
 # CUSTOM TABLE VIEW TO EASILY ADJUST ROW HEIGHT AND COLUMN WIDTH
@@ -743,6 +748,17 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.read_qsettings_item('regex_mode', 'bool')
         self.read_qsettings_item('close_on_open', 'bool')
 
+        if self.settings.value('Last_Run/last_sort'):
+            k = self.settings.value('Last_Run/last_sort')
+            if type(k) is list and len(k) == 2:
+                if self.set['angrysearch_lite'] is True and int(k[0]) > 1:
+                    k[0] = 1
+                self.set['last_sort'] = [int(x) for x in k]
+            else:
+                self.set['last_sort'] = [1, 0]
+        else:
+            self.set['last_sort'] = [1, 0]
+
     def read_qsettings_item(self, item, type):
         if self.settings.value(item):
             k = self.settings.value(item)
@@ -789,6 +805,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def closeEvent(self, event):
         self.settings.setValue('Last_Run/geometry', self.saveGeometry())
         self.settings.setValue('Last_Run/window_state', self.saveState())
+        self.settings.setValue('Last_Run/last_sort', self.model.curent_sort())
         if not self.settings.contains('angrysearch_lite'):
             self.settings.setValue('angrysearch_lite', True)
         if not self.settings.contains('fast_search_but_no_substring'):
@@ -822,6 +839,10 @@ class Gui_MainWindow(Qw.QMainWindow):
         # SO THAT THE MAIN WINDOW INSTANCE AUTOMATICALLY DELETES IT ON CLOSING
         self.tray_icon.hide()
         event.accept()
+
+    def restore_column_sort_state(self):
+        self.center.table.sortByColumn(self.set['last_sort'][0],
+                                       self.set['last_sort'][1])
 
     def init_GUI(self):
         self.icon = self.get_tray_icon()
@@ -898,6 +919,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.center.search_input.returnPressed.connect(self.focusNextChild)
 
         self.regex_mode_color_indicator()
+        self.restore_column_sort_state()
 
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
@@ -1092,9 +1114,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             model_data.append(item)
 
-        self.model = Custom_table_model(model_data,
-                                        self.set['angrysearch_lite'])
-
+        self.model = Custom_table_model(model_data, self.set)
         self.center.table.setModel(self.model)
         self.center.table.selectionModel().selectionChanged.connect(
             self.selection_happens)
