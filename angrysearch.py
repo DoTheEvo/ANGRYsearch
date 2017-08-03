@@ -4,6 +4,7 @@
 import base64
 from datetime import datetime
 from itertools import permutations
+from operator import itemgetter
 import locale
 import mimetypes
 import os
@@ -1034,6 +1035,12 @@ class Gui_MainWindow(Qw.QMainWindow):
     # FORMAT DATA FOR THE MODEL
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
+
+        column_to_sort_by = self.set['last_sort'][0]
+        revert_sort_order = self.set['last_sort'][1]
+        db_query_result.sort(key=itemgetter(0, column_to_sort_by))
+        if revert_sort_order is 1:
+            db_query_result.reverse()
 
         if self.set['regex_mode'] is True:
             rx = '({})'.format(db_query)
