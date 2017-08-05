@@ -287,7 +287,7 @@ class Thread_database_update(Qc.QThread):
                     utf_path = path.decode(encoding='utf-8', errors='ignore')
                     try:
                         stats = os.lstat(path)
-                        epoch_time = stats.st_mtime.__trunc__()
+                        epoch_time = int(stats.st_mtime.__trunc__())
                     except:
                         print('Cant access: ' + str(path))
                         epoch_time = 0
@@ -298,7 +298,7 @@ class Thread_database_update(Qc.QThread):
                     try:
                         stats = os.lstat(path)
                         size = stats.st_size
-                        epoch_time = stats.st_mtime.__trunc__()
+                        epoch_time = int(stats.st_mtime.__trunc__())
                     except:
                         print('Cant access: ' + str(path))
                         size = 0
@@ -324,12 +324,12 @@ class Thread_database_update(Qc.QThread):
             if self.fts5_pragma_check() is True:
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
                                 USING fts5(directory UNINDEXED, path)''')
-                cur.execute('''PRAGMA user_version = 2;''')
+                cur.execute('''PRAGMA user_version = 4;''')
             else:
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
                                 USING fts4(directory, path,
                                            notindexed=directory)''')
-                cur.execute('''PRAGMA user_version = 1;''')
+                cur.execute('''PRAGMA user_version = 3;''')
 
             for x in self.table:
                 cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
@@ -340,14 +340,14 @@ class Thread_database_update(Qc.QThread):
                                 USING fts5(directory UNINDEXED,
                                            path,
                                            size UNINDEXED, date UNINDEXED)''')
-                cur.execute('''PRAGMA user_version = 2;''')
+                cur.execute('''PRAGMA user_version = 4;''')
             else:
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
                                 USING fts4(directory, path, size, date,
                                            notindexed=directory,
                                            notindexed=size,
                                            notindexed=date)''')
-                cur.execute('''PRAGMA user_version = 1;''')
+                cur.execute('''PRAGMA user_version = 3;''')
 
             for x in self.table:
                 cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
@@ -460,8 +460,7 @@ class Thread_get_mimetype(Qc.QThread):
 class Custom_table_model(Qc.QAbstractTableModel):
     def __init__(self, table_data=[[]], set={}, parent=None):
         super().__init__()
-        self.table_data = self.data_backup = table_data
-        self.sort_ed = False
+        self.table_data = table_data
         self.last_sort = set['last_sort']
         if set['angrysearch_lite'] is True:
             self.headers = ['Name', 'Path']
@@ -497,50 +496,33 @@ class Custom_table_model(Qc.QAbstractTableModel):
     def sort(self, column, order):
         self.last_sort = [column, order]
         if column == 0:
-            self.sort_ed = True
             self.layoutAboutToBeChanged.emit()
-            self.table_data = sorted(self.table_data, key=lambda z: z[0]._name)
-            self.table_data = sorted(self.table_data,
-                                     key=lambda z: z[0]._is_dir, reverse=True)
+            self.table_data.sort(key=lambda z: z[0]._name)
             if order == Qc.Qt.DescendingOrder:
                 self.table_data.reverse()
-                self.table_data = sorted(self.table_data,
-                                         key=lambda z: z[0]._is_dir,
-                                         reverse=True)
+            self.table_data.sort(key=lambda z: z[0]._is_dir, reverse=True)
             self.layoutChanged.emit()
+
         elif column == 1:
-            if self.sort_ed:
-                self.layoutAboutToBeChanged.emit()
-                self.table_data = self.data_backup
-                self.sort_ed = False
-                self.layoutChanged.emit()
-        elif column == 2:
-            self.sort_ed = True
             self.layoutAboutToBeChanged.emit()
-            self.table_data = sorted(self.table_data,
-                                     key=lambda z: z[2]._bytes)
-            self.table_data = sorted(self.table_data,
-                                     key=lambda z: z[0]._is_dir,
-                                     reverse=True)
-            if order == Qc.Qt.DescendingOrder:
-                self.table_data = sorted(self.table_data,
-                                         key=lambda z: z[2]._bytes,
-                                         reverse=True)
-                self.table_data = sorted(self.table_data,
-                                         key=lambda z: z[0]._is_dir,
-                                         reverse=True)
+            self.table_data.sort(key=lambda z: z[0]._parent_dir)
+            self.table_data.sort(key=lambda z: z[0]._is_dir, reverse=True)
             self.layoutChanged.emit()
-        elif column == 3:
-            self.sort_ed = True
+
+        elif column == 2:
             self.layoutAboutToBeChanged.emit()
-            self.table_data = sorted(self.table_data, key=lambda z: z[3])
-            self.table_data = sorted(self.table_data,
-                                     key=lambda z: z[0]._is_dir, reverse=True)
+            self.table_data.sort(key=lambda z: z[2]._bytes)
+            if order == Qc.Qt.DescendingOrder:
+                self.table_data.sort(key=lambda z: z[2]._bytes, reverse=True)
+            self.table_data.sort(key=lambda z: z[0]._is_dir, reverse=True)
+            self.layoutChanged.emit()
+
+        elif column == 3:
+            self.layoutAboutToBeChanged.emit()
+            self.table_data.sort(key=lambda z: z[3])
             if order == Qc.Qt.DescendingOrder:
                 self.table_data.reverse()
-                self.table_data = sorted(self.table_data,
-                                         key=lambda z: z[0]._is_dir,
-                                         reverse=True)
+            self.table_data.sort(key=lambda z: z[0]._is_dir, reverse=True)
             self.layoutChanged.emit()
 
     def itemFromIndex(self, row, col):
@@ -1036,11 +1018,37 @@ class Gui_MainWindow(Qw.QMainWindow):
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        column_to_sort_by = self.set['last_sort'][0]
-        revert_sort_order = self.set['last_sort'][1]
-        db_query_result.sort(key=itemgetter(0, column_to_sort_by))
-        if revert_sort_order is 1:
-            db_query_result.reverse()
+        # SORT THE DATA EITHER BY CURRENT SITUATION OR BY SAVED SETTING
+        try:
+            column_to_sort_by, revert_sort_order = self.model.curent_sort()
+        except AttributeError:
+            column_to_sort_by, revert_sort_order = self.set['last_sort']
+
+        # BY NAME
+        if column_to_sort_by is 0:
+            if revert_sort_order is 0:
+                db_query_result.sort(key=itemgetter(1))
+            else:
+                db_query_result.sort(key=itemgetter(1), reverse=True)
+            db_query_result.sort(key=itemgetter(0), reverse=True)
+
+        # BY DATE
+        if column_to_sort_by is 3:
+            if revert_sort_order is 0:
+                db_query_result.sort(key=itemgetter(3))
+            else:
+                db_query_result.sort(key=itemgetter(3), reverse=True)
+            db_query_result.sort(key=itemgetter(0), reverse=True)
+
+        # BY SIZE, SPECIAL CASE BECAUSE OF EMPTY STRINGS FOR FOLDERS
+        if column_to_sort_by is 2:
+            if revert_sort_order is 0:
+                db_query_result.sort(
+                    key=lambda x: x[2] if (type(x[2]) is int) else 0)
+            else:
+                db_query_result.sort(
+                    key=lambda x: x[2] if (type(x[2]) is int) else sys.maxsize,
+                    reverse=True)
 
         if self.set['regex_mode'] is True:
             rx = '({})'.format(db_query)
@@ -1171,9 +1179,9 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         cur.execute('''PRAGMA user_version;''')
         pragma_user_version = cur.fetchone()[0]
-        if pragma_user_version == 2:
+        if pragma_user_version ==4:
             FTS5_AVAILABLE = True
-        if pragma_user_version == 0:
+        if pragma_user_version < 3:
             self.tutorial()
             return
 
