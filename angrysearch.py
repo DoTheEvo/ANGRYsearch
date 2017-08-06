@@ -458,10 +458,11 @@ class Thread_get_mimetype(Qc.QThread):
 
 # CUSTOM TABLE MODEL TO HAVE FINE CONTROL OVER THE CONTENT AND PRESENTATION
 class Custom_table_model(Qc.QAbstractTableModel):
+    sort_changed_signal = Qc.pyqtSignal(int, int)
+
     def __init__(self, table_data=[[]], set={}, parent=None):
         super().__init__()
         self.table_data = table_data
-        self.last_sort = set['last_sort']
         if set['angrysearch_lite'] is True:
             self.headers = ['Name', 'Path']
         else:
@@ -494,7 +495,8 @@ class Custom_table_model(Qc.QAbstractTableModel):
             return value.icon()
 
     def sort(self, column, order):
-        self.last_sort = [column, order]
+        self.sort_changed_signal.emit(column, order)
+
         if column == 0:
             self.layoutAboutToBeChanged.emit()
             self.table_data.sort(key=lambda z: z[0]._name)
@@ -513,7 +515,7 @@ class Custom_table_model(Qc.QAbstractTableModel):
             self.layoutAboutToBeChanged.emit()
             self.table_data.sort(key=lambda z: z[2]._bytes)
             if order == Qc.Qt.DescendingOrder:
-                self.table_data.sort(key=lambda z: z[2]._bytes, reverse=True)
+                self.table_data.reverse()
             self.table_data.sort(key=lambda z: z[0]._is_dir, reverse=True)
             self.layoutChanged.emit()
 
@@ -527,9 +529,6 @@ class Custom_table_model(Qc.QAbstractTableModel):
 
     def itemFromIndex(self, row, col):
         return self.table_data[row][col]
-
-    def curent_sort(self):
-        return self.last_sort
 
 
 # CUSTOM TABLE VIEW TO EASILY ADJUST ROW HEIGHT AND COLUMN WIDTH
@@ -646,7 +645,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     'conditional_mounts_for_autoupdate': [],
                     'notifications': True,
                     'regex_mode': False,
-                    'close_on_open': False}
+                    'close_on_execute': False}
         self.read_settings()
         self.init_GUI()
 
@@ -729,7 +728,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.read_qsettings_item('conditional_mounts_for_autoupdate', 'list')
         self.read_qsettings_item('notifications', 'bool')
         self.read_qsettings_item('regex_mode', 'bool')
-        self.read_qsettings_item('close_on_open', 'bool')
+        self.read_qsettings_item('close_on_execute', 'bool')
 
         if self.settings.value('Last_Run/last_sort'):
             k = self.settings.value('Last_Run/last_sort')
@@ -788,7 +787,6 @@ class Gui_MainWindow(Qw.QMainWindow):
     def closeEvent(self, event):
         self.settings.setValue('Last_Run/geometry', self.saveGeometry())
         self.settings.setValue('Last_Run/window_state', self.saveState())
-        self.settings.setValue('Last_Run/last_sort', self.model.curent_sort())
         if not self.settings.contains('angrysearch_lite'):
             self.settings.setValue('angrysearch_lite', True)
         if not self.settings.contains('fast_search_but_no_substring'):
@@ -815,8 +813,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.settings.setValue('notifications', True)
         if not self.settings.contains('regex_mode'):
             self.settings.setValue('regex_mode', False)
-        if not self.settings.contains('close_on_open'):
-            self.settings.setValue('close_on_open', False)
+        if not self.settings.contains('close_on_execute'):
+            self.settings.setValue('close_on_execute', False)
 
         # TRAY ICON NEEDS TO BE HIDDEN
         # SO THAT THE MAIN WINDOW INSTANCE AUTOMATICALLY DELETES IT ON CLOSING
@@ -1018,29 +1016,24 @@ class Gui_MainWindow(Qw.QMainWindow):
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        # SORT THE DATA EITHER BY CURRENT SITUATION OR BY SAVED SETTING
-        try:
-            column_to_sort_by, revert_sort_order = self.model.curent_sort()
-        except AttributeError:
-            column_to_sort_by, revert_sort_order = self.set['last_sort']
+        column_to_sort_by, revert_sort_order = self.set['last_sort']
 
         # BY NAME
         if column_to_sort_by is 0:
-            if revert_sort_order is 0:
-                db_query_result.sort(key=itemgetter(1))
-            else:
-                db_query_result.sort(key=itemgetter(1), reverse=True)
+            db_query_result.sort(key=lambda x: ((x[1].split('/'))[-1].lower()))
+            if revert_sort_order is 1:
+                db_query_result.reverse()
             db_query_result.sort(key=itemgetter(0), reverse=True)
 
         # BY DATE
         if column_to_sort_by is 3:
-            if revert_sort_order is 0:
-                db_query_result.sort(key=itemgetter(3))
-            else:
-                db_query_result.sort(key=itemgetter(3), reverse=True)
+            db_query_result.sort(key=itemgetter(3))
+            if revert_sort_order is 1:
+                db_query_result.reverse()
             db_query_result.sort(key=itemgetter(0), reverse=True)
 
-        # BY SIZE, SPECIAL CASE BECAUSE OF EMPTY STRINGS FOR FOLDERS
+        # BY SIZE, SPECIAL CASE BECAUSE OF EMPTY STRINGS FOR DIRECTORIES
+        # DIRECTORIES ARE SORTED AS IF VALUE 0, OR MAX INT SIZE IN REVERSE
         if column_to_sort_by is 2:
             if revert_sort_order is 0:
                 db_query_result.sort(
@@ -1130,6 +1123,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             model_data.append(item)
 
         self.model = Custom_table_model(model_data, self.set)
+        self.model.sort_changed_signal.connect(
+            self.sorting_changed_received_signal, Qc.Qt.QueuedConnection)
         self.center.table.setModel(self.model)
         self.center.table.selectionModel().selectionChanged.connect(
             self.selection_happens)
@@ -1137,6 +1132,10 @@ class Gui_MainWindow(Qw.QMainWindow):
         total = locale.format('%d', len(db_query_result), grouping=True)
         self.last_number_of_results = total
         self.status_bar.showMessage(total)
+
+    def sorting_changed_received_signal(self, column, order):
+        self.set['last_sort'] = [column, order]
+        self.settings.setValue('Last_Run/last_sort', [column, order])
 
     def bold_text(self, line):
         return re.sub(self.regex_queries, '<b>\\1</b>', line)
@@ -1340,7 +1339,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
 
-        if self.set['close_on_open'] is True:
+        if self.set['close_on_execute'] is True:
             self.close()
 
     # FOR THUNAR AND PCMANFM SO THAT THEY SELECT THE FILE/FOLDER
