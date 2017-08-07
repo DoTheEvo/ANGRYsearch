@@ -41,6 +41,7 @@
         <file>darktheme/radio_unchecked.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/adwaita/archive.png</file>
         <file>mimeicons/adwaita/audio.png</file>
         <file>mimeicons/adwaita/file.png</file>
         <file>mimeicons/adwaita/folder.png</file>
@@ -50,6 +51,17 @@
         <file>mimeicons/adwaita/video.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/breeze/archive.png</file>
+        <file>mimeicons/breeze/audio.png</file>
+        <file>mimeicons/breeze/file.png</file>
+        <file>mimeicons/breeze/folder.png</file>
+        <file>mimeicons/breeze/image.png</file>
+        <file>mimeicons/breeze/pdf.png</file>
+        <file>mimeicons/breeze/text.png</file>
+        <file>mimeicons/breeze/video.png</file>
+    </qresource>
+    <qresource>
+        <file>mimeicons/elementary/archive.png</file>
         <file>mimeicons/elementary/audio.png</file>
         <file>mimeicons/elementary/file.png</file>
         <file>mimeicons/elementary/folder.png</file>
@@ -59,6 +71,7 @@
         <file>mimeicons/elementary/video.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/faenza/archive.png</file>
         <file>mimeicons/faenza/audio.png</file>
         <file>mimeicons/faenza/file.png</file>
         <file>mimeicons/faenza/folder.png</file>
@@ -68,6 +81,7 @@
         <file>mimeicons/faenza/video.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/numix/archive.png</file>
         <file>mimeicons/numix/audio.png</file>
         <file>mimeicons/numix/file.png</file>
         <file>mimeicons/numix/folder.png</file>
@@ -77,6 +91,7 @@
         <file>mimeicons/numix/video.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/oxygen/archive.png</file>
         <file>mimeicons/oxygen/audio.png</file>
         <file>mimeicons/oxygen/file.png</file>
         <file>mimeicons/oxygen/folder.png</file>
@@ -86,6 +101,7 @@
         <file>mimeicons/oxygen/video.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/paper/archive.png</file>
         <file>mimeicons/paper/audio.png</file>
         <file>mimeicons/paper/file.png</file>
         <file>mimeicons/paper/folder.png</file>
@@ -95,6 +111,7 @@
         <file>mimeicons/paper/video.png</file>
     </qresource>
     <qresource>
+        <file>mimeicons/ubuntu/archive.png</file>
         <file>mimeicons/ubuntu/audio.png</file>
         <file>mimeicons/ubuntu/file.png</file>
         <file>mimeicons/ubuntu/folder.png</file>

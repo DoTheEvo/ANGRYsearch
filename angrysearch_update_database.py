@@ -254,15 +254,14 @@ def new_database(table):
     if fts5_pragma_check():
         cur.execute('''CREATE VIRTUAL TABLE angry_table
                         USING fts5(directory, path, size, date)''')
-        cur.execute('''PRAGMA user_version = 2;''')
+        cur.execute('''PRAGMA user_version = 4;''')
     else:
         cur.execute('''CREATE VIRTUAL TABLE angry_table
                         USING fts4(directory, path, size, date)''')
-        cur.execute('''PRAGMA user_version = 1;''')
+        cur.execute('''PRAGMA user_version = 3;''')
 
-    for x in table:
-        cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
-                    (x[0], x[1], x[2], x[3]))
+    cur.executemany('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''', table)
+
     con.commit()
     replace_old_db_with_new()
 
@@ -280,15 +279,13 @@ def new_database_lite(table):
     if fts5_pragma_check():
         cur.execute('''CREATE VIRTUAL TABLE angry_table
                         USING fts5(directory, path)''')
-        cur.execute('''PRAGMA user_version = 2;''')
+        cur.execute('''PRAGMA user_version = 4;''')
     else:
         cur.execute('''CREATE VIRTUAL TABLE angry_table
                         USING fts4(directory, path)''')
-        cur.execute('''PRAGMA user_version = 1;''')
+        cur.execute('''PRAGMA user_version = 3;''')
 
-    for x in table:
-        cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
-                    (x[0], x[1]))
+    cur.executemany('''INSERT INTO angry_table VALUES (?, ?)''', table)
 
     con.commit()
     replace_old_db_with_new()

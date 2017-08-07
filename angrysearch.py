@@ -331,9 +331,9 @@ class Thread_database_update(Qc.QThread):
                                            notindexed=directory)''')
                 cur.execute('''PRAGMA user_version = 3;''')
 
-            for x in self.table:
-                cur.execute('''INSERT INTO angry_table VALUES (?, ?)''',
-                            (x[0], x[1]))
+            cur.executemany('''INSERT INTO angry_table VALUES (?, ?)''',
+                            self.table)
+
         else:
             if self.fts5_pragma_check() is True:
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
@@ -349,9 +349,8 @@ class Thread_database_update(Qc.QThread):
                                            notindexed=date)''')
                 cur.execute('''PRAGMA user_version = 3;''')
 
-            for x in self.table:
-                cur.execute('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
-                            (x[0], x[1], x[2], x[3]))
+            cur.executemany('''INSERT INTO angry_table VALUES (?, ?, ?, ?)''',
+                            self.table)
 
         con.commit()
         self.database_time = self.time_difference(tstart)
@@ -1086,11 +1085,15 @@ class Gui_MainWindow(Qw.QMainWindow):
             else:
                 short_mime = mimetypes.guess_type(_name)[0]
                 if short_mime:
+                    archives = ['x-tar', 'zip', 'x-rar-compressed',
+                                'x-7z-compressed']
                     short_mime = short_mime.split('/')
                     if short_mime[0] in self.icon_dictionary:
                         n.setIcon(self.icon_dictionary[short_mime[0]])
                     elif short_mime[1] in self.icon_dictionary:
                         n.setIcon(self.icon_dictionary[short_mime[1]])
+                    elif short_mime[1] in archives:
+                        n.setIcon(self.icon_dictionary['archive'])
                     else:
                         n.setIcon(self.icon_dictionary['file'])
                 else:
@@ -1144,7 +1147,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def get_mime_icons(self):
         icon_dic = {}
         iconed_mimes = ['folder', 'file', 'image', 'audio',
-                        'video', 'text', 'pdf']
+                        'video', 'text', 'pdf', 'archive']
 
         if RESOURCE_AVAILABLE is True:
             for x in iconed_mimes:
@@ -1542,7 +1545,7 @@ class Update_dialog_window(Qw.QDialog):
         self.icon_theme_label = Qw.QLabel('icon theme:')
         self.icon_theme_combobox = Qw.QComboBox(self)
         self.icon_theme_combobox.addItems(
-            ['adwaita', 'elementary', 'faenza', 'numix',
+            ['adwaita', 'breeze', 'elementary', 'faenza', 'numix',
              'oxygen', 'paper', 'ubuntu'])
         self.icon_theme_combobox.setEditable(True)
         self.icon_theme_combobox.lineEdit().setReadOnly(True)
