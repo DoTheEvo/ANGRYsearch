@@ -821,9 +821,6 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.tray_icon.hide()
         event.accept()
 
-    def restore_column_sort_state(self):
-        self.center.table.sortByColumn(self.set['last_sort'][0],
-                                       self.set['last_sort'][1])
 
     def init_GUI(self):
         self.icon = self.get_tray_icon()
@@ -900,7 +897,6 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.center.search_input.returnPressed.connect(self.focusNextChild)
 
         self.regex_mode_color_indicator()
-        self.restore_column_sort_state()
 
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
@@ -1202,6 +1198,9 @@ class Gui_MainWindow(Qw.QMainWindow):
         if self.set['angrysearch_lite'] is False and d == 2:
             self.tutorial()
             return
+
+        self.center.table.sortByColumn(self.set['last_sort'][0],
+                                       self.set['last_sort'][1])
 
         self.center.table.setDisabled(False)
         cur.execute('''SELECT * FROM angry_table LIMIT ?''',
