@@ -12,7 +12,7 @@ Done in python 3 using PyQt5 for GUI
 
 ### Lite mode vs Full mode
 
-angrysearch database can be set to two different modes in its config, default being `lite`
+angrysearch can be set to two different modes in its config, default being `lite`
 * **lite mode** shows only name and path
 * **full mode** shows also size and date of the last modification, the drawback is that crawling through drives takes roughly twice as long since every file and directory gets additional stats calls
 
@@ -25,7 +25,7 @@ in `~/.config/angrysearch/angrysearch.conf` you control the mode with `angrysear
 there are 3 search modes, default being `fast`
 * **fast mode** - enabled when the checkbox next to the input field is checked  
 extremely fast, but no substrings, meaning it would not find "Pi<b>rate</b>s" or "Whip<b>lash</b>", but it would "<b>Pir</b>ates" or "The-<b>Fif</b>th"
-* **slow mode** - enabled when the checkbox is unchecked, slightly slower but can find substrings
+* **slow mode** - enabled when the checkbox is unchecked, slightly slower but can find substrings, also very litteral with non typical characters
 * **regex mode** - activated by the **F8** key, indicated by orange color background  
 slowest search, used for very precise searches using [regular expressions](http://www.aivosto.com/vbtips/regex.html), set to case insensitive,  
 unlike the previous search modes not entire path is searched, only the filenames/directory names
@@ -39,7 +39,7 @@ regex example:
 
 * the database is in `~/.cache/angrysearch/angry_database.db`  
   the config file is in `~/.config/angrysearch/angrysearch.conf`  
-* it can take ~2 min to index ~1 mil files(depending on hdd/ssd) and the database might be ~300MB
+* it can take ~2 min to index ~1 mil files, depending on hdd/ssd and filesystem - ntfs on linux being much slower. The database might be ~200MB
 * it is **not recommended** to run as root, there's no reason for it and you might crawl where you would rather not, like Btrfs users going in to snapshots
 * [xdg-open](https://wiki.archlinux.org/index.php/Default_applications#xdg-open) is used to open the files based on their mimetype, [default applications](http://i.imgur.com/u8jbi4e.png) can be set in `~/.local/share/applications/mimeapps.list` or `~/.config/mimeapps.list` 
 
@@ -108,7 +108,7 @@ On typical slow searches this would be too broad of a search with too many resul
 * The database uses [FTS](https://sqlite.org/fts3.html) extension of sqlite for indexing to dramatically improve search speed and get the instantaneous feel - results as you type - `fast mode`  
 Drawback of this indexing is inability to do substring searches, but the checkbox in the top right corner can change this. If it's unchecked it will not use FTS tables and just do regular slower database search query - `slow mode`
 * In the `fast mode` quotation marks can be used to make exact searches: `'torrent'` would not include "torrents" in the results.
-* `angrysearch.py` file alone is all that is needed for full functionality.
+* `angrysearch.py` file alone is all that is needed for full functionality. But no special icons or dark theme.
 * Hovering mouse over the update button will show how old is the database.
 * **double-click** on the items in search results:
   * `Name` - the first column, opens the file in the application associated with its mimetype using xdg-open
@@ -134,9 +134,10 @@ Drawback of this indexing is inability to do substring searches, but the checkbo
 * **config file** location: `~/.config/angrysearch/angrysearch.conf`  
   You can delete the config file whenever you wish, on the next run/close a new one will be created with the default values.
 
-![config file screenshot](http://i.imgur.com/KVPv3eV.png)
+![config file screenshot](http://i.imgur.com/dubEjtc.png)
 
   * `angrysearch_lite` By default set to true. In the lite mode theres only file name and path, no file size and no last modification date. Less informations but faster crawling through the drives
+  * `close_on_execute` By default set to false. Closes angrysearch after opening a file or a path in a file manager
   * `conditional_mounts_for_autoupdate` By default empty. Purpose is to hold mount points that should be present when the database is being updated. If a mount is missing, automatic update through crontab will not run, but use system notification dialog to inform that paths set in this settings are not mounted. This prevents overwriting the database when not all drives are present. Values are system mount points, space separated.
   * `darktheme` By default set to false. If set true dark theme is used for the applications interface, as defined in the qdarkstylesheet.qss, also resource_file.py contains icons for dark theme
   *   `directories_excluded` By default empty. Which directories to be ignored, directory names(no slashes) separated by space are valid value there. Can be set through program's interface, in the update window. Directory `/proc` is hard coded to be ignored

@@ -1043,7 +1043,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             rx = '({})'.format(db_query)
         else:
             # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
-            for x in ['\"', '\'', '\\', '?', '+', '[', ']', '*']:
+            for x in ['\"', '\'', '\\', '?', '+', '[', ']', '(', ')', '*']:
                 db_query = db_query.replace(x, '')
 
             strip_and_split = db_query.strip().split()
@@ -1395,7 +1395,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         chat = [
             '   • config file is in ~/.config/angrysearch/angrysearch.conf',
             '   • database is in ~/.cache/angrysearch/angry_database.db',
-            '   • one million files can take ~300MB and ~3 min to index',
+            '   • one million files can take ~200MB and ~2 min to index',
             '',
             '   • double-click on name opens it in associated application',
             '   • double-click on path opens the location in file manager',
