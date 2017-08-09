@@ -41,6 +41,8 @@ FTS5_AVAILABLE = False
 # FOR REGEX MODE, WHEN REGEX QUERY CAN BE RUN SO ONLY ONE ACCESS DATABASE
 REGEX_QUERY_READY = True
 
+# DATABASE PATH
+DATABASE_PATH = os.path.expanduser('~') + '/.cache/angrysearch/angry_database.db'
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
@@ -357,12 +359,11 @@ class Thread_database_update(Qc.QThread):
 
     def replace_old_db_with_new(self):
         global con
+        global DATABASE_PATH
 
-        home = os.path.expanduser('~')
-        db_path = home + '/.cache/angrysearch/angry_database.db'
         temp_db_path = '/tmp/angry_database.db'
 
-        dir_path = os.path.dirname(db_path)
+        dir_path = os.path.dirname(DATABASE_PATH)
 
         if not os.path.exists(temp_db_path):
             return
@@ -371,12 +372,12 @@ class Thread_database_update(Qc.QThread):
             p = subprocess.Popen(cmd)
             p.wait()
 
-        cmd = ['mv', '-f', temp_db_path, db_path]
+        cmd = ['mv', '-f', temp_db_path, DATABASE_PATH]
         p = subprocess.Popen(cmd,
                              stderr=subprocess.PIPE)
         p.wait()
 
-        con = sqlite3.connect(db_path, check_same_thread=False)
+        con = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
         con.create_function("regexp", 2, regexp)
 
     def time_difference(self, tstart):
@@ -1438,12 +1439,11 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # SHOW AGE OF DATABASE IN TOOLTIP OF THE UPDATE BUTTON
     def database_age(self):
-        home = os.path.expanduser('~')
-        path = home + '/.cache/angrysearch/angry_database.db'
+        global DATABASE_PATH
 
         def readable_time():
-            if os.path.exists(path):
-                seconds = int(time.time() - os.path.getmtime(path))
+            if os.path.exists(DATABASE_PATH):
+                seconds = int(time.time() - os.path.getmtime(DATABASE_PATH))
 
                 if seconds < 3600:
                     rounded = round(seconds / 60)
@@ -1700,12 +1700,11 @@ class Update_dialog_window(Qw.QDialog):
 
 
 def open_database():
-    home = os.path.expanduser('~')
-    path = home + '/.cache/angrysearch/angry_database.db'
-    temp = '/tmp/angry_database.db'
-    if os.path.exists(path):
-        return sqlite3.connect(path, check_same_thread=False)
+    global DATABASE_PATH
+    if os.path.exists(DATABASE_PATH):
+        return sqlite3.connect(DATABASE_PATH, check_same_thread=False)
     else:
+        temp = '/tmp/angry_database.db'
         if os.path.exists(temp):
             os.remove(temp)
         return sqlite3.connect(temp, check_same_thread=False)

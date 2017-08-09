@@ -18,6 +18,8 @@ import sqlite3
 import subprocess
 import sys
 
+DATABASE_PATH = os.path.expanduser('~') + '/.cache/angrysearch/angry_database.db'
+
 # CHECK SCANDIR AVAILABILITY
 try:
     import scandir
@@ -242,7 +244,6 @@ def remove_excluded_dirs(dirs, root, to_ignore):
 
 
 def new_database(table):
-    global con
     temp_db_path = '/tmp/angry_database.db'
 
     if os.path.exists(temp_db_path):
@@ -267,7 +268,6 @@ def new_database(table):
 
 
 def new_database_lite(table):
-    global con
     temp_db_path = '/tmp/angry_database.db'
 
     if os.path.exists(temp_db_path):
@@ -292,11 +292,10 @@ def new_database_lite(table):
 
 
 def replace_old_db_with_new():
-    home = os.path.expanduser('~')
-    db_path = home + '/.cache/angrysearch/angry_database.db'
+    global DATABASE_PATH
     temp_db_path = '/tmp/angry_database.db'
 
-    dir_path = os.path.dirname(db_path)
+    dir_path = os.path.dirname(DATABASE_PATH)
 
     if not os.path.exists(temp_db_path):
         return
@@ -305,7 +304,7 @@ def replace_old_db_with_new():
         p = subprocess.Popen(cmd)
         p.wait()
 
-    cmd = ['mv', '-f', temp_db_path, db_path]
+    cmd = ['mv', '-f', temp_db_path, DATABASE_PATH]
     p = subprocess.Popen(cmd,
                          stderr=subprocess.PIPE)
     p.wait()
@@ -328,34 +327,20 @@ def fts5_pragma_check():
         return False
 
 
-def open_database():
-    home = os.path.expanduser('~')
-    path = home + '/.cache/angrysearch/angry_database.db'
-    temp = '/tmp/angry_database.db'
-    if os.path.exists(path):
-        return sqlite3.connect(path, check_same_thread=False)
-    else:
-        if os.path.exists(temp):
-            os.remove(temp)
-        return sqlite3.connect(temp, check_same_thread=False)
-
-
 if __name__ == '__main__':
-    con = open_database()
-    with con:
-        load_settings()
-        test_conditional_mounts_for_autoupdate()
-        if LITE is True:
-            crawling_drives_lite()
-        else:
-            crawling_drives()
-        total_time = datetime.now() - START_TIME
-        noti_text = '{} | database updated'.format(
-                        time_difference(total_time.seconds))
-        try:
-            show_notification(noti_text)
-        except Exception as err:
-            print(err)
-            with open('/tmp/angrysearch_cron.log', 'a') as log:
-                t = '{:%Y-%b-%d | %H:%M | } '.format(datetime.now())
-                log.write(t + str(err) + '\n')
+    load_settings()
+    test_conditional_mounts_for_autoupdate()
+    if LITE is True:
+        crawling_drives_lite()
+    else:
+        crawling_drives()
+    total_time = datetime.now() - START_TIME
+    noti_text = '{} | database updated'.format(
+                    time_difference(total_time.seconds))
+    try:
+        show_notification(noti_text)
+    except Exception as err:
+        print(err)
+        with open('/tmp/angrysearch_cron.log', 'a') as log:
+            t = '{:%Y-%b-%d | %H:%M | } '.format(datetime.now())
+            log.write(t + str(err) + '\n')
