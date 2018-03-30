@@ -13,12 +13,14 @@ CRONTAB EXAMPLE THAT EXECUTES AT NOON AND AT MIDNIGHT
 
 from datetime import datetime
 import os
-from PyQt5.QtCore import QSettings
+from PyQt5.QtCore import QSettings, QStandardPaths
 import sqlite3
 import subprocess
 import sys
 
-DATABASE_PATH = os.path.expanduser('~') + '/.cache/angrysearch/angry_database.db'
+TEMP_PATH = QStandardPaths.standardLocations(QStandardPaths.TempLocation)[0]
+CACHE_PATH = QStandardPaths.standardLocations(QStandardPaths.CacheLocation)[0]
+DATABASE_PATH = CACHE_PATH + '/angrysearch/angry_database.db'
 
 # CHECK SCANDIR AVAILABILITY
 try:
@@ -244,7 +246,7 @@ def remove_excluded_dirs(dirs, root, to_ignore):
 
 
 def new_database(table):
-    temp_db_path = '/tmp/angry_database.db'
+    temp_db_path = TEMP_PATH + '/angry_database.db'
 
     if os.path.exists(temp_db_path):
         os.remove(temp_db_path)
@@ -268,7 +270,7 @@ def new_database(table):
 
 
 def new_database_lite(table):
-    temp_db_path = '/tmp/angry_database.db'
+    temp_db_path = TEMP_PATH + '/angry_database.db'
 
     if os.path.exists(temp_db_path):
         os.remove(temp_db_path)
@@ -293,7 +295,7 @@ def new_database_lite(table):
 
 def replace_old_db_with_new():
     global DATABASE_PATH
-    temp_db_path = '/tmp/angry_database.db'
+    temp_db_path = TEMP_PATH + '/angry_database.db'
 
     dir_path = os.path.dirname(DATABASE_PATH)
 
@@ -341,6 +343,7 @@ if __name__ == '__main__':
         show_notification(noti_text)
     except Exception as err:
         print(err)
-        with open('/tmp/angrysearch_cron.log', 'a') as log:
+        log_path = TEMP_PATH + '/angrysearch_cron.log'
+        with open(log_path, 'a') as log:
             t = '{:%Y-%b-%d | %H:%M | } '.format(datetime.now())
-            log.write(t + str(err) + '\n')
+            log.write(t + str(err) + os.linesep)

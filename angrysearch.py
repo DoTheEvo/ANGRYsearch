@@ -41,8 +41,14 @@ FTS5_AVAILABLE = False
 # FOR REGEX MODE, WHEN REGEX QUERY CAN BE RUN SO ONLY ONE ACCESS DATABASE
 REGEX_QUERY_READY = True
 
-# DATABASE PATH
-DATABASE_PATH = os.path.expanduser('~') + '/.cache/angrysearch/angry_database.db'
+# CONFIG AND DATABASE PATHS
+TEMP_PATH = Qc.QStandardPaths.standardLocations(
+    Qc.QStandardPaths.TempLocation)[0]
+CACHE_PATH = Qc.QStandardPaths.standardLocations(
+    Qc.QStandardPaths.CacheLocation)[0]
+CONFIG_PATH = Qc.QStandardPaths.standardLocations(
+    Qc.QStandardPaths.ConfigLocation)[0] + '/angrysearch/angry_database.conf'
+DATABASE_PATH = CACHE_PATH + '/angrysearch/angry_database.db'
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
@@ -313,7 +319,7 @@ class Thread_database_update(Qc.QThread):
 
     def new_database(self):
         global con
-        temp_db_path = '/tmp/angry_database.db'
+        temp_db_path = TEMP_PATH + '/angry_database.db'
         tstart = datetime.now()
 
         if os.path.exists(temp_db_path):
@@ -361,7 +367,7 @@ class Thread_database_update(Qc.QThread):
         global con
         global DATABASE_PATH
 
-        temp_db_path = '/tmp/angry_database.db'
+        temp_db_path = TEMP_PATH + '/angry_database.db'
 
         dir_path = os.path.dirname(DATABASE_PATH)
 
@@ -631,7 +637,7 @@ class Center_widget(Qw.QWidget):
 class Gui_MainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
-        self.settings = Qc.QSettings('angrysearch', 'angrysearch')
+        self.settings = Qc.QSettings(CONFIG_PATH, Qc.QSettings.IniFormat)
         self.set = {'angrysearch_lite': True,
                     'fts': True,
                     'typing_delay': False,
@@ -1392,9 +1398,10 @@ class Gui_MainWindow(Qw.QMainWindow):
     # SHOWN WHEN THERES NO DATABASE OR LITE SETTINGS CHANGED
     def tutorial(self):
         self.center.search_input.setDisabled(True)
+        conf_file = self.settings.fileName()
         chat = [
-            '   • config file is in ~/.config/angrysearch/angrysearch.conf',
-            '   • database is in ~/.cache/angrysearch/angry_database.db',
+            f'   • config file is in {conf_file}',
+            f'   • database is in {CACHE_PATH}/angrysearch/angry_database.db',
             '   • one million files can take ~200MB and ~2 min to index',
             '',
             '   • double-click on name opens it in associated application',
@@ -1526,7 +1533,7 @@ class Update_dialog_window(Qw.QDialog):
         super().__init__(parent)
         self.values = dict()
         self.last_signal = ''
-        self.settings = Qc.QSettings('angrysearch', 'angrysearch')
+        self.settings = Qc.QSettings(CONFIG_PATH, Qc.QSettings.IniFormat)
         self.initUI()
 
     def __setitem__(self, k, v):
@@ -1703,7 +1710,7 @@ def open_database():
     if os.path.exists(DATABASE_PATH):
         return sqlite3.connect(DATABASE_PATH, check_same_thread=False)
     else:
-        temp = '/tmp/angry_database.db'
+        temp = TEMP_PATH + '/angry_database.db'
         if os.path.exists(temp):
             os.remove(temp)
         return sqlite3.connect(temp, check_same_thread=False)
