@@ -18,6 +18,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import shutil
 
 # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
 # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
@@ -374,14 +375,9 @@ class Thread_database_update(Qc.QThread):
         if not os.path.exists(temp_db_path):
             return
         if not os.path.exists(dir_path):
-            cmd = ['install', '-d', dir_path]
-            p = subprocess.Popen(cmd)
-            p.wait()
+            os.makedirs(dir_path)
 
-        cmd = ['mv', '-f', temp_db_path, DATABASE_PATH]
-        p = subprocess.Popen(cmd,
-                             stderr=subprocess.PIPE)
-        p.wait()
+        shutil.move(temp_db_path, DATABASE_PATH)
 
         con = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
         con.create_function("regexp", 2, regexp)
