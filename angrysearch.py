@@ -1400,8 +1400,8 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.center.search_input.setDisabled(True)
         conf_file = self.settings.fileName()
         chat = [
-            f'   • config file is in {conf_file}',
-            f'   • database is in {CACHE_PATH}/angrysearch/angry_database.db',
+            '   • config file is in {}'.format(conf_file),
+            '   • database is in {}/angrysearch/angry_database.db'.format(CACHE_PATH),
             '   • one million files can take ~200MB and ~2 min to index',
             '',
             '   • double-click on name opens it in associated application',
