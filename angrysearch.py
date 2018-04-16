@@ -318,6 +318,8 @@ class Thread_database_update(Qc.QThread):
         tstart = datetime.now()
 
         if os.path.exists(temp_db_path):
+            if con:
+                con.close()
             os.remove(temp_db_path)
 
         con = sqlite3.connect(temp_db_path, check_same_thread=False)
@@ -371,6 +373,8 @@ class Thread_database_update(Qc.QThread):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
+        if con:
+            con.close()
         shutil.move(temp_db_path, DATABASE_PATH)
 
         con = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
