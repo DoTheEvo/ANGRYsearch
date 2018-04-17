@@ -1,24 +1,36 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+"""
+ANGRYsearch - file search, instant results as you typeself.
+
+Attempt of making multiplatform version of Everything Search Engine
+https://www.voidtools.com/
+"""
+
+# Hide docstring warnings
+# Ignore imported but not used
+# Hide warning function is too complex
+# pylama:ignore=D100,D101,D102,D103,D105,W0611,C901
 
 import base64
-from datetime import datetime
-from itertools import permutations
-from operator import itemgetter
 import locale
 import mimetypes
 import os
 import platform
-import PyQt5.QtCore as Qc
-import PyQt5.QtGui as Qg
-import PyQt5.QtWidgets as Qw
 import re
 import shlex
+import shutil
 import sqlite3
 import subprocess
 import sys
 import time
-import shutil
+from datetime import datetime
+from itertools import permutations
+from operator import itemgetter
+
+import PyQt5.QtCore as Qc
+import PyQt5.QtGui as Qg
+import PyQt5.QtWidgets as Qw
 
 # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
 # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
@@ -50,6 +62,7 @@ CACHE_PATH = Qc.QStandardPaths.standardLocations(
 CONFIG_PATH = Qc.QStandardPaths.standardLocations(
     Qc.QStandardPaths.ConfigLocation)[0] + '/angrysearch/angry_database.conf'
 DATABASE_PATH = CACHE_PATH + '/angrysearch/angry_database.db'
+
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
@@ -89,8 +102,7 @@ class Thread_db_query(Qc.QThread):
             cur.execute(q)
 
         db_query_result = cur.fetchall()
-        self.db_query_signal.emit(self.db_query,
-                                  db_query_result,
+        self.db_query_signal.emit(self.db_query, db_query_result,
                                   self.words_quoted)
 
     # FTS CHECKBOX IS UNCHECKED, SO NO INDEXING
@@ -298,7 +310,7 @@ class Thread_database_update(Qc.QThread):
                         stats = os.lstat(path)
                         epoch_time = int(stats.st_mtime.__trunc__())
                     except:
-                        print('Cant access: ' + str(path))
+                        print('Can\'t access: ' + str(path))
                         epoch_time = 0
                     dir_list.append(('1', utf_path, '', epoch_time))
                 for fname in files:
@@ -309,11 +321,10 @@ class Thread_database_update(Qc.QThread):
                         size = stats.st_size
                         epoch_time = int(stats.st_mtime.__trunc__())
                     except:
-                        print('Cant access: ' + str(path))
+                        print('Can\'t access: ' + str(path))
                         size = 0
                         epoch_time = 0
-                    file_list.append(
-                        ('0', utf_path, size, epoch_time))
+                    file_list.append(('0', utf_path, size, epoch_time))
 
         self.table = dir_list + file_list
         self.crawl_time = self.time_difference(tstart)
@@ -429,7 +440,7 @@ class Thread_database_update(Qc.QThread):
             cur.execute('pragma compile_options;')
             available_pragmas = cur.fetchall()
 
-        if ('ENABLE_FTS5',) in available_pragmas:
+        if ('ENABLE_FTS5', ) in available_pragmas:
             return True
         else:
             return False
@@ -448,9 +459,9 @@ class Thread_get_mimetype(Qc.QThread):
         if not os.path.exists(self.path):
             mimetype = 'NOT FOUND'
         else:
-            mime = subprocess.Popen(['xdg-mime', 'query',
-                                     'filetype', self.path],
-                                    stdout=subprocess.PIPE)
+            mime = subprocess.Popen(
+                ['xdg-mime', 'query', 'filetype', self.path],
+                stdout=subprocess.PIPE)
             mime.wait()
             if mime.returncode == 0:
                 mimetype = str(mime.communicate()[0].decode('latin-1').strip())
@@ -638,20 +649,22 @@ class Gui_MainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
         self.settings = Qc.QSettings(CONFIG_PATH, Qc.QSettings.IniFormat)
-        self.set = {'angrysearch_lite': True,
-                    'fts': True,
-                    'typing_delay': False,
-                    'darktheme': False,
-                    'fm_path_doubleclick_selects': False,
-                    'icon_theme': 'adwaita',
-                    'file_manager': 'xdg-open',
-                    'row_height': 0,
-                    'number_of_results': 500,
-                    'directories_excluded': [],
-                    'conditional_mounts_for_autoupdate': [],
-                    'notifications': True,
-                    'regex_mode': False,
-                    'close_on_execute': False}
+        self.set = {
+            'angrysearch_lite': True,
+            'fts': True,
+            'typing_delay': False,
+            'darktheme': False,
+            'fm_path_doubleclick_selects': False,
+            'icon_theme': 'adwaita',
+            'file_manager': 'xdg-open',
+            'row_height': 0,
+            'number_of_results': 500,
+            'directories_excluded': [],
+            'conditional_mounts_for_autoupdate': [],
+            'notifications': True,
+            'regex_mode': False,
+            'close_on_execute': False
+        }
         self.read_settings()
         self.init_GUI()
 
@@ -704,7 +717,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def regex_mode_color_indicator(self):
         if self.set['regex_mode'] is True:
             self.center.search_input.setStyleSheet(
-               'background: #FF6A00; color: #000000;')
+                'background: #FF6A00; color: #000000;')
         else:
             self.center.search_input.setStyleSheet('')
 
@@ -775,11 +788,13 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     def detect_file_manager(self):
         try:
-            fm = subprocess.check_output(['xdg-mime', 'query',
-                                          'default', 'inode/directory'])
+            fm = subprocess.check_output(
+                ['xdg-mime', 'query', 'default', 'inode/directory'])
             detected_fm = fm.decode('utf-8').strip().lower()
-            known_fm = ['dolphin', 'nemo', 'nautilus', 'doublecmd',
-                        'thunar', 'pcmanfm', 'spacefm']
+            known_fm = [
+                'dolphin', 'nemo', 'nautilus', 'doublecmd', 'thunar',
+                'pcmanfm', 'spacefm'
+            ]
             for x in known_fm:
                 if x in detected_fm:
                     print('autodetected file manager: ' + x)
@@ -826,7 +841,6 @@ class Gui_MainWindow(Qw.QMainWindow):
         # SO THAT THE MAIN WINDOW INSTANCE AUTOMATICALLY DELETES IT ON CLOSING
         self.tray_icon.hide()
         event.accept()
-
 
     def init_GUI(self):
         self.icon = self.get_tray_icon()
@@ -883,7 +897,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.center.table.verticalHeader().setVisible(False)
         self.center.table.setVerticalScrollBarPolicy(Qc.Qt.ScrollBarAlwaysOn)
         self.center.table.setSelectionMode(
-                                       Qw.QAbstractItemView.SingleSelection)
+            Qw.QAbstractItemView.SingleSelection)
 
         self.center.table.setItemDelegate(self.HTMLDelegate())
 
@@ -920,8 +934,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.tray_icon.activated.connect(self.sys_tray_clicking)
 
     def sys_tray_clicking(self, reason):
-        if (reason == Qw.QSystemTrayIcon.DoubleClick or
-                reason == Qw.QSystemTrayIcon.Trigger):
+        if (reason == Qw.QSystemTrayIcon.DoubleClick
+                or reason == Qw.QSystemTrayIcon.Trigger):
             self.show()
         elif (reason == Qw.QSystemTrayIcon.MiddleClick):
             self.close()
@@ -951,8 +965,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             return
         self.last_keyboard_input = input
         self.waiting_threads.append(Thread_delay_db_query(input))
-        self.waiting_threads[-1].delay_signal.connect(
-            self.waiting_done, Qc.Qt.QueuedConnection)
+        self.waiting_threads[-1].delay_signal.connect(self.waiting_done,
+                                                      Qc.Qt.QueuedConnection)
         self.waiting_threads[-1].start()
 
     def waiting_done(self, waiting_data):
@@ -982,9 +996,12 @@ class Gui_MainWindow(Qw.QMainWindow):
                 self.status_bar.showMessage('regex not valid')
                 return
 
-            self.queries_threads.append(
-                                {'input': input,
-                                 'thread': Thread_db_query(input, self.set)})
+            self.queries_threads.append({
+                'input':
+                input,
+                'thread':
+                Thread_db_query(input, self.set)
+            })
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -992,9 +1009,12 @@ class Gui_MainWindow(Qw.QMainWindow):
                 self.queries_threads[-1]['thread'].start()
                 REGEX_QUERY_READY = False
         else:
-            self.queries_threads.append(
-                                {'input': input,
-                                 'thread': Thread_db_query(input, self.set)})
+            self.queries_threads.append({
+                'input':
+                input,
+                'thread':
+                Thread_db_query(input, self.set)
+            })
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -1088,8 +1108,9 @@ class Gui_MainWindow(Qw.QMainWindow):
             else:
                 short_mime = mimetypes.guess_type(_name)[0]
                 if short_mime:
-                    archives = ['x-tar', 'zip', 'x-rar-compressed',
-                                'x-7z-compressed']
+                    archives = [
+                        'x-tar', 'zip', 'x-rar-compressed', 'x-7z-compressed'
+                    ]
                     short_mime = short_mime.split('/')
                     if short_mime[0] in self.icon_dictionary:
                         n.setIcon(self.icon_dictionary[short_mime[0]])
@@ -1149,8 +1170,10 @@ class Gui_MainWindow(Qw.QMainWindow):
     # CREATES DICTIONARY WITH 6 MIME TYPES ICONS DEPENDING ON THEME
     def get_mime_icons(self):
         icon_dic = {}
-        iconed_mimes = ['folder', 'file', 'image', 'audio',
-                        'video', 'text', 'pdf', 'archive']
+        iconed_mimes = [
+            'folder', 'file', 'image', 'audio', 'video', 'text', 'pdf',
+            'archive'
+        ]
 
         if RESOURCE_AVAILABLE is True:
             for x in iconed_mimes:
@@ -1170,7 +1193,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         if nbytes == 0:
             return '0 B'
         i = 0
-        while nbytes >= 1024 and i < len(suffixes)-1:
+        while nbytes >= 1024 and i < len(suffixes) - 1:
             nbytes /= 1024.
             i += 1
         f = ('{:.2f}'.format(nbytes)).rstrip('0').rstrip('.')
@@ -1184,7 +1207,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         cur.execute('''PRAGMA user_version;''')
         pragma_user_version = cur.fetchone()[0]
-        if pragma_user_version ==4:
+        if pragma_user_version == 4:
             FTS5_AVAILABLE = True
         if pragma_user_version < 3:
             self.tutorial()
@@ -1210,7 +1233,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         self.center.table.setDisabled(False)
         cur.execute('''SELECT * FROM angry_table LIMIT ?''',
-                    (self.set['number_of_results'],))
+                    (self.set['number_of_results'], ))
         tuppled_500 = cur.fetchall()
 
         self.process_q_resuls('', tuppled_500)
@@ -1247,9 +1270,10 @@ class Gui_MainWindow(Qw.QMainWindow):
             row = selected_item.indexes()[0].row()
             path = self.model.itemFromIndex(row, 0)._fullpath
 
-            self.mime_type_threads.append(
-                {'path': path,
-                 'thread': Thread_get_mimetype(path)})
+            self.mime_type_threads.append({
+                'path': path,
+                'thread': Thread_get_mimetype(path)
+            })
 
             self.mime_type_threads[-1]['thread'].mime_signal.connect(
                 self.mime_type_thread_done, Qc.Qt.QueuedConnection)
@@ -1296,7 +1320,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                 self.center.table.setStyleSheet('selection-color:red;')
             else:
                 self.center.table.setStyleSheet(
-                                            'selection-background-color:red;')
+                    'selection-background-color:red;')
             self.center.table.timeout.start(150)
             return
         else:
@@ -1401,7 +1425,8 @@ class Gui_MainWindow(Qw.QMainWindow):
         conf_file = self.settings.fileName()
         chat = [
             '   • config file is in {}'.format(conf_file),
-            '   • database is in {}/angrysearch/angry_database.db'.format(CACHE_PATH),
+            '   • database is in {}/angrysearch/angry_database.db'.format(
+                CACHE_PATH),
             '   • one million files can take ~200MB and ~2 min to index',
             '',
             '   • double-click on name opens it in associated application',
@@ -1413,7 +1438,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             '   • it would not find "Pi<b>rate</b>s", or Whip<b>lash</b>"',
             '   • it would find "<b>Pir</b>ates", or "The-<b>Fif</b>th"',
             '   • unchecking it provides substring searches, but slower',
-            ]
+        ]
 
         self.center.table.setModel(Qc.QStringListModel(chat))
         self.center.table.setDisabled(True)
@@ -1424,10 +1449,10 @@ class Gui_MainWindow(Qw.QMainWindow):
     def clicked_button_updatedb(self):
         self.center.search_input.setDisabled(False)
         self.u = Update_dialog_window(self)
-        self.u.window_close_signal.connect(
-            self.update_window_close, Qc.Qt.QueuedConnection)
-        self.u.icon_theme_signal.connect(
-            self.theme_change_icon, Qc.Qt.QueuedConnection)
+        self.u.window_close_signal.connect(self.update_window_close,
+                                           Qc.Qt.QueuedConnection)
+        self.u.icon_theme_signal.connect(self.theme_change_icon,
+                                         Qc.Qt.QueuedConnection)
         self.u.exec_()
         self.center.search_input.setFocus()
 
@@ -1497,14 +1522,17 @@ class Gui_MainWindow(Qw.QMainWindow):
             ctx = Qg.QAbstractTextDocumentLayout.PaintContext()
 
             if option.state & Qw.QStyle.State_Selected:
-                ctx.palette.setColor(Qg.QPalette.Text, option.palette.color(
-                    Qg.QPalette.Active, Qg.QPalette.HighlightedText))
+                ctx.palette.setColor(Qg.QPalette.Text,
+                                     option.palette.color(
+                                         Qg.QPalette.Active,
+                                         Qg.QPalette.HighlightedText))
             else:
-                ctx.palette.setColor(Qg.QPalette.Text, option.palette.color(
-                    Qg.QPalette.Active, Qg.QPalette.Text))
+                ctx.palette.setColor(Qg.QPalette.Text,
+                                     option.palette.color(
+                                         Qg.QPalette.Active, Qg.QPalette.Text))
 
-            textRect = style.subElementRect(
-                Qw.QStyle.SE_ItemViewItemText, options, None)
+            textRect = style.subElementRect(Qw.QStyle.SE_ItemViewItemText,
+                                            options, None)
 
             if index.column() != 0:
                 textRect.adjust(5, 0, 0, 0)
@@ -1550,15 +1578,16 @@ class Update_dialog_window(Qw.QDialog):
 
         self.icon_theme_label = Qw.QLabel('icon theme:')
         self.icon_theme_combobox = Qw.QComboBox(self)
-        self.icon_theme_combobox.addItems(
-            ['adwaita', 'breeze', 'elementary', 'faenza', 'numix',
-             'oxygen', 'paper', 'ubuntu'])
+        self.icon_theme_combobox.addItems([
+            'adwaita', 'breeze', 'elementary', 'faenza', 'numix', 'oxygen',
+            'paper', 'ubuntu'
+        ])
         self.icon_theme_combobox.setEditable(True)
         self.icon_theme_combobox.lineEdit().setReadOnly(True)
         self.icon_theme_combobox.lineEdit().setAlignment(Qc.Qt.AlignCenter)
         for x in range(self.icon_theme_combobox.count()):
-            self.icon_theme_combobox.setItemData(
-                x, Qc.Qt.AlignCenter, Qc.Qt.TextAlignmentRole)
+            self.icon_theme_combobox.setItemData(x, Qc.Qt.AlignCenter,
+                                                 Qc.Qt.TextAlignmentRole)
 
         self.icon_theme_combobox.activated[str].connect(self.combo_box_change)
 
@@ -1624,10 +1653,9 @@ class Update_dialog_window(Qw.QDialog):
         self.icon_theme_signal.emit(text)
 
     def exclude_dialog(self):
-        text, ok = Qw.QInputDialog.getText(self, '~/.config/angrysearch/',
-                                           'Directories to be ignored:',
-                                           Qw.QLineEdit.Normal,
-                                           self.exclud_dirs)
+        text, ok = Qw.QInputDialog.getText(
+            self, '~/.config/angrysearch/', 'Directories to be ignored:',
+            Qw.QLineEdit.Normal, self.exclud_dirs)
         if ok:
             text = text.strip()
             self.exclud_dirs = text
@@ -1665,8 +1693,7 @@ class Update_dialog_window(Qw.QDialog):
                 m = m + '&nbsp;&nbsp;&nbsp;&nbsp;<b>' + x + '</b><br>'
             n = 'Mounts missing:<br>' + m + 'Do You want to update anyway?'
             reply = Qw.QMessageBox.question(
-                        self, 'Message', n,
-                        Qw.QMessageBox.Yes | Qw.QMessageBox.No)
+                self, 'Message', n, Qw.QMessageBox.Yes | Qw.QMessageBox.No)
 
             if reply == Qw.QMessageBox.No:
                 self.accept()
