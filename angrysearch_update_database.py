@@ -1,24 +1,29 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+"""
+Index the drives and create new database replacing the old one.
 
-'''
-THIS SCRIPT WILL INDEX THE DRIVES AND CREATE NEW DATABASE
-REPLACING THE OLD ONE, IT RESPECTS IGNORED DIRECTORIES
+It respects ignored directories.
 
-USE CRONTAB TO RUN THIS UPDATE PERIODICALLY, 2 TIMES A DAY SOUNDS ABOUT RIGHT
-CRONTAB EXAMPLE THAT EXECUTES AT NOON AND AT MIDNIGHT
+Use crontab to run this update periodically, 2 times a day sounds about right
+crontab example that executes at noon and at midnight
 
 00 00,12 * * * /usr/share/angrysearch/angrysearch_update_database.py
-'''
+"""
 
-from datetime import datetime
+# pylama:ignore=D103  ## Hide docstring warnings
+
 import os
-from PyQt5.QtCore import QSettings
 import sqlite3
 import subprocess
 import sys
+from datetime import datetime
 
-DATABASE_PATH = os.path.expanduser('~') + '/.cache/angrysearch/angry_database.db'
+from PyQt5.QtCore import QSettings, QStandardPaths
+
+TEMP_PATH = QStandardPaths.standardLocations(QStandardPaths.TempLocation)[0]
+CACHE_PATH = QStandardPaths.standardLocations(QStandardPaths.CacheLocation)[0]
+DATABASE_PATH = CACHE_PATH + '/angrysearch/angry_database.db'
 
 # CHECK SCANDIR AVAILABILITY
 try:
@@ -34,7 +39,7 @@ try:
     require_version('Notify', '0.7')
     from gi.repository import Notify, GdkPixbuf
     NOTIFY_AVAILABLE = True
-except:
+except ImportError:
     NOTIFY_AVAILABLE = False
 
 # FIX FOR CRONTAB
@@ -125,10 +130,12 @@ def show_notification(text):
     Notify.init('angrysearch')
     n = Notify.Notification.new('ANGRYsearch:', text)
 
-    possible_image_locations = ['angrysearch.svg',
-                                '/usr/share/pixmaps/angrysearch.svg',
-                                '/usr/share/angrysearch/angrysearch.svg',
-                                '/opt/angrysearch/angrysearch.svg']
+    possible_image_locations = [
+        'angrysearch.svg',
+        '/usr/share/pixmaps/angrysearch.svg',
+        '/usr/share/angrysearch/angrysearch.svg',
+        '/opt/angrysearch/angrysearch.svg'
+    ]
     for x in possible_image_locations:
         if os.path.exists(x):
             icon = GdkPixbuf.Pixbuf.new_from_file(x)
@@ -169,7 +176,7 @@ def crawling_drives():
                 stats = os.lstat(path)
                 epoch_time = stats.st_mtime.__trunc__()
             except:
-                print('Cant access: ' + str(path))
+                print('Can\'t access: ' + str(path))
                 epoch_time = 0
             dir_list.append(('1', utf_path, '', epoch_time))
         for fname in files:
@@ -180,11 +187,10 @@ def crawling_drives():
                 size = stats.st_size
                 epoch_time = stats.st_mtime.__trunc__()
             except:
-                print('Cant access: ' + str(path))
+                print('Can\'t access: ' + str(path))
                 size = 0
                 epoch_time = 0
-            file_list.append(
-                ('0', utf_path, size, epoch_time))
+            file_list.append(('0', utf_path, size, epoch_time))
 
     table = dir_list + file_list
     new_database(table)
@@ -244,7 +250,7 @@ def remove_excluded_dirs(dirs, root, to_ignore):
 
 
 def new_database(table):
-    temp_db_path = '/tmp/angry_database.db'
+    temp_db_path = TEMP_PATH + '/angry_database.db'
 
     if os.path.exists(temp_db_path):
         os.remove(temp_db_path)
@@ -268,7 +274,7 @@ def new_database(table):
 
 
 def new_database_lite(table):
-    temp_db_path = '/tmp/angry_database.db'
+    temp_db_path = TEMP_PATH + '/angry_database.db'
 
     if os.path.exists(temp_db_path):
         os.remove(temp_db_path)
@@ -293,7 +299,7 @@ def new_database_lite(table):
 
 def replace_old_db_with_new():
     global DATABASE_PATH
-    temp_db_path = '/tmp/angry_database.db'
+    temp_db_path = TEMP_PATH + '/angry_database.db'
 
     dir_path = os.path.dirname(DATABASE_PATH)
 
@@ -305,8 +311,7 @@ def replace_old_db_with_new():
         p.wait()
 
     cmd = ['mv', '-f', temp_db_path, DATABASE_PATH]
-    p = subprocess.Popen(cmd,
-                         stderr=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stderr=subprocess.PIPE)
     p.wait()
 
 
@@ -321,7 +326,7 @@ def fts5_pragma_check():
         cur.execute('pragma compile_options;')
         available_pragmas = cur.fetchall()
 
-    if ('ENABLE_FTS5',) in available_pragmas:
+    if ('ENABLE_FTS5', ) in available_pragmas:
         return True
     else:
         return False
@@ -336,11 +341,12 @@ if __name__ == '__main__':
         crawling_drives()
     total_time = datetime.now() - START_TIME
     noti_text = '{} | database updated'.format(
-                    time_difference(total_time.seconds))
+        time_difference(total_time.seconds))
     try:
         show_notification(noti_text)
     except Exception as err:
         print(err)
-        with open('/tmp/angrysearch_cron.log', 'a') as log:
+        log_path = TEMP_PATH + '/angrysearch_cron.log'
+        with open(log_path, 'a') as log:
             t = '{:%Y-%b-%d | %H:%M | } '.format(datetime.now())
-            log.write(t + str(err) + '\n')
+            log.write(t + str(err) + os.linesep)
