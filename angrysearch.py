@@ -24,6 +24,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+
 from datetime import datetime
 from itertools import permutations
 from operator import itemgetter
@@ -31,6 +32,9 @@ from operator import itemgetter
 import PyQt5.QtCore as Qc
 import PyQt5.QtGui as Qg
 import PyQt5.QtWidgets as Qw
+
+import shutil
+
 
 # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
 # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
@@ -1426,7 +1430,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         chat = [
             '   • config file is in {}'.format(conf_file),
             '   • database is in {}/angrysearch/angry_database.db'.format(
-                CACHE_PATH),
+                  CACHE_PATH),
             '   • one million files can take ~200MB and ~2 min to index',
             '',
             '   • double-click on name opens it in associated application',
