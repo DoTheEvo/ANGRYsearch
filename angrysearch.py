@@ -466,9 +466,13 @@ class Thread_get_mimetype(Qc.QThread):
 class Custom_table_model(Qc.QAbstractTableModel):
     sort_changed_signal = Qc.pyqtSignal(int, int)
 
-    def __init__(self, table_data=[[]], setting_params={}, parent=None):
+    def __init__(self, table_data=None, setting_params=None, parent=None):
         super().__init__()
+        if table_data is None:
+            table_data = [[]]
+
         self.table_data = table_data
+
         if setting_params['angrysearch_lite']:
             self.headers = ['Name', 'Path']
         else:
@@ -606,9 +610,9 @@ class My_table_view(Qw.QTableView):
 
 # THE PRIMARY GUI DEFINING INTERFACE WIDGET, THE WIDGET WITHIN THE MAINWINDOW
 class Center_widget(Qw.QWidget):
-    def __init__(self, set={}):
+    def __init__(self, setting_params=None):
         super().__init__()
-        self.set = set
+        self.setting_params = setting_params
         self.initUI()
 
     def initUI(self):
@@ -1014,7 +1018,9 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.process_q_resuls(db_query, db_query_result, words_quoted)
 
     # FORMAT DATA FOR THE MODEL
-    def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
+    def process_q_resuls(self, db_query, db_query_result, words_quoted=None):
+        if words_quoted is None:
+            words_quoted = []
         model_data = []
 
         column_to_sort_by, revert_sort_order = self.setting_params['last_sort']
