@@ -56,12 +56,12 @@ DATABASE_PATH = join_path(os.path.expanduser('~'),
 class Thread_db_query(Qc.QThread):
     db_query_signal = Qc.pyqtSignal(str, list, list)
 
-    def __init__(self, db_query, set, parent=None):
+    def __init__(self, db_query, setting_params, parent=None):
         super().__init__()
         self.words_quoted = []
-        self.number_of_results = set['number_of_results']
-        self.fts = set['fts']
-        self.regex_mode = set['regex_mode']
+        self.number_of_results = setting_params['number_of_results']
+        self.fts = setting_params['fts']
+        self.regex_mode = setting_params['regex_mode']
         self.db_query = db_query
 
     def run(self):
@@ -466,10 +466,10 @@ class Thread_get_mimetype(Qc.QThread):
 class Custom_table_model(Qc.QAbstractTableModel):
     sort_changed_signal = Qc.pyqtSignal(int, int)
 
-    def __init__(self, table_data=[[]], set={}, parent=None):
+    def __init__(self, table_data=[[]], setting_params={}, parent=None):
         super().__init__()
         self.table_data = table_data
-        if set['angrysearch_lite']:
+        if setting_params['angrysearch_lite']:
             self.headers = ['Name', 'Path']
         else:
             self.headers = ['Name', 'Path', 'Size', 'Date Modified']
@@ -613,8 +613,8 @@ class Center_widget(Qw.QWidget):
 
     def initUI(self):
         self.search_input = Qw.QLineEdit()
-        self.table = My_table_view(self.set['angrysearch_lite'],
-                                   self.set['row_height'])
+        self.table = My_table_view(self.setting_params['angrysearch_lite'],
+                                   self.setting_params['row_height'])
         self.upd_button = Qw.QPushButton('update')
         self.fts_checkbox = Qw.QCheckBox()
 
@@ -638,20 +638,20 @@ class Gui_MainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
         self.settings = Qc.QSettings('angrysearch', 'angrysearch')
-        self.set = {'angrysearch_lite': True,
-                    'fts': True,
-                    'typing_delay': False,
-                    'darktheme': False,
-                    'fm_path_doubleclick_selects': False,
-                    'icon_theme': 'adwaita',
-                    'file_manager': 'xdg-open',
-                    'row_height': 0,
-                    'number_of_results': 500,
-                    'directories_excluded': [],
-                    'conditional_mounts_for_autoupdate': [],
-                    'notifications': True,
-                    'regex_mode': False,
-                    'close_on_execute': False}
+        self.setting_params = {'angrysearch_lite': True,
+                               'fts': True,
+                               'typing_delay': False,
+                               'darktheme': False,
+                               'fm_path_doubleclick_selects': False,
+                               'icon_theme': 'adwaita',
+                               'file_manager': 'xdg-open',
+                               'row_height': 0,
+                               'number_of_results': 500,
+                               'directories_excluded': [],
+                               'conditional_mounts_for_autoupdate': [],
+                               'notifications': True,
+                               'regex_mode': False,
+                               'close_on_execute': False}
         self.read_settings()
         self.init_GUI()
 
@@ -679,10 +679,10 @@ class Gui_MainWindow(Qw.QMainWindow):
                     self.center.search_input.setFocus()
             # F8 FOR REGEX SEARCH MODE
             if event.key() == 16777271:
-                self.set['regex_mode'] = not self.set['regex_mode']
-                self.settings.setValue('regex_mode', self.set['regex_mode'])
+                self.setting_params['regex_mode'] = not self.setting_params['regex_mode']
+                self.settings.setValue('regex_mode', self.setting_params['regex_mode'])
                 self.regex_mode_color_indicator()
-                if self.set['regex_mode']:
+                if self.setting_params['regex_mode']:
                     self.status_bar.showMessage('REGEX MODE ENABLED')
                 else:
                     self.status_bar.showMessage('REGEX MODE DISABLED')
@@ -702,7 +702,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             event.ignore()
 
     def regex_mode_color_indicator(self):
-        if self.set['regex_mode']:
+        if self.setting_params['regex_mode']:
             self.center.search_input.setStyleSheet(
                'background: #FF6A00; color: #000000;')
         else:
@@ -739,13 +739,13 @@ class Gui_MainWindow(Qw.QMainWindow):
         if self.settings.value('Last_Run/last_sort'):
             k = self.settings.value('Last_Run/last_sort')
             if type(k) is list and len(k) == 2:
-                if self.set['angrysearch_lite'] and int(k[0]) > 1:
+                if self.setting_params['angrysearch_lite'] and int(k[0]) > 1:
                     k[0] = 1
-                self.set['last_sort'] = [int(x) for x in k]
+                self.setting_params['last_sort'] = [int(x) for x in k]
             else:
-                self.set['last_sort'] = [1, 0]
+                self.setting_params['last_sort'] = [1, 0]
         else:
-            self.set['last_sort'] = [1, 0]
+            self.setting_params['last_sort'] = [1, 0]
 
     def read_qsettings_item(self, item, type):
         if self.settings.value(item):
@@ -754,24 +754,24 @@ class Gui_MainWindow(Qw.QMainWindow):
                 if k.lower() in ['false', 'no', '0', 'n', 'none']:
                     if item == 'fast_search_but_no_substring':
                         item = 'fts'
-                    self.set[item] = False
+                    self.setting_params[item] = False
                 else:
-                    self.set[item] = True
+                    self.setting_params[item] = True
             if type == 'str':
-                self.set[item] = k
+                self.setting_params[item] = k
             if type == 'int':
                 if k.isdigit():
-                    self.set[item] = int(k)
+                    self.setting_params[item] = int(k)
             if type == 'list':
-                self.set[item] = shlex.split(k.strip())
+                self.setting_params[item] = shlex.split(k.strip())
             if type == 'fm':
                 if k in ['', 'xdg-open']:
-                    self.set[item] = self.detect_file_manager()
+                    self.setting_params[item] = self.detect_file_manager()
                 else:
-                    self.set[item] = k
+                    self.setting_params[item] = k
         else:
             if type == 'fm':
-                self.set[item] = self.detect_file_manager()
+                self.setting_params[item] = self.detect_file_manager()
 
     def detect_file_manager(self):
         try:
@@ -831,7 +831,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
 
-        if self.set['darktheme']:
+        if self.setting_params['darktheme']:
             self.style_data = ''
             if os.path.isfile('qdarkstylesheet.qss'):
                 f = open('qdarkstylesheet.qss', 'r')
@@ -857,7 +857,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.file_list = []
         self.icon_dictionary = self.get_mime_icons()
 
-        self.center = Center_widget(self.set)
+        self.center = Center_widget(self.setting_params)
         self.setCentralWidget(self.center)
 
         self.setWindowTitle('ANGRYsearch')
@@ -868,7 +868,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             'check = fast search but no substrings\n'
             'uncheck = slower but substrings work')
 
-        if self.set['fts']:
+        if self.setting_params['fts']:
             self.center.fts_checkbox.setChecked(True)
         self.center.fts_checkbox.stateChanged.connect(self.checkbox_fts_click)
 
@@ -945,7 +945,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     # OFF BY DEFAULT
     # 0.2 SEC DELAY TO LET USER FINISH TYPING BEFORE INPUT BECOMES A DB QUERY
     def wait_for_finishing_typing(self, input):
-        if not self.set['typing_delay']:
+        if not self.setting_params['typing_delay']:
             self.new_query_new_thread(input)
             return
         self.last_keyboard_input = input
@@ -963,14 +963,14 @@ class Gui_MainWindow(Qw.QMainWindow):
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
         global REGEX_QUERY_READY
-        if not self.set['fts'] or self.set['regex_mode']:
+        if not self.setting_params['fts'] or self.setting_params['regex_mode']:
             self.status_bar.showMessage(' ...')
 
         if input == '' and REGEX_QUERY_READY:
             self.show_first_500()
             return
 
-        if self.set['regex_mode']:
+        if self.setting_params['regex_mode']:
             try:
                 re.compile(input)
                 is_valid = True
@@ -983,7 +983,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             self.queries_threads.append(
                                 {'input': input,
-                                 'thread': Thread_db_query(input, self.set)})
+                                 'thread': Thread_db_query(input, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -993,7 +993,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         else:
             self.queries_threads.append(
                                 {'input': input,
-                                 'thread': Thread_db_query(input, self.set)})
+                                 'thread': Thread_db_query(input, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -1006,7 +1006,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def database_query_done(self, db_query, db_query_result, words_quoted):
         global REGEX_QUERY_READY
         REGEX_QUERY_READY = True
-        if self.set['regex_mode']:
+        if self.setting_params['regex_mode']:
             if db_query != self.queries_threads[-1]['input']:
                 self.new_query_new_thread(self.queries_threads[-1]['input'])
 
@@ -1017,7 +1017,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
         model_data = []
 
-        column_to_sort_by, revert_sort_order = self.set['last_sort']
+        column_to_sort_by, revert_sort_order = self.setting_params['last_sort']
 
         # BY NAME
         if column_to_sort_by is 0:
@@ -1044,7 +1044,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     key=lambda x: x[2] if (type(x[2]) is int) else sys.maxsize,
                     reverse=True)
 
-        if self.set['regex_mode']:
+        if self.setting_params['regex_mode']:
             rx = '({})'.format(db_query)
         else:
             # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
@@ -1108,7 +1108,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             m._name = n._name
             m._is_dir = tup[0]
 
-            if self.set['angrysearch_lite']:
+            if self.setting_params['angrysearch_lite']:
                 item = [n, m]
             else:
                 # FILE SIZE ITEM IN THE THIRD COLUMN
@@ -1127,7 +1127,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             model_data.append(item)
 
-        self.model = Custom_table_model(model_data, self.set)
+        self.model = Custom_table_model(model_data, self.setting_params)
         self.model.sort_changed_signal.connect(
             self.sorting_changed_received_signal, Qc.Qt.QueuedConnection)
         self.center.table.setModel(self.model)
@@ -1139,7 +1139,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.status_bar.showMessage(total)
 
     def sorting_changed_received_signal(self, column, order):
-        self.set['last_sort'] = [column, order]
+        self.setting_params['last_sort'] = [column, order]
         self.settings.setValue('Last_Run/last_sort', [column, order])
 
     def bold_text(self, line):
@@ -1153,7 +1153,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         if RESOURCE_AVAILABLE:
             for x in iconed_mimes:
-                r = ':/mimeicons/{}/{}.png'.format(self.set['icon_theme'], x)
+                r = ':/mimeicons/{}/{}.png'.format(self.setting_params['icon_theme'], x)
                 icon_dic[x] = Qg.QIcon(r)
         else:
             for x in iconed_mimes:
@@ -1196,20 +1196,20 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.tutorial()
             return
 
-        if self.set['angrysearch_lite'] and d == 4:
+        if self.setting_params['angrysearch_lite'] and d == 4:
             self.tutorial()
             return
 
-        if not self.set['angrysearch_lite'] and d == 2:
+        if not self.setting_params['angrysearch_lite'] and d == 2:
             self.tutorial()
             return
 
-        self.center.table.sortByColumn(self.set['last_sort'][0],
-                                       self.set['last_sort'][1])
+        self.center.table.sortByColumn(self.setting_params['last_sort'][0],
+                                       self.setting_params['last_sort'][1])
 
         self.center.table.setDisabled(False)
         cur.execute('''SELECT * FROM angry_table LIMIT ?''',
-                    (self.set['number_of_results'],))
+                    (self.setting_params['number_of_results'],))
         tuppled_500 = cur.fetchall()
 
         self.process_q_resuls('', tuppled_500)
@@ -1302,7 +1302,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.center.table.setStyleSheet('selection-color:blue;')
             self.center.table.timeout.start(150)
 
-        fm = self.set['file_manager']
+        fm = self.setting_params['file_manager']
         if column == 0:
             if is_dir:
                 if fm != 'xdg-open':
@@ -1347,13 +1347,13 @@ class Gui_MainWindow(Qw.QMainWindow):
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
 
-        if self.set['close_on_execute']:
+        if self.setting_params['close_on_execute']:
             self.close()
 
     # FOR THUNAR AND PCMANFM SO THAT THEY SELECT THE FILE/FOLDER
     # NOT JUST OPEN ITS PARENT FOLDER
     def fm_highlight(self, fm, parent_dir, last_item):
-        if not self.set['fm_path_doubleclick_selects']:
+        if not self.setting_params['fm_path_doubleclick_selects']:
             cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
             return
@@ -1368,7 +1368,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # FOR SPACEFM
     def fm_highlight_spacefm(self, fm, parent_dir, last_item):
-        if not self.set['fm_path_doubleclick_selects']:
+        if not self.setting_params['fm_path_doubleclick_selects']:
             cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
             return
@@ -1385,10 +1385,10 @@ class Gui_MainWindow(Qw.QMainWindow):
     # FAST SEARCH OR SEARCH WITH SUBSTRINGS
     def checkbox_fts_click(self, state):
         if state == Qc.Qt.Checked:
-            self.set['fts'] = True
+            self.setting_params['fts'] = True
             self.settings.setValue('fast_search_but_no_substring', True)
         else:
-            self.set['fts'] = False
+            self.setting_params['fts'] = False
             self.settings.setValue('fast_search_but_no_substring', False)
         current_search = self.center.search_input.text()
         self.new_query_new_thread(current_search)
@@ -1436,7 +1436,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.database_age()
 
     def theme_change_icon(self, text):
-        self.set['icon_theme'] = text
+        self.setting_params['icon_theme'] = text
         self.settings.setValue('icon_theme', text)
         self.icon_dictionary = self.get_mime_icons()
         self.new_query_new_thread(self.center.search_input.text())
@@ -1543,8 +1543,8 @@ class Update_dialog_window(Qw.QDialog):
     def initUI(self):
         self.setWindowTitle('Database Update')
 
-        self.exclud_dirs = ' '.join(self.parent().set['directories_excluded'])
-        combobox_text = self.parent().set['icon_theme']
+        self.exclud_dirs = ' '.join(self.parent().setting_params['directories_excluded'])
+        combobox_text = self.parent().setting_params['icon_theme']
 
         self.icon_theme_label = Qw.QLabel('icon theme:')
         self.icon_theme_combobox = Qw.QComboBox(self)
@@ -1630,7 +1630,7 @@ class Update_dialog_window(Qw.QDialog):
             text = text.strip()
             self.exclud_dirs = text
             self.settings.setValue('directories_excluded', text)
-            self.parent().set['directories_excluded'] = text.strip().split()
+            self.parent().setting_params['directories_excluded'] = text.strip().split()
             if text == '':
                 self.excluded_dirs_btn.setText('none')
                 self.excluded_dirs_btn.setStyleSheet('color:#888;'
@@ -1647,7 +1647,7 @@ class Update_dialog_window(Qw.QDialog):
     def clicked_OK_update_db(self):
         self.OK_button.setDisabled(True)
 
-        mounts_needed = self.parent().set['conditional_mounts_for_autoupdate']
+        mounts_needed = self.parent().setting_params['conditional_mounts_for_autoupdate']
 
         missing_mount = False
         missing_mounts_list = []
@@ -1671,8 +1671,8 @@ class Update_dialog_window(Qw.QDialog):
                 return
 
         self.thread_updating = Thread_database_update(
-            self.parent().set['angrysearch_lite'],
-            self.parent().set['directories_excluded'])
+            self.parent().setting_params['angrysearch_lite'],
+            self.parent().setting_params['directories_excluded'])
 
         self.thread_updating.db_update_signal.connect(
             self.upd_dialog_receives_signal, Qc.Qt.QueuedConnection)
