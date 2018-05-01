@@ -2,22 +2,24 @@
 # -*- coding: utf-8 -*-
 
 import base64
-from datetime import datetime
-from itertools import permutations
-from operator import itemgetter
 import locale
 import mimetypes
 import os
 import platform
-import PyQt5.QtCore as Qc
-import PyQt5.QtGui as Qg
-import PyQt5.QtWidgets as Qw
 import re
 import shlex
 import sqlite3
 import subprocess
 import sys
 import time
+from datetime import datetime
+from itertools import permutations
+from operator import itemgetter
+from os.path import join as join_path
+
+import PyQt5.QtCore as Qc
+import PyQt5.QtGui as Qg
+import PyQt5.QtWidgets as Qw
 
 # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
 # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
@@ -42,7 +44,11 @@ FTS5_AVAILABLE = False
 REGEX_QUERY_READY = True
 
 # DATABASE PATH
-DATABASE_PATH = os.path.expanduser('~') + '/.cache/angrysearch/angry_database.db'
+DATABASE_PATH = join_path(os.path.expanduser('~'),
+                          '.cache',
+                          'angrysearch',
+                          'angry_database.db')
+
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
@@ -820,7 +826,6 @@ class Gui_MainWindow(Qw.QMainWindow):
         # SO THAT THE MAIN WINDOW INSTANCE AUTOMATICALLY DELETES IT ON CLOSING
         self.tray_icon.hide()
         event.accept()
-
 
     def init_GUI(self):
         self.icon = self.get_tray_icon()
