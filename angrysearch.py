@@ -251,11 +251,10 @@ class ThreadDBUpdate(Qc.QThread):
             # IN LITE MODE IS NOW PART OF PYTHON 3.5, FUNCTIONALLY
             # REPLACING os.walk
             import scandir
-            modul_var = scandir
         except ImportError:
-            modul_var = os
+            scandir = os
 
-        for root, dirs, files in modul_var.walk(root_dir, onerror=error):
+        for root, dirs, files in scandir.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
 
