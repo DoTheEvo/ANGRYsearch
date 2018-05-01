@@ -29,14 +29,6 @@ try:
 except ImportError:
     RESOURCE_AVAILABLE = False
 
-# SCANDIR ALLOWS MUCH FASTER INDEXING OF THE FILE SYSTEM, OBVIOUS IN LITE MODE
-# IS NOW PART OF PYTHON 3.5, FUNCTIONALY REPLACING os.walk
-try:
-    import scandir
-    SCANDIR_AVAILABLE = True
-except ImportError:
-    SCANDIR_AVAILABLE = False
-
 # THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3
 FTS5_AVAILABLE = False
 
@@ -262,9 +254,13 @@ class ThreadDBUpdate(Qc.QThread):
         dir_list = []
         file_list = []
 
-        if SCANDIR_AVAILABLE:
+        try:
+            # SCANDIR ALLOWS MUCH FASTER INDEXING OF THE FILE SYSTEM, OBVIOUS
+            # IN LITE MODE IS NOW PART OF PYTHON 3.5, FUNCTIONALLY
+            # REPLACING os.walk
+            import scandir
             modul_var = scandir
-        else:
+        except ImportError:
             modul_var = os
 
         for root, dirs, files in modul_var.walk(root_dir, onerror=error):
