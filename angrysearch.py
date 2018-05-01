@@ -21,14 +21,6 @@ import PyQt5.QtCore as Qc
 import PyQt5.QtGui as Qg
 import PyQt5.QtWidgets as Qw
 
-# QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
-# IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
-try:
-    import resource_file
-    RESOURCE_AVAILABLE = True
-except ImportError:
-    RESOURCE_AVAILABLE = False
-
 # THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3
 FTS5_AVAILABLE = False
 
@@ -1151,11 +1143,15 @@ class AngryMainWindow(Qw.QMainWindow):
         iconed_mimes = ['folder', 'file', 'image', 'audio',
                         'video', 'text', 'pdf', 'archive']
 
-        if RESOURCE_AVAILABLE:
+        # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
+        # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
+        try:
+            import resource_file
             for x in iconed_mimes:
-                r = ':/mimeicons/{}/{}.png'.format(self.setting_params['icon_theme'], x)
+                r = ':/mimeicons/{}/{}.png'.format(
+                    self.setting_params['icon_theme'], x)
                 icon_dic[x] = Qg.QIcon(r)
-        else:
+        except ImportError:
             for x in iconed_mimes:
                 dir_icon = self.style().standardIcon(Qw.QStyle.SP_DirIcon)
                 file_icon = self.style().standardIcon(Qw.QStyle.SP_FileIcon)
