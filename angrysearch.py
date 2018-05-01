@@ -67,20 +67,20 @@ class Thread_db_query(Qc.QThread):
     def run(self):
         cur = con.cursor()
 
-        if self.regex_mode is True:
+        if self.regex_mode:
             q = 'SELECT * FROM angry_table '\
                 'WHERE path REGEXP \'{}\' LIMIT {}'.format(
                     self.db_query, self.number_of_results)
             cur.execute(q)
 
-        elif self.fts is True:
+        elif self.fts:
             sql_query = self.match_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
                     sql_query, self.number_of_results)
             cur.execute(q)
 
-        elif self.fts is False:
+        elif not self.fts:
             sql_query = self.like_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE path LIKE {} LIMIT {}'.format(
@@ -282,7 +282,7 @@ class Thread_database_update(Qc.QThread):
             self.crawl_signal.emit(
                 root.decode(encoding='utf-8', errors='ignore'))
 
-            if self.lite is True:
+            if self.lite:
                 for dname in dirs:
                     dir_list.append(('1', os.path.join(root, dname).decode(
                         encoding='UTF-8', errors='ignore')))
@@ -328,8 +328,8 @@ class Thread_database_update(Qc.QThread):
         con = sqlite3.connect(temp_db_path, check_same_thread=False)
         cur = con.cursor()
 
-        if self.lite is True:
-            if self.fts5_pragma_check() is True:
+        if self.lite:
+            if self.fts5_pragma_check():
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
                                 USING fts5(directory UNINDEXED, path)''')
                 cur.execute('''PRAGMA user_version = 4;''')
@@ -343,7 +343,7 @@ class Thread_database_update(Qc.QThread):
                             self.table)
 
         else:
-            if self.fts5_pragma_check() is True:
+            if self.fts5_pragma_check():
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
                                 USING fts5(directory UNINDEXED,
                                            path,
@@ -469,7 +469,7 @@ class Custom_table_model(Qc.QAbstractTableModel):
     def __init__(self, table_data=[[]], set={}, parent=None):
         super().__init__()
         self.table_data = table_data
-        if set['angrysearch_lite'] is True:
+        if set['angrysearch_lite']:
             self.headers = ['Name', 'Path']
         else:
             self.headers = ['Name', 'Path', 'Size', 'Date Modified']
@@ -547,7 +547,7 @@ class My_table_view(Qw.QTableView):
 
     def resizeEvent(self, event):
         width = event.size().width()
-        if self.lite is True:
+        if self.lite:
             self.setColumnWidth(0, width * 0.40)
             self.setColumnWidth(1, width * 0.60)
         else:
@@ -682,7 +682,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                 self.set['regex_mode'] = not self.set['regex_mode']
                 self.settings.setValue('regex_mode', self.set['regex_mode'])
                 self.regex_mode_color_indicator()
-                if self.set['regex_mode'] is True:
+                if self.set['regex_mode']:
                     self.status_bar.showMessage('REGEX MODE ENABLED')
                 else:
                     self.status_bar.showMessage('REGEX MODE DISABLED')
@@ -702,7 +702,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             event.ignore()
 
     def regex_mode_color_indicator(self):
-        if self.set['regex_mode'] is True:
+        if self.set['regex_mode']:
             self.center.search_input.setStyleSheet(
                'background: #FF6A00; color: #000000;')
         else:
@@ -739,7 +739,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         if self.settings.value('Last_Run/last_sort'):
             k = self.settings.value('Last_Run/last_sort')
             if type(k) is list and len(k) == 2:
-                if self.set['angrysearch_lite'] is True and int(k[0]) > 1:
+                if self.set['angrysearch_lite'] and int(k[0]) > 1:
                     k[0] = 1
                 self.set['last_sort'] = [int(x) for x in k]
             else:
@@ -831,7 +831,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
 
-        if self.set['darktheme'] is True:
+        if self.set['darktheme']:
             self.style_data = ''
             if os.path.isfile('qdarkstylesheet.qss'):
                 f = open('qdarkstylesheet.qss', 'r')
@@ -868,7 +868,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             'check = fast search but no substrings\n'
             'uncheck = slower but substrings work')
 
-        if self.set['fts'] is True:
+        if self.set['fts']:
             self.center.fts_checkbox.setChecked(True)
         self.center.fts_checkbox.stateChanged.connect(self.checkbox_fts_click)
 
@@ -945,7 +945,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     # OFF BY DEFAULT
     # 0.2 SEC DELAY TO LET USER FINISH TYPING BEFORE INPUT BECOMES A DB QUERY
     def wait_for_finishing_typing(self, input):
-        if self.set['typing_delay'] is False:
+        if not self.set['typing_delay']:
             self.new_query_new_thread(input)
             return
         self.last_keyboard_input = input
@@ -963,21 +963,21 @@ class Gui_MainWindow(Qw.QMainWindow):
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
         global REGEX_QUERY_READY
-        if self.set['fts'] is False or self.set['regex_mode'] is True:
+        if not self.set['fts'] or self.set['regex_mode']:
             self.status_bar.showMessage(' ...')
 
-        if input == '' and REGEX_QUERY_READY is True:
+        if input == '' and REGEX_QUERY_READY:
             self.show_first_500()
             return
 
-        if self.set['regex_mode'] is True:
+        if self.set['regex_mode']:
             try:
                 re.compile(input)
                 is_valid = True
             except re.error:
                 is_valid = False
 
-            if is_valid is False:
+            if not is_valid:
                 self.status_bar.showMessage('regex not valid')
                 return
 
@@ -987,7 +987,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
-            if REGEX_QUERY_READY is True:
+            if REGEX_QUERY_READY:
                 self.queries_threads[-1]['thread'].start()
                 REGEX_QUERY_READY = False
         else:
@@ -1006,7 +1006,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     def database_query_done(self, db_query, db_query_result, words_quoted):
         global REGEX_QUERY_READY
         REGEX_QUERY_READY = True
-        if self.set['regex_mode'] is True:
+        if self.set['regex_mode']:
             if db_query != self.queries_threads[-1]['input']:
                 self.new_query_new_thread(self.queries_threads[-1]['input'])
 
@@ -1044,7 +1044,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     key=lambda x: x[2] if (type(x[2]) is int) else sys.maxsize,
                     reverse=True)
 
-        if self.set['regex_mode'] is True:
+        if self.set['regex_mode']:
             rx = '({})'.format(db_query)
         else:
             # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
@@ -1108,7 +1108,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             m._name = n._name
             m._is_dir = tup[0]
 
-            if self.set['angrysearch_lite'] is True:
+            if self.set['angrysearch_lite']:
                 item = [n, m]
             else:
                 # FILE SIZE ITEM IN THE THIRD COLUMN
@@ -1151,7 +1151,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         iconed_mimes = ['folder', 'file', 'image', 'audio',
                         'video', 'text', 'pdf', 'archive']
 
-        if RESOURCE_AVAILABLE is True:
+        if RESOURCE_AVAILABLE:
             for x in iconed_mimes:
                 r = ':/mimeicons/{}/{}.png'.format(self.set['icon_theme'], x)
                 icon_dic[x] = Qg.QIcon(r)
@@ -1196,11 +1196,11 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.tutorial()
             return
 
-        if self.set['angrysearch_lite'] is True and d == 4:
+        if self.set['angrysearch_lite'] and d == 4:
             self.tutorial()
             return
 
-        if self.set['angrysearch_lite'] is False and d == 2:
+        if not self.set['angrysearch_lite'] and d == 2:
             self.tutorial()
             return
 
@@ -1304,7 +1304,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
         fm = self.set['file_manager']
         if column == 0:
-            if is_dir is True:
+            if is_dir:
                 if fm != 'xdg-open':
                     subprocess.Popen([fm, path])
                 else:
@@ -1312,7 +1312,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             else:
                 subprocess.Popen(['xdg-open', path])
         else:
-            if is_dir is True:
+            if is_dir:
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
                 elif 'nemo' in fm:
@@ -1347,13 +1347,13 @@ class Gui_MainWindow(Qw.QMainWindow):
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
 
-        if self.set['close_on_execute'] is True:
+        if self.set['close_on_execute']:
             self.close()
 
     # FOR THUNAR AND PCMANFM SO THAT THEY SELECT THE FILE/FOLDER
     # NOT JUST OPEN ITS PARENT FOLDER
     def fm_highlight(self, fm, parent_dir, last_item):
-        if self.set['fm_path_doubleclick_selects'] is False:
+        if not self.set['fm_path_doubleclick_selects']:
             cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
             return
@@ -1368,7 +1368,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # FOR SPACEFM
     def fm_highlight_spacefm(self, fm, parent_dir, last_item):
-        if self.set['fm_path_doubleclick_selects'] is False:
+        if not self.set['fm_path_doubleclick_selects']:
             cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
             return
