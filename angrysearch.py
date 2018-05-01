@@ -75,23 +75,23 @@ class ThreadDBQuery(Qc.QThread):
 
     # FTS CHECKBOX IS UNCHECKED, SO NO INDEXING
     # PERMUTATION OF INPUT PHRASES IS USED SO THAT ORDER DOES NOT MATTER
-    def like_query_adjustment(self, input):
-        input = input.replace('"', '""')
+    def like_query_adjustment(self, input_text):
+        input_text = input_text.replace('"', '""')
 
         o = []
-        p = permutations(input.strip().split())
+        p = permutations(input_text.strip().split())
         for x in p:
             o.append('"%{0}%"'.format('%'.join(x)))
 
         return ' OR path LIKE '.join(o)
 
     # FTS CHECKBOX IS CHECKED, FTS VIRTUAL TABLES ARE USED
-    def match_query_adjustment(self, input):
-        if '?' in input or '\\' in input:
+    def match_query_adjustment(self, input_text):
+        if '?' in input_text or '\\' in input_text:
             for x in ['\\', '?']:
-                input = input.replace(x, '')
+                input_text = input_text.replace(x, '')
 
-        query_words = input.strip().split()
+        query_words = input_text.strip().split()
 
         if FTS5_AVAILABLE:
             # MINUS SIGN MARKS PHRASES THAT MUST NOT APPEAR IN RESULTS
@@ -180,13 +180,13 @@ class ThreadDBQuery(Qc.QThread):
 class ThreadDelayDBQuery(Qc.QThread):
     delay_signal = Qc.pyqtSignal(str)
 
-    def __init__(self, input, parent=None):
+    def __init__(self, input_text, parent=None):
         super().__init__()
-        self.input = input
+        self.input_text = input_text
 
     def run(self):
         time.sleep(0.2)
-        self.delay_signal.emit(self.input)
+        self.delay_signal.emit(self.input_text)
 
 
 # THREAD FOR UPDATING THE DATABASE
@@ -936,12 +936,12 @@ class AngryMainWindow(Qw.QMainWindow):
 
     # OFF BY DEFAULT
     # 0.2 SEC DELAY TO LET USER FINISH TYPING BEFORE INPUT BECOMES A DB QUERY
-    def wait_for_finishing_typing(self, input):
+    def wait_for_finishing_typing(self, input_text):
         if not self.setting_params['typing_delay']:
-            self.new_query_new_thread(input)
+            self.new_query_new_thread(input_text)
             return
-        self.last_keyboard_input = input
-        self.waiting_threads.append(ThreadDelayDBQuery(input))
+        self.last_keyboard_input = input_text
+        self.waiting_threads.append(ThreadDelayDBQuery(input_text))
         self.waiting_threads[-1].delay_signal.connect(
             self.waiting_done, Qc.Qt.QueuedConnection)
         self.waiting_threads[-1].start()
@@ -953,17 +953,17 @@ class AngryMainWindow(Qw.QMainWindow):
                 del self.waiting_threads[0:80]
 
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
-    def new_query_new_thread(self, input):
+    def new_query_new_thread(self, input_text):
         if not self.setting_params['fts'] or self.setting_params['regex_mode']:
             self.status_bar.showMessage(' ...')
 
-        if input == '' and self.regex_query_ready:
+        if input_text == '' and self.regex_query_ready:
             self.show_first_500()
             return
 
         if self.setting_params['regex_mode']:
             try:
-                re.compile(input)
+                re.compile(input_text)
                 is_valid = True
             except re.error:
                 is_valid = False
@@ -973,8 +973,8 @@ class AngryMainWindow(Qw.QMainWindow):
                 return
 
             self.queries_threads.append(
-                                {'input': input,
-                                 'thread': ThreadDBQuery(input, self.setting_params)})
+                                {'input': input_text,
+                                 'thread': ThreadDBQuery(input_text, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -983,8 +983,8 @@ class AngryMainWindow(Qw.QMainWindow):
                 self.regex_query_ready = False
         else:
             self.queries_threads.append(
-                                {'input': input,
-                                 'thread': ThreadDBQuery(input, self.setting_params)})
+                                {'input': input_text,
+                                 'thread': ThreadDBQuery(input_text, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
