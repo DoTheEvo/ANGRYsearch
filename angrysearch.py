@@ -477,17 +477,17 @@ class AngryTableModel(Qc.QAbstractTableModel):
         else:
             self.headers = ['Name', 'Path', 'Size', 'Date Modified']
 
-    def rowCount(self, parent):
+    def rowCount(self, parent=None, *args, **kwargs):
         return len(self.table_data)
 
-    def columnCount(self, parent):
+    def columnCount(self, parent=None, *args, **kwargs):
         return len(self.headers)
 
-    def headerData(self, section, orientation, role):
+    def headerData(self, section, orientation, role=None):
         if role == Qc.Qt.DisplayRole and orientation == Qc.Qt.Horizontal:
             return self.headers[section]
 
-    def data(self, index, role):
+    def data(self, index, role=None):
         if role == Qc.Qt.DisplayRole:
             row = index.row()
             column = index.column()
@@ -503,7 +503,7 @@ class AngryTableModel(Qc.QAbstractTableModel):
             value = self.table_data[row][column]
             return value.icon()
 
-    def sort(self, column, order):
+    def sort(self, column, order=None):
         self.sort_changed_signal.emit(column, order)
 
         if column == 0:
