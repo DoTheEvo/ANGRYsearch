@@ -53,7 +53,7 @@ DATABASE_PATH = join_path(os.path.expanduser('~'),
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
 # fts VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
-class Thread_db_query(Qc.QThread):
+class ThreadDBQuery(Qc.QThread):
     db_query_signal = Qc.pyqtSignal(str, list, list)
 
     def __init__(self, db_query, setting_params, parent=None):
@@ -196,7 +196,7 @@ class Thread_db_query(Qc.QThread):
 
 # THREAD FOR PREVENTING DATABASE QUERY BEING DONE ON EVERY SINGLE KEYPRESS
 # SHORT WAIT TIME LETS USER FINISH TYPING, OFF BY DEFAULT
-class Thread_delay_db_query(Qc.QThread):
+class ThreadDelayDBQuery(Qc.QThread):
     delay_signal = Qc.pyqtSignal(str)
 
     def __init__(self, input, parent=None):
@@ -211,7 +211,7 @@ class Thread_delay_db_query(Qc.QThread):
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
 # NEW DATABASE IS CREATED IN /tmp AND REPLACES ONE IN /.cache/angrysearch
-class Thread_database_update(Qc.QThread):
+class ThreadDBUpdate(Qc.QThread):
     db_update_signal = Qc.pyqtSignal(str, str)
     crawl_signal = Qc.pyqtSignal(str)
 
@@ -436,7 +436,7 @@ class Thread_database_update(Qc.QThread):
 
 
 # THREAD FOR GETTING MIMETYPE OF A FILE CURRENTLY SELECTED
-class Thread_get_mimetype(Qc.QThread):
+class ThreadMimetype(Qc.QThread):
     mime_signal = Qc.pyqtSignal(str, str)
 
     def __init__(self, path, parent=None):
@@ -463,7 +463,7 @@ class Thread_get_mimetype(Qc.QThread):
 
 
 # CUSTOM TABLE MODEL TO HAVE FINE CONTROL OVER THE CONTENT AND PRESENTATION
-class Custom_table_model(Qc.QAbstractTableModel):
+class AngryTableModel(Qc.QAbstractTableModel):
     sort_changed_signal = Qc.pyqtSignal(int, int)
 
     def __init__(self, table_data=None, setting_params=None, parent=None):
@@ -542,7 +542,7 @@ class Custom_table_model(Qc.QAbstractTableModel):
 
 
 # CUSTOM TABLE VIEW TO EASILY ADJUST ROW HEIGHT AND COLUMN WIDTH
-class My_table_view(Qw.QTableView):
+class AngryTableView(Qw.QTableView):
     def __init__(self, lite=True, row_height=0, parent=None):
         super().__init__()
         self.lite = lite
@@ -609,7 +609,7 @@ class My_table_view(Qw.QTableView):
 
 
 # THE PRIMARY GUI DEFINING INTERFACE WIDGET, THE WIDGET WITHIN THE MAINWINDOW
-class Center_widget(Qw.QWidget):
+class CenterWidget(Qw.QWidget):
     def __init__(self, setting_params=None):
         super().__init__()
         self.setting_params = setting_params
@@ -617,8 +617,8 @@ class Center_widget(Qw.QWidget):
 
     def initUI(self):
         self.search_input = Qw.QLineEdit()
-        self.table = My_table_view(self.setting_params['angrysearch_lite'],
-                                   self.setting_params['row_height'])
+        self.table = AngryTableView(self.setting_params['angrysearch_lite'],
+                                    self.setting_params['row_height'])
         self.upd_button = Qw.QPushButton('update')
         self.fts_checkbox = Qw.QCheckBox()
 
@@ -638,7 +638,7 @@ class Center_widget(Qw.QWidget):
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
 # LOADS AND SAVES QSETTINGS FROM ~/.config/angrysearch
 # INITIALIZES AND SETS GUI, WAITING FOR USER INPUTS
-class Gui_MainWindow(Qw.QMainWindow):
+class AngryMainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
         self.settings = Qc.QSettings('angrysearch', 'angrysearch')
@@ -861,7 +861,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.file_list = []
         self.icon_dictionary = self.get_mime_icons()
 
-        self.center = Center_widget(self.setting_params)
+        self.center = CenterWidget(self.setting_params)
         self.setCentralWidget(self.center)
 
         self.setWindowTitle('ANGRYsearch')
@@ -953,7 +953,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.new_query_new_thread(input)
             return
         self.last_keyboard_input = input
-        self.waiting_threads.append(Thread_delay_db_query(input))
+        self.waiting_threads.append(ThreadDelayDBQuery(input))
         self.waiting_threads[-1].delay_signal.connect(
             self.waiting_done, Qc.Qt.QueuedConnection)
         self.waiting_threads[-1].start()
@@ -987,7 +987,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             self.queries_threads.append(
                                 {'input': input,
-                                 'thread': Thread_db_query(input, self.setting_params)})
+                                 'thread': ThreadDBQuery(input, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -997,7 +997,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         else:
             self.queries_threads.append(
                                 {'input': input,
-                                 'thread': Thread_db_query(input, self.setting_params)})
+                                 'thread': ThreadDBQuery(input, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -1133,7 +1133,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             model_data.append(item)
 
-        self.model = Custom_table_model(model_data, self.setting_params)
+        self.model = AngryTableModel(model_data, self.setting_params)
         self.model.sort_changed_signal.connect(
             self.sorting_changed_received_signal, Qc.Qt.QueuedConnection)
         self.center.table.setModel(self.model)
@@ -1254,7 +1254,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             self.mime_type_threads.append(
                 {'path': path,
-                 'thread': Thread_get_mimetype(path)})
+                 'thread': ThreadMimetype(path)})
 
             self.mime_type_threads[-1]['thread'].mime_signal.connect(
                 self.mime_type_thread_done, Qc.Qt.QueuedConnection)
@@ -1427,7 +1427,7 @@ class Gui_MainWindow(Qw.QMainWindow):
     # CREATE INSTANCE OF UPDATE THE DATABASE DIALOG WINDOW
     def clicked_button_updatedb(self):
         self.center.search_input.setDisabled(False)
-        self.u = Update_dialog_window(self)
+        self.u = UpdateDialogWindow(self)
         self.u.window_close_signal.connect(
             self.update_window_close, Qc.Qt.QueuedConnection)
         self.u.icon_theme_signal.connect(
@@ -1529,7 +1529,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
-class Update_dialog_window(Qw.QDialog):
+class UpdateDialogWindow(Qw.QDialog):
     icon_theme_signal = Qc.pyqtSignal(str)
     window_close_signal = Qc.pyqtSignal(str)
 
@@ -1676,7 +1676,7 @@ class Update_dialog_window(Qw.QDialog):
                 self.accept()
                 return
 
-        self.thread_updating = Thread_database_update(
+        self.thread_updating = ThreadDBUpdate(
             self.parent().setting_params['angrysearch_lite'],
             self.parent().setting_params['directories_excluded'])
 
@@ -1731,5 +1731,5 @@ if __name__ == '__main__':
     with open_database() as con:
         con.create_function("regexp", 2, regexp)
         app = Qw.QApplication(sys.argv)
-        ui = Gui_MainWindow()
+        ui = AngryMainWindow()
         sys.exit(app.exec_())
