@@ -1146,16 +1146,17 @@ class AngryMainWindow(Qw.QMainWindow):
         # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
         try:
             import resource_file
-            for x in iconed_mimes:
+            for mime in iconed_mimes:
                 r = ':/mimeicons/{}/{}.png'.format(
-                    self.setting_params['icon_theme'], x)
-                icon_dic[x] = Qg.QIcon(r)
+                    self.setting_params['icon_theme'], mime)
+                icon_dic[mime] = Qg.QIcon(r)
         except ImportError:
-            for x in iconed_mimes:
-                dir_icon = self.style().standardIcon(Qw.QStyle.SP_DirIcon)
+            for mime in iconed_mimes[1:]:
                 file_icon = self.style().standardIcon(Qw.QStyle.SP_FileIcon)
-                icon_dic[x] = Qg.QIcon(file_icon)
-            icon_dic['folder'] = Qg.QIcon(dir_icon)
+                icon_dic[mime] = Qg.QIcon(file_icon)
+
+            icon_dic['folder'] = Qg.QIcon(
+                self.style().standardIcon(Qw.QStyle.SP_DirIcon))
 
         return icon_dic
 
