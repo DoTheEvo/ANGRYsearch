@@ -1138,25 +1138,27 @@ class AngryMainWindow(Qw.QMainWindow):
 
     # CREATES DICTIONARY WITH 6 MIME TYPES ICONS DEPENDING ON THEME
     def get_mime_icons(self):
-        icon_dic = {}
-        iconed_mimes = ['folder', 'file', 'image', 'audio',
-                        'video', 'text', 'pdf', 'archive']
+        file_icon = self.style().standardIcon(Qw.QStyle.SP_FileIcon)
+        icon_dic = {'folder': self.style().standardIcon(Qw.QStyle.SP_DirIcon),
+                    'file': file_icon,
+                    'image': file_icon,
+                    'audio': file_icon,
+                    'video': file_icon,
+                    'text': file_icon,
+                    'pdf': file_icon,
+                    'archive': file_icon}
 
         # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
         # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
         try:
             import resource_file
-            for mime in iconed_mimes:
-                r = ':/mimeicons/{}/{}.png'.format(
-                    self.setting_params['icon_theme'], mime)
-                icon_dic[mime] = Qg.QIcon(r)
+            for key in icon_dic:
+                icon = ':/mimeicons/{}/{}.png'.format(
+                    self.setting_params['icon_theme'],
+                    key)
+                icon_dic[key] = Qg.QIcon(icon)
         except ImportError:
-            for mime in iconed_mimes[1:]:
-                file_icon = self.style().standardIcon(Qw.QStyle.SP_FileIcon)
-                icon_dic[mime] = Qg.QIcon(file_icon)
-
-            icon_dic['folder'] = Qg.QIcon(
-                self.style().standardIcon(Qw.QStyle.SP_DirIcon))
+            pass
 
         return icon_dic
 
