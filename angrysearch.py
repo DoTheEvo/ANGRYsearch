@@ -444,7 +444,6 @@ class ThreadMimetype(Qc.QThread):
         self.path = path
 
     def run(self):
-        mimetype = ''
         if not os.path.exists(self.path):
             mimetype = 'NOT FOUND'
         else:
