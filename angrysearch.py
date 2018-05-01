@@ -40,9 +40,6 @@ except ImportError:
 # THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3
 FTS5_AVAILABLE = False
 
-# FOR REGEX MODE, WHEN REGEX QUERY CAN BE RUN SO ONLY ONE ACCESS DATABASE
-REGEX_QUERY_READY = True
-
 # DATABASE PATH
 DATABASE_PATH = join_path(os.path.expanduser('~'),
                           '.cache',
@@ -655,6 +652,10 @@ class AngryMainWindow(Qw.QMainWindow):
                                'notifications': True,
                                'regex_mode': False,
                                'close_on_execute': False}
+
+        # FOR REGEX MODE, WHEN REGEX QUERY CAN BE RUN SO ONLY ONE ACCESS DB
+        self.regex_query_ready = True
+
         self.read_settings()
         self.init_GUI()
 
@@ -965,11 +966,10 @@ class AngryMainWindow(Qw.QMainWindow):
 
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
     def new_query_new_thread(self, input):
-        global REGEX_QUERY_READY
         if not self.setting_params['fts'] or self.setting_params['regex_mode']:
             self.status_bar.showMessage(' ...')
 
-        if input == '' and REGEX_QUERY_READY:
+        if input == '' and self.regex_query_ready:
             self.show_first_500()
             return
 
@@ -990,9 +990,9 @@ class AngryMainWindow(Qw.QMainWindow):
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
-            if REGEX_QUERY_READY:
+            if self.regex_query_ready:
                 self.queries_threads[-1]['thread'].start()
-                REGEX_QUERY_READY = False
+                self.regex_query_ready = False
         else:
             self.queries_threads.append(
                                 {'input': input,
@@ -1007,8 +1007,7 @@ class AngryMainWindow(Qw.QMainWindow):
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
     def database_query_done(self, db_query, db_query_result, words_quoted):
-        global REGEX_QUERY_READY
-        REGEX_QUERY_READY = True
+        self.regex_query_ready = True
         if self.setting_params['regex_mode']:
             if db_query != self.queries_threads[-1]['input']:
                 self.new_query_new_thread(self.queries_threads[-1]['input'])
