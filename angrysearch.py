@@ -641,7 +641,7 @@ class AngryMainWindow(Qw.QMainWindow):
         self.regex_query_ready = True
 
         self.read_settings()
-        self.init_GUI()
+        self.init_gui()
 
     def keyPressEvent(self, event):
         if type(event) == Qg.QKeyEvent:
@@ -815,7 +815,7 @@ class AngryMainWindow(Qw.QMainWindow):
         self.tray_icon.hide()
         event.accept()
 
-    def init_GUI(self):
+    def init_gui(self):
         self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
 
