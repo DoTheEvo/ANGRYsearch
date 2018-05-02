@@ -596,9 +596,6 @@ class CenterWidget(Qw.QWidget):
     def __init__(self, setting_params=None):
         super().__init__()
         self.setting_params = setting_params
-        self.initUI()
-
-    def initUI(self):
         self.search_input = Qw.QLineEdit()
         self.table = AngryTableView(self.setting_params['angrysearch_lite'],
                                     self.setting_params['row_height'])
