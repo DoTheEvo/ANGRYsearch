@@ -1486,8 +1486,8 @@ class AngryMainWindow(Qw.QMainWindow):
             self.doc.setHtml(options.text)
             options.text = ''
 
-            style = Qw.QApplication.style() if options.widget is None \
-                else options.widget.style()
+            style = (Qw.QApplication.style() if options.widget is None
+                else options.widget.style())
             style.drawControl(Qw.QStyle.CE_ItemViewItem, options, painter)
 
             ctx = Qg.QAbstractTextDocumentLayout.PaintContext()
