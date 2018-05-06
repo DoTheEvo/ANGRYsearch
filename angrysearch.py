@@ -28,35 +28,14 @@ import time
 from datetime import datetime
 from itertools import permutations
 from operator import itemgetter
+from os.path import join as join_path
 
 import PyQt5.QtCore as Qc
 import PyQt5.QtGui as Qg
 import PyQt5.QtWidgets as Qw
 
-import shutil
-
-
-# QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
-# IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
-try:
-    import resource_file
-    RESOURCE_AVAILABLE = True
-except ImportError:
-    RESOURCE_AVAILABLE = False
-
-# SCANDIR ALLOWS MUCH FASTER INDEXING OF THE FILE SYSTEM, OBVIOUS IN LITE MODE
-# IS NOW PART OF PYTHON 3.5, FUNCTIONALY REPLACING os.walk
-try:
-    import scandir
-    SCANDIR_AVAILABLE = True
-except ImportError:
-    SCANDIR_AVAILABLE = False
-
 # THE DATABASE WAS BUILD USING FTS5 EXTENSION OF SQLITE3
 FTS5_AVAILABLE = False
-
-# FOR REGEX MODE, WHEN REGEX QUERY CAN BE RUN SO ONLY ONE ACCESS DATABASE
-REGEX_QUERY_READY = True
 
 # CONFIG AND DATABASE PATHS
 TEMP_PATH = Qc.QStandardPaths.standardLocations(
@@ -65,40 +44,43 @@ CACHE_PATH = Qc.QStandardPaths.standardLocations(
     Qc.QStandardPaths.CacheLocation)[0]
 CONFIG_PATH = Qc.QStandardPaths.standardLocations(
     Qc.QStandardPaths.ConfigLocation)[0] + '/angrysearch/angry_database.conf'
-DATABASE_PATH = CACHE_PATH + '/angrysearch/angry_database.db'
+DATABASE_PATH = join_path(os.path.expanduser('~'),
+                          CACHE_PATH,
+                          'angrysearch',
+                          'angry_database.db')
 
 
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
 # fts VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
-class Thread_db_query(Qc.QThread):
+class ThreadDBQuery(Qc.QThread):
     db_query_signal = Qc.pyqtSignal(str, list, list)
 
-    def __init__(self, db_query, set, parent=None):
+    def __init__(self, db_query, setting_params, parent=None):
         super().__init__()
         self.words_quoted = []
-        self.number_of_results = set['number_of_results']
-        self.fts = set['fts']
-        self.regex_mode = set['regex_mode']
+        self.number_of_results = setting_params['number_of_results']
+        self.fts = setting_params['fts']
+        self.regex_mode = setting_params['regex_mode']
         self.db_query = db_query
 
     def run(self):
         cur = con.cursor()
 
-        if self.regex_mode is True:
+        if self.regex_mode:
             q = 'SELECT * FROM angry_table '\
                 'WHERE path REGEXP \'{}\' LIMIT {}'.format(
                     self.db_query, self.number_of_results)
             cur.execute(q)
 
-        elif self.fts is True:
+        elif self.fts:
             sql_query = self.match_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
                     sql_query, self.number_of_results)
             cur.execute(q)
 
-        elif self.fts is False:
+        elif not self.fts:
             sql_query = self.like_query_adjustment(self.db_query)
             q = 'SELECT * FROM angry_table '\
                 'WHERE path LIKE {} LIMIT {}'.format(
@@ -106,28 +88,29 @@ class Thread_db_query(Qc.QThread):
             cur.execute(q)
 
         db_query_result = cur.fetchall()
-        self.db_query_signal.emit(self.db_query, db_query_result,
+        self.db_query_signal.emit(self.db_query,
+                                  db_query_result,
                                   self.words_quoted)
 
     # FTS CHECKBOX IS UNCHECKED, SO NO INDEXING
     # PERMUTATION OF INPUT PHRASES IS USED SO THAT ORDER DOES NOT MATTER
-    def like_query_adjustment(self, input):
-        input = input.replace('"', '""')
+    def like_query_adjustment(self, input_text):
+        input_text = input_text.replace('"', '""')
 
         o = []
-        p = permutations(input.strip().split())
+        p = permutations(input_text.strip().split())
         for x in p:
             o.append('"%{0}%"'.format('%'.join(x)))
 
         return ' OR path LIKE '.join(o)
 
     # FTS CHECKBOX IS CHECKED, FTS VIRTUAL TABLES ARE USED
-    def match_query_adjustment(self, input):
-        if '?' in input or '\\' in input:
+    def match_query_adjustment(self, input_text):
+        if '?' in input_text or '\\' in input_text:
             for x in ['\\', '?']:
-                input = input.replace(x, '')
+                input_text = input_text.replace(x, '')
 
-        query_words = input.strip().split()
+        query_words = input_text.strip().split()
 
         if FTS5_AVAILABLE:
             # MINUS SIGN MARKS PHRASES THAT MUST NOT APPEAR IN RESULTS
@@ -213,22 +196,22 @@ class Thread_db_query(Qc.QThread):
 
 # THREAD FOR PREVENTING DATABASE QUERY BEING DONE ON EVERY SINGLE KEYPRESS
 # SHORT WAIT TIME LETS USER FINISH TYPING, OFF BY DEFAULT
-class Thread_delay_db_query(Qc.QThread):
+class ThreadDelayDBQuery(Qc.QThread):
     delay_signal = Qc.pyqtSignal(str)
 
-    def __init__(self, input, parent=None):
+    def __init__(self, input_text, parent=None):
         super().__init__()
-        self.input = input
+        self.input_text = input_text
 
     def run(self):
         time.sleep(0.2)
-        self.delay_signal.emit(self.input)
+        self.delay_signal.emit(self.input_text)
 
 
 # THREAD FOR UPDATING THE DATABASE
 # PREVENTS LOCKING UP THE GUI AND ALLOWS TO SHOW PROGRESS
 # NEW DATABASE IS CREATED IN /tmp AND REPLACES ONE IN /.cache/angrysearch
-class Thread_database_update(Qc.QThread):
+class ThreadDBUpdate(Qc.QThread):
     db_update_signal = Qc.pyqtSignal(str, str)
     crawl_signal = Qc.pyqtSignal(str)
 
@@ -282,12 +265,15 @@ class Thread_database_update(Qc.QThread):
         dir_list = []
         file_list = []
 
-        if SCANDIR_AVAILABLE:
-            modul_var = scandir
-        else:
-            modul_var = os
+        try:
+            # SCANDIR ALLOWS MUCH FASTER INDEXING OF THE FILE SYSTEM, OBVIOUS
+            # IN LITE MODE IS NOW PART OF PYTHON 3.5, FUNCTIONALLY
+            # REPLACING os.walk
+            import scandir
+        except ImportError:
+            scandir = os
 
-        for root, dirs, files in modul_var.walk(root_dir, onerror=error):
+        for root, dirs, files in scandir.walk(root_dir, onerror=error):
             dirs.sort()
             files.sort()
 
@@ -299,7 +285,7 @@ class Thread_database_update(Qc.QThread):
             self.crawl_signal.emit(
                 root.decode(encoding='utf-8', errors='ignore'))
 
-            if self.lite is True:
+            if self.lite:
                 for dname in dirs:
                     dir_list.append(('1', os.path.join(root, dname).decode(
                         encoding='UTF-8', errors='ignore')))
@@ -346,8 +332,8 @@ class Thread_database_update(Qc.QThread):
         con = sqlite3.connect(temp_db_path, check_same_thread=False)
         cur = con.cursor()
 
-        if self.lite is True:
-            if self.fts5_pragma_check() is True:
+        if self.lite:
+            if self.fts5_pragma_check():
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
                                 USING fts5(directory UNINDEXED, path)''')
                 cur.execute('''PRAGMA user_version = 4;''')
@@ -361,7 +347,7 @@ class Thread_database_update(Qc.QThread):
                             self.table)
 
         else:
-            if self.fts5_pragma_check() is True:
+            if self.fts5_pragma_check():
                 cur.execute('''CREATE VIRTUAL TABLE angry_table
                                 USING fts5(directory UNINDEXED,
                                            path,
@@ -451,7 +437,7 @@ class Thread_database_update(Qc.QThread):
 
 
 # THREAD FOR GETTING MIMETYPE OF A FILE CURRENTLY SELECTED
-class Thread_get_mimetype(Qc.QThread):
+class ThreadMimetype(Qc.QThread):
     mime_signal = Qc.pyqtSignal(str, str)
 
     def __init__(self, path, parent=None):
@@ -459,13 +445,14 @@ class Thread_get_mimetype(Qc.QThread):
         self.path = path
 
     def run(self):
-        mimetype = ''
         if not os.path.exists(self.path):
             mimetype = 'NOT FOUND'
         else:
-            mime = subprocess.Popen(
-                ['xdg-mime', 'query', 'filetype', self.path],
-                stdout=subprocess.PIPE)
+            mime = subprocess.Popen(['xdg-mime',
+                                     'query',
+                                     'filetype',
+                                     self.path],
+                                    stdout=subprocess.PIPE)
             mime.wait()
             if mime.returncode == 0:
                 mimetype = str(mime.communicate()[0].decode('latin-1').strip())
@@ -478,28 +465,32 @@ class Thread_get_mimetype(Qc.QThread):
 
 
 # CUSTOM TABLE MODEL TO HAVE FINE CONTROL OVER THE CONTENT AND PRESENTATION
-class Custom_table_model(Qc.QAbstractTableModel):
+class AngryTableModel(Qc.QAbstractTableModel):
     sort_changed_signal = Qc.pyqtSignal(int, int)
 
-    def __init__(self, table_data=[[]], set={}, parent=None):
+    def __init__(self, table_data=None, setting_params=None, parent=None):
         super().__init__()
+        if table_data is None:
+            table_data = [[]]
+
         self.table_data = table_data
-        if set['angrysearch_lite'] is True:
+
+        if setting_params['angrysearch_lite']:
             self.headers = ['Name', 'Path']
         else:
             self.headers = ['Name', 'Path', 'Size', 'Date Modified']
 
-    def rowCount(self, parent):
+    def rowCount(self, parent=None, *args, **kwargs):
         return len(self.table_data)
 
-    def columnCount(self, parent):
+    def columnCount(self, parent=None, *args, **kwargs):
         return len(self.headers)
 
-    def headerData(self, section, orientation, role):
+    def headerData(self, section, orientation, role=None):
         if role == Qc.Qt.DisplayRole and orientation == Qc.Qt.Horizontal:
             return self.headers[section]
 
-    def data(self, index, role):
+    def data(self, index, role=None):
         if role == Qc.Qt.DisplayRole:
             row = index.row()
             column = index.column()
@@ -515,7 +506,7 @@ class Custom_table_model(Qc.QAbstractTableModel):
             value = self.table_data[row][column]
             return value.icon()
 
-    def sort(self, column, order):
+    def sort(self, column, order=None):
         self.sort_changed_signal.emit(column, order)
 
         if column == 0:
@@ -553,7 +544,7 @@ class Custom_table_model(Qc.QAbstractTableModel):
 
 
 # CUSTOM TABLE VIEW TO EASILY ADJUST ROW HEIGHT AND COLUMN WIDTH
-class My_table_view(Qw.QTableView):
+class AngryTableView(Qw.QTableView):
     def __init__(self, lite=True, row_height=0, parent=None):
         super().__init__()
         self.lite = lite
@@ -562,7 +553,7 @@ class My_table_view(Qw.QTableView):
 
     def resizeEvent(self, event):
         width = event.size().width()
-        if self.lite is True:
+        if self.lite:
             self.setColumnWidth(0, width * 0.40)
             self.setColumnWidth(1, width * 0.60)
         else:
@@ -620,16 +611,13 @@ class My_table_view(Qw.QTableView):
 
 
 # THE PRIMARY GUI DEFINING INTERFACE WIDGET, THE WIDGET WITHIN THE MAINWINDOW
-class Center_widget(Qw.QWidget):
-    def __init__(self, set={}):
+class CenterWidget(Qw.QWidget):
+    def __init__(self, setting_params=None):
         super().__init__()
-        self.set = set
-        self.initUI()
-
-    def initUI(self):
+        self.setting_params = setting_params
         self.search_input = Qw.QLineEdit()
-        self.table = My_table_view(self.set['angrysearch_lite'],
-                                   self.set['row_height'])
+        self.table = AngryTableView(self.setting_params['angrysearch_lite'],
+                                    self.setting_params['row_height'])
         self.upd_button = Qw.QPushButton('update')
         self.fts_checkbox = Qw.QCheckBox()
 
@@ -649,11 +637,11 @@ class Center_widget(Qw.QWidget):
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
 # LOADS AND SAVES QSETTINGS FROM ~/.config/angrysearch
 # INITIALIZES AND SETS GUI, WAITING FOR USER INPUTS
-class Gui_MainWindow(Qw.QMainWindow):
+class AngryMainWindow(Qw.QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
         self.settings = Qc.QSettings(CONFIG_PATH, Qc.QSettings.IniFormat)
-        self.set = {
+        self.setting_params = {
             'angrysearch_lite': True,
             'fts': True,
             'typing_delay': False,
@@ -669,8 +657,12 @@ class Gui_MainWindow(Qw.QMainWindow):
             'regex_mode': False,
             'close_on_execute': False
         }
+
+        # FOR REGEX MODE, WHEN REGEX QUERY CAN BE RUN SO ONLY ONE ACCESS DB
+        self.regex_query_ready = True
+
         self.read_settings()
-        self.init_GUI()
+        self.init_gui()
 
     def keyPressEvent(self, event):
         if type(event) == Qg.QKeyEvent:
@@ -696,10 +688,10 @@ class Gui_MainWindow(Qw.QMainWindow):
                     self.center.search_input.setFocus()
             # F8 FOR REGEX SEARCH MODE
             if event.key() == 16777271:
-                self.set['regex_mode'] = not self.set['regex_mode']
-                self.settings.setValue('regex_mode', self.set['regex_mode'])
+                self.setting_params['regex_mode'] = not self.setting_params['regex_mode']
+                self.settings.setValue('regex_mode', self.setting_params['regex_mode'])
                 self.regex_mode_color_indicator()
-                if self.set['regex_mode'] is True:
+                if self.setting_params['regex_mode']:
                     self.status_bar.showMessage('REGEX MODE ENABLED')
                 else:
                     self.status_bar.showMessage('REGEX MODE DISABLED')
@@ -719,7 +711,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             event.ignore()
 
     def regex_mode_color_indicator(self):
-        if self.set['regex_mode'] is True:
+        if self.setting_params['regex_mode']:
             self.center.search_input.setStyleSheet(
                 'background: #FF6A00; color: #000000;')
         else:
@@ -756,13 +748,13 @@ class Gui_MainWindow(Qw.QMainWindow):
         if self.settings.value('Last_Run/last_sort'):
             k = self.settings.value('Last_Run/last_sort')
             if type(k) is list and len(k) == 2:
-                if self.set['angrysearch_lite'] is True and int(k[0]) > 1:
+                if self.setting_params['angrysearch_lite'] and int(k[0]) > 1:
                     k[0] = 1
-                self.set['last_sort'] = [int(x) for x in k]
+                self.setting_params['last_sort'] = [int(x) for x in k]
             else:
-                self.set['last_sort'] = [1, 0]
+                self.setting_params['last_sort'] = [1, 0]
         else:
-            self.set['last_sort'] = [1, 0]
+            self.setting_params['last_sort'] = [1, 0]
 
     def read_qsettings_item(self, item, type):
         if self.settings.value(item):
@@ -771,34 +763,39 @@ class Gui_MainWindow(Qw.QMainWindow):
                 if k.lower() in ['false', 'no', '0', 'n', 'none']:
                     if item == 'fast_search_but_no_substring':
                         item = 'fts'
-                    self.set[item] = False
+                    self.setting_params[item] = False
                 else:
-                    self.set[item] = True
+                    self.setting_params[item] = True
             if type == 'str':
-                self.set[item] = k
+                self.setting_params[item] = k
             if type == 'int':
                 if k.isdigit():
-                    self.set[item] = int(k)
+                    self.setting_params[item] = int(k)
             if type == 'list':
-                self.set[item] = shlex.split(k.strip())
+                self.setting_params[item] = shlex.split(k.strip())
             if type == 'fm':
                 if k in ['', 'xdg-open']:
-                    self.set[item] = self.detect_file_manager()
+                    self.setting_params[item] = self.detect_file_manager()
                 else:
-                    self.set[item] = k
+                    self.setting_params[item] = k
         else:
             if type == 'fm':
-                self.set[item] = self.detect_file_manager()
+                self.setting_params[item] = self.detect_file_manager()
 
     def detect_file_manager(self):
         try:
-            fm = subprocess.check_output(
-                ['xdg-mime', 'query', 'default', 'inode/directory'])
+            fm = subprocess.check_output(['xdg-mime',
+                                          'query',
+                                          'default',
+                                          'inode/directory'])
             detected_fm = fm.decode('utf-8').strip().lower()
-            known_fm = [
-                'dolphin', 'nemo', 'nautilus', 'doublecmd', 'thunar',
-                'pcmanfm', 'spacefm'
-            ]
+            known_fm = ['dolphin',
+                        'nemo',
+                        'nautilus',
+                        'doublecmd',
+                        'thunar',
+                        'pcmanfm',
+                        'spacefm']
             for x in known_fm:
                 if x in detected_fm:
                     print('autodetected file manager: ' + x)
@@ -846,11 +843,11 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.tray_icon.hide()
         event.accept()
 
-    def init_GUI(self):
+    def init_gui(self):
         self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
 
-        if self.set['darktheme'] is True:
+        if self.setting_params['darktheme']:
             self.style_data = ''
             if os.path.isfile('qdarkstylesheet.qss'):
                 f = open('qdarkstylesheet.qss', 'r')
@@ -876,7 +873,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.file_list = []
         self.icon_dictionary = self.get_mime_icons()
 
-        self.center = Center_widget(self.set)
+        self.center = CenterWidget(self.setting_params)
         self.setCentralWidget(self.center)
 
         self.setWindowTitle('ANGRYsearch')
@@ -887,7 +884,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             'check = fast search but no substrings\n'
             'uncheck = slower but substrings work')
 
-        if self.set['fts'] is True:
+        if self.setting_params['fts']:
             self.center.fts_checkbox.setChecked(True)
         self.center.fts_checkbox.stateChanged.connect(self.checkbox_fts_click)
 
@@ -938,8 +935,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.tray_icon.activated.connect(self.sys_tray_clicking)
 
     def sys_tray_clicking(self, reason):
-        if (reason == Qw.QSystemTrayIcon.DoubleClick
-                or reason == Qw.QSystemTrayIcon.Trigger):
+        if (reason == Qw.QSystemTrayIcon.DoubleClick or
+                reason == Qw.QSystemTrayIcon.Trigger):
             self.show()
         elif (reason == Qw.QSystemTrayIcon.MiddleClick):
             self.close()
@@ -963,14 +960,14 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # OFF BY DEFAULT
     # 0.2 SEC DELAY TO LET USER FINISH TYPING BEFORE INPUT BECOMES A DB QUERY
-    def wait_for_finishing_typing(self, input):
-        if self.set['typing_delay'] is False:
-            self.new_query_new_thread(input)
+    def wait_for_finishing_typing(self, input_text):
+        if not self.setting_params['typing_delay']:
+            self.new_query_new_thread(input_text)
             return
-        self.last_keyboard_input = input
-        self.waiting_threads.append(Thread_delay_db_query(input))
-        self.waiting_threads[-1].delay_signal.connect(self.waiting_done,
-                                                      Qc.Qt.QueuedConnection)
+        self.last_keyboard_input = input_text
+        self.waiting_threads.append(ThreadDelayDBQuery(input_text))
+        self.waiting_threads[-1].delay_signal.connect(
+            self.waiting_done, Qc.Qt.QueuedConnection)
         self.waiting_threads[-1].start()
 
     def waiting_done(self, waiting_data):
@@ -980,45 +977,38 @@ class Gui_MainWindow(Qw.QMainWindow):
                 del self.waiting_threads[0:80]
 
     # NEW DATABASE QUERY ADDED TO LIST OF RECENT RUNNING THREADS
-    def new_query_new_thread(self, input):
-        global REGEX_QUERY_READY
-        if self.set['fts'] is False or self.set['regex_mode'] is True:
+    def new_query_new_thread(self, input_text):
+        if not self.setting_params['fts'] or self.setting_params['regex_mode']:
             self.status_bar.showMessage(' ...')
 
-        if input == '' and REGEX_QUERY_READY is True:
+        if input_text == '' and self.regex_query_ready:
             self.show_first_500()
             return
 
-        if self.set['regex_mode'] is True:
+        if self.setting_params['regex_mode']:
             try:
-                re.compile(input)
+                re.compile(input_text)
                 is_valid = True
             except re.error:
                 is_valid = False
 
-            if is_valid is False:
+            if not is_valid:
                 self.status_bar.showMessage('regex not valid')
                 return
 
-            self.queries_threads.append({
-                'input':
-                input,
-                'thread':
-                Thread_db_query(input, self.set)
-            })
+            self.queries_threads.append(
+                {'input': input_text,
+                 'thread': ThreadDBQuery(input_text, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
-            if REGEX_QUERY_READY is True:
+            if self.regex_query_ready:
                 self.queries_threads[-1]['thread'].start()
-                REGEX_QUERY_READY = False
+                self.regex_query_ready = False
         else:
-            self.queries_threads.append({
-                'input':
-                input,
-                'thread':
-                Thread_db_query(input, self.set)
-            })
+            self.queries_threads.append(
+                {'input': input_text,
+                 'thread': ThreadDBQuery(input_text, self.setting_params)})
 
             self.queries_threads[-1]['thread'].db_query_signal.connect(
                 self.database_query_done, Qc.Qt.QueuedConnection)
@@ -1029,9 +1019,8 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # CHECK IF THE RESULTS COME FROM THE LAST ONE OR THERE ARE SOME STILL GOING
     def database_query_done(self, db_query, db_query_result, words_quoted):
-        global REGEX_QUERY_READY
-        REGEX_QUERY_READY = True
-        if self.set['regex_mode'] is True:
+        self.regex_query_ready = True
+        if self.setting_params['regex_mode']:
             if db_query != self.queries_threads[-1]['input']:
                 self.new_query_new_thread(self.queries_threads[-1]['input'])
 
@@ -1039,10 +1028,12 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.process_q_resuls(db_query, db_query_result, words_quoted)
 
     # FORMAT DATA FOR THE MODEL
-    def process_q_resuls(self, db_query, db_query_result, words_quoted=[]):
+    def process_q_resuls(self, db_query, db_query_result, words_quoted=None):
+        if words_quoted is None:
+            words_quoted = []
         model_data = []
 
-        column_to_sort_by, revert_sort_order = self.set['last_sort']
+        column_to_sort_by, revert_sort_order = self.setting_params['last_sort']
 
         # BY NAME
         if column_to_sort_by is 0:
@@ -1069,7 +1060,7 @@ class Gui_MainWindow(Qw.QMainWindow):
                     key=lambda x: x[2] if (type(x[2]) is int) else sys.maxsize,
                     reverse=True)
 
-        if self.set['regex_mode'] is True:
+        if self.setting_params['regex_mode']:
             rx = '({})'.format(db_query)
         else:
             # INSTEAD OF re.escape() PROBLEMATIC CHARACTERS ARE REMOVED
@@ -1112,9 +1103,10 @@ class Gui_MainWindow(Qw.QMainWindow):
             else:
                 short_mime = mimetypes.guess_type(_name)[0]
                 if short_mime:
-                    archives = [
-                        'x-tar', 'zip', 'x-rar-compressed', 'x-7z-compressed'
-                    ]
+                    archives = ['x-tar',
+                                'zip',
+                                'x-rar-compressed',
+                                'x-7z-compressed']
                     short_mime = short_mime.split('/')
                     if short_mime[0] in self.icon_dictionary:
                         n.setIcon(self.icon_dictionary[short_mime[0]])
@@ -1134,7 +1126,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             m._name = n._name
             m._is_dir = tup[0]
 
-            if self.set['angrysearch_lite'] is True:
+            if self.setting_params['angrysearch_lite']:
                 item = [n, m]
             else:
                 # FILE SIZE ITEM IN THE THIRD COLUMN
@@ -1153,7 +1145,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
             model_data.append(item)
 
-        self.model = Custom_table_model(model_data, self.set)
+        self.model = AngryTableModel(model_data, self.setting_params)
         self.model.sort_changed_signal.connect(
             self.sorting_changed_received_signal, Qc.Qt.QueuedConnection)
         self.center.table.setModel(self.model)
@@ -1165,7 +1157,7 @@ class Gui_MainWindow(Qw.QMainWindow):
         self.status_bar.showMessage(total)
 
     def sorting_changed_received_signal(self, column, order):
-        self.set['last_sort'] = [column, order]
+        self.setting_params['last_sort'] = [column, order]
         self.settings.setValue('Last_Run/last_sort', [column, order])
 
     def bold_text(self, line):
@@ -1173,22 +1165,27 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # CREATES DICTIONARY WITH 6 MIME TYPES ICONS DEPENDING ON THEME
     def get_mime_icons(self):
-        icon_dic = {}
-        iconed_mimes = [
-            'folder', 'file', 'image', 'audio', 'video', 'text', 'pdf',
-            'archive'
-        ]
+        file_icon = self.style().standardIcon(Qw.QStyle.SP_FileIcon)
+        icon_dic = {'folder': self.style().standardIcon(Qw.QStyle.SP_DirIcon),
+                    'file': file_icon,
+                    'image': file_icon,
+                    'audio': file_icon,
+                    'video': file_icon,
+                    'text': file_icon,
+                    'pdf': file_icon,
+                    'archive': file_icon}
 
-        if RESOURCE_AVAILABLE is True:
-            for x in iconed_mimes:
-                r = ':/mimeicons/{}/{}.png'.format(self.set['icon_theme'], x)
-                icon_dic[x] = Qg.QIcon(r)
-        else:
-            for x in iconed_mimes:
-                dir_icon = self.style().standardIcon(Qw.QStyle.SP_DirIcon)
-                file_icon = self.style().standardIcon(Qw.QStyle.SP_FileIcon)
-                icon_dic[x] = Qg.QIcon(file_icon)
-            icon_dic['folder'] = Qg.QIcon(dir_icon)
+        # QT RESOURCE FILE WITH MIME ICONS AND DARK GUI THEME ICONS
+        # IF NOT AVAILABLE ONLY 2 ICONS REPRESENTING FILE & DIRECTORY ARE USED
+        try:
+            import resource_file
+            for key in icon_dic:
+                icon = ':/mimeicons/{}/{}.png'.format(
+                    self.setting_params['icon_theme'],
+                    key)
+                icon_dic[key] = Qg.QIcon(icon)
+        except ImportError:
+            pass
 
         return icon_dic
 
@@ -1224,20 +1221,20 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.tutorial()
             return
 
-        if self.set['angrysearch_lite'] is True and d == 4:
+        if self.setting_params['angrysearch_lite'] and d == 4:
             self.tutorial()
             return
 
-        if self.set['angrysearch_lite'] is False and d == 2:
+        if not self.setting_params['angrysearch_lite'] and d == 2:
             self.tutorial()
             return
 
-        self.center.table.sortByColumn(self.set['last_sort'][0],
-                                       self.set['last_sort'][1])
+        self.center.table.sortByColumn(self.setting_params['last_sort'][0],
+                                       self.setting_params['last_sort'][1])
 
         self.center.table.setDisabled(False)
         cur.execute('''SELECT * FROM angry_table LIMIT ?''',
-                    (self.set['number_of_results'], ))
+                    (self.setting_params['number_of_results'],))
         tuppled_500 = cur.fetchall()
 
         self.process_q_resuls('', tuppled_500)
@@ -1274,10 +1271,9 @@ class Gui_MainWindow(Qw.QMainWindow):
             row = selected_item.indexes()[0].row()
             path = self.model.itemFromIndex(row, 0)._fullpath
 
-            self.mime_type_threads.append({
-                'path': path,
-                'thread': Thread_get_mimetype(path)
-            })
+            self.mime_type_threads.append(
+                {'path': path,
+                 'thread': ThreadMimetype(path)})
 
             self.mime_type_threads[-1]['thread'].mime_signal.connect(
                 self.mime_type_thread_done, Qc.Qt.QueuedConnection)
@@ -1331,9 +1327,9 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.center.table.setStyleSheet('selection-color:blue;')
             self.center.table.timeout.start(150)
 
-        fm = self.set['file_manager']
+        fm = self.setting_params['file_manager']
         if column == 0:
-            if is_dir is True:
+            if is_dir:
                 if fm != 'xdg-open':
                     subprocess.Popen([fm, path])
                 else:
@@ -1341,7 +1337,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             else:
                 subprocess.Popen(['xdg-open', path])
         else:
-            if is_dir is True:
+            if is_dir:
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
                 elif 'nemo' in fm:
@@ -1376,13 +1372,13 @@ class Gui_MainWindow(Qw.QMainWindow):
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
 
-        if self.set['close_on_execute'] is True:
+        if self.setting_params['close_on_execute']:
             self.close()
 
     # FOR THUNAR AND PCMANFM SO THAT THEY SELECT THE FILE/FOLDER
     # NOT JUST OPEN ITS PARENT FOLDER
     def fm_highlight(self, fm, parent_dir, last_item):
-        if self.set['fm_path_doubleclick_selects'] is False:
+        if not self.setting_params['fm_path_doubleclick_selects']:
             cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
             return
@@ -1397,7 +1393,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
     # FOR SPACEFM
     def fm_highlight_spacefm(self, fm, parent_dir, last_item):
-        if self.set['fm_path_doubleclick_selects'] is False:
+        if not self.setting_params['fm_path_doubleclick_selects']:
             cmd = [fm, parent_dir]
             subprocess.Popen(cmd)
             return
@@ -1414,10 +1410,10 @@ class Gui_MainWindow(Qw.QMainWindow):
     # FAST SEARCH OR SEARCH WITH SUBSTRINGS
     def checkbox_fts_click(self, state):
         if state == Qc.Qt.Checked:
-            self.set['fts'] = True
+            self.setting_params['fts'] = True
             self.settings.setValue('fast_search_but_no_substring', True)
         else:
-            self.set['fts'] = False
+            self.setting_params['fts'] = False
             self.settings.setValue('fast_search_but_no_substring', False)
         current_search = self.center.search_input.text()
         self.new_query_new_thread(current_search)
@@ -1452,11 +1448,11 @@ class Gui_MainWindow(Qw.QMainWindow):
     # CREATE INSTANCE OF UPDATE THE DATABASE DIALOG WINDOW
     def clicked_button_updatedb(self):
         self.center.search_input.setDisabled(False)
-        self.u = Update_dialog_window(self)
-        self.u.window_close_signal.connect(self.update_window_close,
-                                           Qc.Qt.QueuedConnection)
-        self.u.icon_theme_signal.connect(self.theme_change_icon,
-                                         Qc.Qt.QueuedConnection)
+        self.u = UpdateDialogWindow(self)
+        self.u.window_close_signal.connect(
+            self.update_window_close, Qc.Qt.QueuedConnection)
+        self.u.icon_theme_signal.connect(
+            self.theme_change_icon, Qc.Qt.QueuedConnection)
         self.u.exec_()
         self.center.search_input.setFocus()
 
@@ -1467,7 +1463,7 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.database_age()
 
     def theme_change_icon(self, text):
-        self.set['icon_theme'] = text
+        self.setting_params['icon_theme'] = text
         self.settings.setValue('icon_theme', text)
         self.icon_dictionary = self.get_mime_icons()
         self.new_query_new_thread(self.center.search_input.text())
@@ -1519,8 +1515,8 @@ class Gui_MainWindow(Qw.QMainWindow):
             self.doc.setHtml(options.text)
             options.text = ''
 
-            style = Qw.QApplication.style() if options.widget is None \
-                else options.widget.style()
+            style = (Qw.QApplication.style() if options.widget is None
+                else options.widget.style())
             style.drawControl(Qw.QStyle.CE_ItemViewItem, options, painter)
 
             ctx = Qg.QAbstractTextDocumentLayout.PaintContext()
@@ -1557,7 +1553,7 @@ class Gui_MainWindow(Qw.QMainWindow):
 
 
 # UPDATE DATABASE DIALOG WITH PROGRESS SHOWN
-class Update_dialog_window(Qw.QDialog):
+class UpdateDialogWindow(Qw.QDialog):
     icon_theme_signal = Qc.pyqtSignal(str)
     window_close_signal = Qc.pyqtSignal(str)
 
@@ -1577,8 +1573,8 @@ class Update_dialog_window(Qw.QDialog):
     def initUI(self):
         self.setWindowTitle('Database Update')
 
-        self.exclud_dirs = ' '.join(self.parent().set['directories_excluded'])
-        combobox_text = self.parent().set['icon_theme']
+        self.exclud_dirs = ' '.join(self.parent().setting_params['directories_excluded'])
+        combobox_text = self.parent().setting_params['icon_theme']
 
         self.icon_theme_label = Qw.QLabel('icon theme:')
         self.icon_theme_combobox = Qw.QComboBox(self)
@@ -1664,7 +1660,7 @@ class Update_dialog_window(Qw.QDialog):
             text = text.strip()
             self.exclud_dirs = text
             self.settings.setValue('directories_excluded', text)
-            self.parent().set['directories_excluded'] = text.strip().split()
+            self.parent().setting_params['directories_excluded'] = text.strip().split()
             if text == '':
                 self.excluded_dirs_btn.setText('none')
                 self.excluded_dirs_btn.setStyleSheet('color:#888;'
@@ -1681,7 +1677,7 @@ class Update_dialog_window(Qw.QDialog):
     def clicked_OK_update_db(self):
         self.OK_button.setDisabled(True)
 
-        mounts_needed = self.parent().set['conditional_mounts_for_autoupdate']
+        mounts_needed = self.parent().setting_params['conditional_mounts_for_autoupdate']
 
         missing_mount = False
         missing_mounts_list = []
@@ -1703,9 +1699,9 @@ class Update_dialog_window(Qw.QDialog):
                 self.accept()
                 return
 
-        self.thread_updating = Thread_database_update(
-            self.parent().set['angrysearch_lite'],
-            self.parent().set['directories_excluded'])
+        self.thread_updating = ThreadDBUpdate(
+            self.parent().setting_params['angrysearch_lite'],
+            self.parent().setting_params['directories_excluded'])
 
         self.thread_updating.db_update_signal.connect(
             self.upd_dialog_receives_signal, Qc.Qt.QueuedConnection)
@@ -1758,5 +1754,5 @@ if __name__ == '__main__':
     with open_database() as con:
         con.create_function("regexp", 2, regexp)
         app = Qw.QApplication(sys.argv)
-        ui = Gui_MainWindow()
+        ui = AngryMainWindow()
         sys.exit(app.exec_())
