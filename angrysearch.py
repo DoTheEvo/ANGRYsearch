@@ -797,8 +797,8 @@ class AngryMainWindow(Qw.QMainWindow):
                 if x in detected_fm:
                     print('autodetected file manager: ' + x)
                     return x
-            else:
-                return 'xdg-open'
+            return 'xdg-open'
+
         except Exception as err:
             print(err)
             return 'xdg-open'
