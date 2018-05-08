@@ -753,30 +753,30 @@ class AngryMainWindow(Qw.QMainWindow):
         else:
             self.setting_params['last_sort'] = [1, 0]
 
-    def read_qsettings_item(self, item, type):
+    def read_qsettings_item(self, item, type_):
         if self.settings.value(item):
             k = self.settings.value(item)
-            if type == 'bool':
+            if type_ == 'bool':
                 if k.lower() in ['false', 'no', '0', 'n', 'none']:
                     if item == 'fast_search_but_no_substring':
                         item = 'fts'
                     self.setting_params[item] = False
                 else:
                     self.setting_params[item] = True
-            if type == 'str':
+            if type_ == 'str':
                 self.setting_params[item] = k
-            if type == 'int':
+            if type_ == 'int':
                 if k.isdigit():
                     self.setting_params[item] = int(k)
-            if type == 'list':
+            if type_ == 'list':
                 self.setting_params[item] = shlex.split(k.strip())
-            if type == 'fm':
+            if type_ == 'fm':
                 if k in ['', 'xdg-open']:
                     self.setting_params[item] = self.detect_file_manager()
                 else:
                     self.setting_params[item] = k
         else:
-            if type == 'fm':
+            if type_ == 'fm':
                 self.setting_params[item] = self.detect_file_manager()
 
     def detect_file_manager(self):
