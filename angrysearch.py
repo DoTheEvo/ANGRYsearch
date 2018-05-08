@@ -300,7 +300,7 @@ class ThreadDBUpdate(Qc.QThread):
                         stats = os.lstat(path)
                         epoch_time = int(stats.st_mtime.__trunc__())
                     except:
-                        print('Can\'t access: ' + str(path))
+                        print("Can't access: " + str(path))
                         epoch_time = 0
                     dir_list.append(('1', utf_path, '', epoch_time))
                 for fname in files:
@@ -311,7 +311,7 @@ class ThreadDBUpdate(Qc.QThread):
                         size = stats.st_size
                         epoch_time = int(stats.st_mtime.__trunc__())
                     except:
-                        print('Can\'t access: ' + str(path))
+                        print("Can't access: " + str(path))
                         size = 0
                         epoch_time = 0
                     file_list.append(('0', utf_path, size, epoch_time))
