@@ -494,8 +494,8 @@ class AngryTableModel(Qc.QAbstractTableModel):
             value = self.table_data[row][column]
             if column == 3:
                 return value
-            else:
-                return value.text()
+
+            return value.text()
 
         if role == Qc.Qt.DecorationRole and index.column() == 0:
             row = index.row()
@@ -1477,20 +1477,18 @@ class AngryMainWindow(Qw.QMainWindow):
                     rounded = round(seconds / 60)
                     if rounded == 1:
                         return '1 minute old'
-                    else:
-                        return '{} minutes old'.format(rounded)
+                    return '{} minutes old'.format(rounded)
+
                 if seconds < 172800:
                     rounded = round(seconds / 3600)
                     if rounded == 1:
                         return '1 hour old'
-                    else:
-                        return '{} hours old'.format(rounded)
+                    return '{} hours old'.format(rounded)
                 else:
                     rounded = round(seconds / 86400)
                     if rounded == 1:
                         return '1 day old'
-                    else:
-                        return '{} days old'.format(rounded)
+                    return '{} days old'.format(rounded)
             else:
                 return 'No Database Age'
 
