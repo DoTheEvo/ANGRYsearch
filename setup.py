@@ -12,8 +12,6 @@ https://www.voidtools.com/
 
 from distutils.core import setup
 
-from scandir import __version__
-
 LONG_DESCRIPTION = "Attempt at making Linux version of Everything Search " \
                    "Engine because no one else bothered." \
                    "Everyone seems to be damn content with searches that " \
@@ -27,7 +25,7 @@ LONG_DESCRIPTION = "Attempt at making Linux version of Everything Search " \
 
 if __name__ == '__main__':
     setup(name='ANGRYsearch',
-          version=__version__,
+          version='',
           description='Linux file search, instant results as you type',
           long_description=LONG_DESCRIPTION,
           author='',
