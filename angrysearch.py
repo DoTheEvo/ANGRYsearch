@@ -1557,7 +1557,7 @@ class UpdateDialogWindow(Qw.QDialog):
         self.values = dict()
         self.last_signal = ''
         self.settings = Qc.QSettings(CONFIG_PATH, Qc.QSettings.IniFormat)
-        self.initUI()
+        self.init_ui()
 
     def __setitem__(self, k, v):
         self.values[k] = v
@@ -1565,7 +1565,7 @@ class UpdateDialogWindow(Qw.QDialog):
     def __getitem__(self, k):
         return None if k not in self.values else self.values[k]
 
-    def initUI(self):
+    def init_ui(self):
         self.setWindowTitle('Database Update')
 
         self.exclud_dirs = ' '.join(self.parent().setting_params['directories_excluded'])
