@@ -744,7 +744,7 @@ class AngryMainWindow(Qw.QMainWindow):
 
         if self.settings.value('Last_Run/last_sort'):
             k = self.settings.value('Last_Run/last_sort')
-            if type(k) is list and len(k) == 2:
+            if isinstance(k, list) and len(k) == 2:
                 if self.setting_params['angrysearch_lite'] and int(k[0]) > 1:
                     k[0] = 1
                 self.setting_params['last_sort'] = [int(x) for x in k]
