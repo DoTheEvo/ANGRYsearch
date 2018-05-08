@@ -1051,10 +1051,10 @@ class AngryMainWindow(Qw.QMainWindow):
         if column_to_sort_by is 2:
             if revert_sort_order is 0:
                 db_query_result.sort(
-                    key=lambda x: x[2] if (type(x[2]) is int) else 0)
+                    key=lambda x: x[2] if isinstance(x[2], int) else 0)
             else:
                 db_query_result.sort(
-                    key=lambda x: x[2] if (type(x[2]) is int) else sys.maxsize,
+                    key=lambda x: x[2] if isinstance(x[2], int) else sys.maxsize,
                     reverse=True)
 
         if self.setting_params['regex_mode']:
