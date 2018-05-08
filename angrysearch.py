@@ -430,10 +430,7 @@ class ThreadDBUpdate(Qc.QThread):
             cur.execute('pragma compile_options;')
             available_pragmas = cur.fetchall()
 
-        if ('ENABLE_FTS5', ) in available_pragmas:
-            return True
-        else:
-            return False
+        return ('ENABLE_FTS5', ) in available_pragmas
 
 
 # THREAD FOR GETTING MIMETYPE OF A FILE CURRENTLY SELECTED
