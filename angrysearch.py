@@ -68,23 +68,23 @@ class ThreadDBQuery(Qc.QThread):
         cur = con.cursor()
 
         if self.regex_mode:
-            q = 'SELECT * FROM angry_table '\
-                'WHERE path REGEXP \'{}\' LIMIT {}'.format(
-                    self.db_query, self.number_of_results)
+            q = "SELECT * FROM angry_table WHERE path REGEXP" \
+                " '{query}' LIMIT {results}".format(
+                    query=self.db_query, results=self.number_of_results)
             cur.execute(q)
 
         elif self.fts:
             sql_query = self.match_query_adjustment(self.db_query)
-            q = 'SELECT * FROM angry_table '\
-                'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
-                    sql_query, self.number_of_results)
+            q = "SELECT * FROM angry_table WHERE angry_table MATCH" \
+                " '{query}' LIMIT {results}".format(
+                    query=sql_query, results=self.number_of_results)
             cur.execute(q)
 
         elif not self.fts:
             sql_query = self.like_query_adjustment(self.db_query)
-            q = 'SELECT * FROM angry_table '\
-                'WHERE path LIKE {} LIMIT {}'.format(
-                    sql_query, self.number_of_results)
+            q = "SELECT * FROM angry_table WHERE path LIKE" \
+                " '{query}' LIMIT {results}".format(
+                    query=sql_query, results=self.number_of_results)
             cur.execute(q)
 
         db_query_result = cur.fetchall()
