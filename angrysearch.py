@@ -1750,9 +1750,13 @@ def regexp(expr, item):
     return r.search(name) is not None
 
 
-if __name__ == '__main__':
+def main():
+    global con
     with open_database() as con:
         con.create_function("regexp", 2, regexp)
         app = Qw.QApplication(sys.argv)
         ui = AngryMainWindow()
         sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
