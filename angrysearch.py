@@ -68,23 +68,23 @@ class ThreadDBQuery(Qc.QThread):
         cur = con.cursor()
 
         if self.regex_mode:
-            q = 'SELECT * FROM angry_table '\
-                'WHERE path REGEXP \'{}\' LIMIT {}'.format(
-                    self.db_query, self.number_of_results)
+            q = "SELECT * FROM angry_table WHERE path REGEXP" \
+                " '{query}' LIMIT {results}".format(
+                    query=self.db_query, results=self.number_of_results)
             cur.execute(q)
 
         elif self.fts:
             sql_query = self.match_query_adjustment(self.db_query)
-            q = 'SELECT * FROM angry_table '\
-                'WHERE angry_table MATCH \'{}\' LIMIT {}'.format(
-                    sql_query, self.number_of_results)
+            q = "SELECT * FROM angry_table WHERE angry_table MATCH" \
+                " '{query}' LIMIT {results}".format(
+                    query=sql_query, results=self.number_of_results)
             cur.execute(q)
 
         elif not self.fts:
             sql_query = self.like_query_adjustment(self.db_query)
-            q = 'SELECT * FROM angry_table '\
-                'WHERE path LIKE {} LIMIT {}'.format(
-                    sql_query, self.number_of_results)
+            q = "SELECT * FROM angry_table WHERE path LIKE" \
+                " '{query}' LIMIT {results}".format(
+                    query=sql_query, results=self.number_of_results)
             cur.execute(q)
 
         db_query_result = cur.fetchall()
@@ -300,7 +300,7 @@ class ThreadDBUpdate(Qc.QThread):
                         stats = os.lstat(path)
                         epoch_time = int(stats.st_mtime.__trunc__())
                     except:
-                        print('Can\'t access: ' + str(path))
+                        print("Can't access: " + str(path))
                         epoch_time = 0
                     dir_list.append(('1', utf_path, '', epoch_time))
                 for fname in files:
@@ -311,7 +311,7 @@ class ThreadDBUpdate(Qc.QThread):
                         size = stats.st_size
                         epoch_time = int(stats.st_mtime.__trunc__())
                     except:
-                        print('Can\'t access: ' + str(path))
+                        print("Can't access: " + str(path))
                         size = 0
                         epoch_time = 0
                     file_list.append(('0', utf_path, size, epoch_time))
@@ -430,10 +430,7 @@ class ThreadDBUpdate(Qc.QThread):
             cur.execute('pragma compile_options;')
             available_pragmas = cur.fetchall()
 
-        if ('ENABLE_FTS5', ) in available_pragmas:
-            return True
-        else:
-            return False
+        return ('ENABLE_FTS5', ) in available_pragmas
 
 
 # THREAD FOR GETTING MIMETYPE OF A FILE CURRENTLY SELECTED
@@ -497,8 +494,8 @@ class AngryTableModel(Qc.QAbstractTableModel):
             value = self.table_data[row][column]
             if column == 3:
                 return value
-            else:
-                return value.text()
+
+            return value.text()
 
         if role == Qc.Qt.DecorationRole and index.column() == 0:
             row = index.row()
@@ -747,7 +744,7 @@ class AngryMainWindow(Qw.QMainWindow):
 
         if self.settings.value('Last_Run/last_sort'):
             k = self.settings.value('Last_Run/last_sort')
-            if type(k) is list and len(k) == 2:
+            if isinstance(k, list) and len(k) == 2:
                 if self.setting_params['angrysearch_lite'] and int(k[0]) > 1:
                     k[0] = 1
                 self.setting_params['last_sort'] = [int(x) for x in k]
@@ -756,30 +753,30 @@ class AngryMainWindow(Qw.QMainWindow):
         else:
             self.setting_params['last_sort'] = [1, 0]
 
-    def read_qsettings_item(self, item, type):
+    def read_qsettings_item(self, item, type_):
         if self.settings.value(item):
             k = self.settings.value(item)
-            if type == 'bool':
+            if type_ == 'bool':
                 if k.lower() in ['false', 'no', '0', 'n', 'none']:
                     if item == 'fast_search_but_no_substring':
                         item = 'fts'
                     self.setting_params[item] = False
                 else:
                     self.setting_params[item] = True
-            if type == 'str':
+            if type_ == 'str':
                 self.setting_params[item] = k
-            if type == 'int':
+            if type_ == 'int':
                 if k.isdigit():
                     self.setting_params[item] = int(k)
-            if type == 'list':
+            if type_ == 'list':
                 self.setting_params[item] = shlex.split(k.strip())
-            if type == 'fm':
+            if type_ == 'fm':
                 if k in ['', 'xdg-open']:
                     self.setting_params[item] = self.detect_file_manager()
                 else:
                     self.setting_params[item] = k
         else:
-            if type == 'fm':
+            if type_ == 'fm':
                 self.setting_params[item] = self.detect_file_manager()
 
     def detect_file_manager(self):
@@ -800,8 +797,8 @@ class AngryMainWindow(Qw.QMainWindow):
                 if x in detected_fm:
                     print('autodetected file manager: ' + x)
                     return x
-            else:
-                return 'xdg-open'
+            return 'xdg-open'
+
         except Exception as err:
             print(err)
             return 'xdg-open'
@@ -1054,10 +1051,10 @@ class AngryMainWindow(Qw.QMainWindow):
         if column_to_sort_by is 2:
             if revert_sort_order is 0:
                 db_query_result.sort(
-                    key=lambda x: x[2] if (type(x[2]) is int) else 0)
+                    key=lambda x: x[2] if isinstance(x[2], int) else 0)
             else:
                 db_query_result.sort(
-                    key=lambda x: x[2] if (type(x[2]) is int) else sys.maxsize,
+                    key=lambda x: x[2] if isinstance(x[2], int) else sys.maxsize,
                     reverse=True)
 
         if self.setting_params['regex_mode']:
@@ -1480,20 +1477,18 @@ class AngryMainWindow(Qw.QMainWindow):
                     rounded = round(seconds / 60)
                     if rounded == 1:
                         return '1 minute old'
-                    else:
-                        return '{} minutes old'.format(rounded)
+                    return '{} minutes old'.format(rounded)
+
                 if seconds < 172800:
                     rounded = round(seconds / 3600)
                     if rounded == 1:
                         return '1 hour old'
-                    else:
-                        return '{} hours old'.format(rounded)
+                    return '{} hours old'.format(rounded)
                 else:
                     rounded = round(seconds / 86400)
                     if rounded == 1:
                         return '1 day old'
-                    else:
-                        return '{} days old'.format(rounded)
+                    return '{} days old'.format(rounded)
             else:
                 return 'No Database Age'
 
@@ -1562,7 +1557,7 @@ class UpdateDialogWindow(Qw.QDialog):
         self.values = dict()
         self.last_signal = ''
         self.settings = Qc.QSettings(CONFIG_PATH, Qc.QSettings.IniFormat)
-        self.initUI()
+        self.init_ui()
 
     def __setitem__(self, k, v):
         self.values[k] = v
@@ -1570,7 +1565,7 @@ class UpdateDialogWindow(Qw.QDialog):
     def __getitem__(self, k):
         return None if k not in self.values else self.values[k]
 
-    def initUI(self):
+    def init_ui(self):
         self.setWindowTitle('Database Update')
 
         self.exclud_dirs = ' '.join(self.parent().setting_params['directories_excluded'])
@@ -1750,9 +1745,13 @@ def regexp(expr, item):
     return r.search(name) is not None
 
 
-if __name__ == '__main__':
+def main():
+    global con
     with open_database() as con:
         con.create_function("regexp", 2, regexp)
         app = Qw.QApplication(sys.argv)
         ui = AngryMainWindow()
         sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()

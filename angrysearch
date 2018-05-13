@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# File name: angrysearch
+
+"""
+ANGRYsearch - file search, instant results as you typeself.
+
+Attempt of making multiplatform version of Everything Search Engine
+https://www.voidtools.com/
+"""
+
+from angrysearch import main
+
+
+if __name__ == '__main__':
+    main()
