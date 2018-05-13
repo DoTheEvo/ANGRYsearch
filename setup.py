@@ -4,7 +4,7 @@
 # File name: setup.py
 
 """
-ANGRYsearch - file search, instant results as you typeself.
+ANGRYsearch - file search, instant results as you type.
 
 Attempt of making multiplatform version of Everything Search Engine
 https://www.voidtools.com/
@@ -13,25 +13,23 @@ https://www.voidtools.com/
 from distutils.core import setup
 
 LONG_DESCRIPTION = "Attempt at making Linux version of Everything Search " \
-                   "Engine because no one else bothered." \
-                   "Everyone seems to be damn content with searches that " \
-                   "are slow, populating results as they go; or are cli " \
-                   "based, making it difficult to comfortably make use of " \
-                   "the results; or are heavily integrated with a file " \
-                   "manager, often limiting search to just home; or are " \
-                   "trying to be everything with full-text file’s content " \
-                   "search."
+                   "Engine. " \
+                   "This simple file search crawls available disks " \
+                   "creating a database that can be searched using " \
+                   "quick and responsive graphical interface. " \
+                   "Notable difference is that by default, the entire paths "\
+                   "are searched, not just files and folders names."
 
 
 if __name__ == '__main__':
     setup(name='ANGRYsearch',
-          version='',
+          version='1.0.2',
           description='Linux file search, instant results as you type',
           long_description=LONG_DESCRIPTION,
-          author='',
-          author_email='',
-          maintainer='',
-          maintainer_email='',
+          author='DoTheEvo',
+          author_email='DoTheEvo@gmail.com',
+          maintainer='DoTheEvo',
+          maintainer_email='DoTheEvo@gmail.com',
           url='https://github.com/DoTheEvo/ANGRYsearch',
           license='GNU GENERAL PUBLIC LICENSE, Version 2, June 1991',
           platforms=['linux'],
