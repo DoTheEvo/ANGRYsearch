@@ -58,7 +58,7 @@ class ThreadDBQuery(Qc.QThread):
 
     def __init__(self, db_query, setting_params, parent=None):
         super().__init__()
-        self.words_quoted = []
+        self.words_quoted = None
         self.number_of_results = setting_params['number_of_results']
         self.fts = setting_params['fts']
         self.regex_mode = setting_params['regex_mode']
@@ -70,23 +70,21 @@ class ThreadDBQuery(Qc.QThread):
         if self.regex_mode:
             q = "SELECT * FROM angry_table WHERE path REGEXP" \
                 " '{query}' LIMIT {results}".format(
-                    query=self.db_query, results=self.number_of_results)
-            cur.execute(q)
+                query=self.db_query, results=self.number_of_results)
 
         elif self.fts:
             sql_query = self.match_query_adjustment(self.db_query)
             q = "SELECT * FROM angry_table WHERE angry_table MATCH" \
                 " '{query}' LIMIT {results}".format(
-                    query=sql_query, results=self.number_of_results)
-            cur.execute(q)
+                query=sql_query, results=self.number_of_results)
 
-        elif not self.fts:
+        else:
             sql_query = self.like_query_adjustment(self.db_query)
             q = "SELECT * FROM angry_table WHERE path LIKE" \
                 " '{query}' LIMIT {results}".format(
-                    query=sql_query, results=self.number_of_results)
-            cur.execute(q)
+                query=sql_query, results=self.number_of_results)
 
+        cur.execute(q)
         db_query_result = cur.fetchall()
         self.db_query_signal.emit(self.db_query,
                                   db_query_result,
@@ -106,8 +104,8 @@ class ThreadDBQuery(Qc.QThread):
 
     # FTS CHECKBOX IS CHECKED, FTS VIRTUAL TABLES ARE USED
     def match_query_adjustment(self, input_text):
-        if '?' in input_text or '\\' in input_text:
-            for x in ['\\', '?']:
+        for x in {'\\', '?', '(', ')', '*'}:
+            if x in input_text:
                 input_text = input_text.replace(x, '')
 
         query_words = input_text.strip().split()
@@ -164,7 +162,8 @@ class ThreadDBQuery(Qc.QThread):
                     else:
                         exclude_query_part += 'NOT {}* '.format(x)
 
-                final_query = '{} {}'.format(final_query, exclude_query_part)
+                final_query = '{} {}'.format(final_query,
+                                             exclude_query_part)
 
             self.words_quoted = words_quoted
             return final_query
