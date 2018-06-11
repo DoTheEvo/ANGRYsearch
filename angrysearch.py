@@ -50,6 +50,12 @@ DATABASE_PATH = join_path(os.path.expanduser('~'),
                           'angry_database.db')
 
 
+def run_query(query, parameters=()):
+    """Run any query."""
+    query_result = con.execute(query, parameters)
+    return query_result
+
+
 # THREAD FOR ASYNC SEARCHES IN THE DATABASE
 # RETURNS FIRST 500(number_of_results) RESULTS MATCHING THE QUERY
 # fts VALUE DECIDES IF USE FAST "MATCH" OR SLOWER BUT SUBSTRING AWARE "LIKE"
@@ -65,27 +71,21 @@ class ThreadDBQuery(Qc.QThread):
         self.db_query = db_query
 
     def run(self):
-        cur = con.cursor()
+        """Run user's search query"""
 
         if self.regex_mode:
-            q = "SELECT * FROM angry_table WHERE path REGEXP" \
-                " '{query}' LIMIT {results}".format(
-                query=self.db_query, results=self.number_of_results)
-
+            q = "SELECT * FROM angry_table WHERE path REGEXP ? LIMIT ?"
+            params = (self.db_query, self.number_of_results)
         elif self.fts:
             sql_query = self.match_query_adjustment(self.db_query)
-            q = "SELECT * FROM angry_table WHERE angry_table MATCH" \
-                " '{query}' LIMIT {results}".format(
-                query=sql_query, results=self.number_of_results)
-
+            q = "SELECT * FROM angry_table WHERE angry_table MATCH ? LIMIT ?"
+            params = (sql_query, self.number_of_results)
         else:
             sql_query = self.like_query_adjustment(self.db_query)
-            q = "SELECT * FROM angry_table WHERE path LIKE" \
-                " '{query}' LIMIT {results}".format(
-                query=sql_query, results=self.number_of_results)
+            q = "SELECT * FROM angry_table WHERE path LIKE ? LIMIT ?"
+            params = (sql_query, self.number_of_results)
 
-        cur.execute(q)
-        db_query_result = cur.fetchall()
+        db_query_result = run_query(q, params).fetchall()
         self.db_query_signal.emit(self.db_query,
                                   db_query_result,
                                   self.words_quoted)
@@ -1229,13 +1229,13 @@ class AngryMainWindow(Qw.QMainWindow):
                                        self.setting_params['last_sort'][1])
 
         self.center.table.setDisabled(False)
-        cur.execute('''SELECT * FROM angry_table LIMIT ?''',
+        cur.execute("SELECT * FROM angry_table LIMIT ?",
                     (self.setting_params['number_of_results'],))
         tuppled_500 = cur.fetchall()
 
         self.process_q_resuls('', tuppled_500)
 
-        cur.execute('''SELECT COALESCE(MAX(rowid), 0) FROM angry_table''')
+        cur.execute("SELECT COALESCE(MAX(rowid), 0) FROM angry_table")
         total_rows_numb = cur.fetchone()[0]
         total = locale.format('%d', total_rows_numb, grouping=True)
         self.status_bar.showMessage(total)
@@ -1751,6 +1751,7 @@ def main():
         app = Qw.QApplication(sys.argv)
         ui = AngryMainWindow()
         sys.exit(app.exec_())
+
 
 if __name__ == '__main__':
     main()
