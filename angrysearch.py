@@ -791,6 +791,7 @@ class AngryMainWindow(Qw.QMainWindow):
                         'doublecmd',
                         'thunar',
                         'pcmanfm',
+                        'pcmanfm-qt',
                         'spacefm']
             for x in known_fm:
                 if x in detected_fm:
@@ -1336,12 +1337,6 @@ class AngryMainWindow(Qw.QMainWindow):
             if is_dir:
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
-                elif 'nemo' in fm:
-                    cmd = ['nemo', parent_dir]
-                elif 'nautilus' in fm:
-                    cmd = ['nautilus', parent_dir]
-                elif 'doublecmd' in fm:
-                    cmd = ['doublecmd', parent_dir]
                 else:
                     cmd = [fm, parent_dir]
                 subprocess.Popen(cmd)
@@ -1349,21 +1344,11 @@ class AngryMainWindow(Qw.QMainWindow):
                 if 'dolphin' in fm:
                     cmd = ['dolphin', '--select', path]
                     subprocess.Popen(cmd)
-                elif 'nemo' in fm:
-                    cmd = ['nemo', path]
+                elif fm in ['nemo', 'nautilus', 'doublecmd']:
+                    cmd = [fm, path]
                     subprocess.Popen(cmd)
-                elif 'nautilus' in fm:
-                    cmd = ['nautilus', path]
-                    subprocess.Popen(cmd)
-                elif 'doublecmd' in fm:
-                    cmd = ['doublecmd', path]
-                    subprocess.Popen(cmd)
-                elif 'thunar' in fm:
-                    self.fm_highlight('thunar', parent_dir, last_item)
-                elif 'pcmanfm' in fm:
-                    self.fm_highlight('pcmanfm', parent_dir, last_item)
-                elif 'spacefm' in fm:
-                    self.fm_highlight_spacefm('spacefm', parent_dir, last_item)
+                elif fm in ['thunar', 'pcmanfm', 'pcmanfm-qt', 'spacefm']:
+                    self.fm_highlight(fm, parent_dir, last_item)
                 else:
                     cmd = [fm, parent_dir]
                     subprocess.Popen(cmd)
@@ -1381,7 +1366,7 @@ class AngryMainWindow(Qw.QMainWindow):
         cmd = [fm, parent_dir]
         subprocess.Popen(cmd)
         time.sleep(0.5)
-        cmd = ['xdotool', 'key', 'ctrl+f', 'type', last_item]
+        cmd = ['xdotool', 'type', last_item]
         subprocess.Popen(cmd)
         time.sleep(0.5)
         cmd = ['xdotool', 'key', 'Escape']
