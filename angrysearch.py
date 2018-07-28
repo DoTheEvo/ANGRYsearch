@@ -790,8 +790,8 @@ class AngryMainWindow(Qw.QMainWindow):
                         'nautilus',
                         'doublecmd',
                         'thunar',
-                        'pcmanfm',
                         'pcmanfm-qt',
+                        'pcmanfm',
                         'spacefm']
             for x in known_fm:
                 if x in detected_fm:
