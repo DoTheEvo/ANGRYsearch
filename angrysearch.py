@@ -43,7 +43,7 @@ TEMP_PATH = Qc.QStandardPaths.standardLocations(
 CACHE_PATH = Qc.QStandardPaths.standardLocations(
     Qc.QStandardPaths.CacheLocation)[0]
 CONFIG_PATH = Qc.QStandardPaths.standardLocations(
-    Qc.QStandardPaths.ConfigLocation)[0] + '/angrysearch/angry_database.conf'
+    Qc.QStandardPaths.ConfigLocation)[0] + '/angrysearch/angrysearch.conf'
 DATABASE_PATH = join_path(os.path.expanduser('~'),
                           CACHE_PATH,
                           'angrysearch',
