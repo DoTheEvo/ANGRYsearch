@@ -919,7 +919,7 @@ class AngryMainWindow(Qw.QMainWindow):
     def make_sys_tray(self):
         if Qw.QSystemTrayIcon.isSystemTrayAvailable():
             menu = Qw.QMenu()
-            menu.addAction('v1.0.1')
+            menu.addAction('v1.0.4')
             menu.addSeparator()
             exitAction = menu.addAction('Quit')
             exitAction.triggered.connect(self.close)
