@@ -23,7 +23,7 @@ LONG_DESCRIPTION = "Attempt at making Linux version of Everything Search " \
 
 if __name__ == '__main__':
     setup(name='ANGRYsearch',
-          version='1.0.2',
+          version='1.0.4',
           description='Linux file search, instant results as you type',
           long_description=LONG_DESCRIPTION,
           author='DoTheEvo',
