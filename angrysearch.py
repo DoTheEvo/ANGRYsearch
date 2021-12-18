@@ -550,13 +550,13 @@ class AngryTableView(Qw.QTableView):
     def resizeEvent(self, event):
         width = event.size().width()
         if self.lite:
-            self.setColumnWidth(0, width * 0.40)
-            self.setColumnWidth(1, width * 0.60)
+            self.setColumnWidth(0, int(width * 0.40))
+            self.setColumnWidth(1, int(width * 0.60))
         else:
-            self.setColumnWidth(0, width * 0.30)
-            self.setColumnWidth(1, width * 0.38)
-            self.setColumnWidth(2, width * 0.10)
-            self.setColumnWidth(3, width * 0.22)
+            self.setColumnWidth(0, int(width * 0.30))
+            self.setColumnWidth(1, int(width * 0.38))
+            self.setColumnWidth(2, int(width * 0.10))
+            self.setColumnWidth(3, int(width * 0.22))
 
     # ROW IS HIGHLIGHTED THE MOMENT THE TABLE IS FOCUSED
     def focusInEvent(self, event):
