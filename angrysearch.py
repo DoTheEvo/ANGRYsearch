@@ -1149,7 +1149,7 @@ class AngryMainWindow(Qw.QMainWindow):
         self.center.table.selectionModel().selectionChanged.connect(
             self.selection_happens)
 
-        total = locale.format('%d', len(db_query_result), grouping=True)
+        total = locale._format('%d', len(db_query_result), grouping=True)
         self.last_number_of_results = total
         self.status_bar.showMessage(total)
 
@@ -1238,7 +1238,7 @@ class AngryMainWindow(Qw.QMainWindow):
 
         cur.execute("SELECT COALESCE(MAX(rowid), 0) FROM angry_table")
         total_rows_numb = cur.fetchone()[0]
-        total = locale.format('%d', total_rows_numb, grouping=True)
+        total = locale._format('%d', total_rows_numb, grouping=True)
         self.status_bar.showMessage(total)
 
     def key_press_Enter(self, QModelIndex, shift=False):
