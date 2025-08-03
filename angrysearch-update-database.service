@@ -1,0 +1,12 @@
+[Unit]
+Description=Update ANGRYsearch database.
+Documentation=https://github.com/DoTheEvo/ANGRYsearch/wiki
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=basic.target shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/share/angrysearch/angrysearch_update_database.py
+IOSchedulingClass=idle
+Slice=background.slice

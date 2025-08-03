@@ -1,0 +1,9 @@
+[Unit]
+Description=Update ANGRYsearch database every 6 hours.
+
+[Timer]
+OnStartupSec=5min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target
